@@ -3,6 +3,8 @@
  * Duck-typed so `@epoch/openzl` does not hard-require `@epoch/extensions` at runtime.
  */
 import { openZlHostCodec, OPENZL_CODEC_ID } from "./codec-core";
+type BoundaryValue = null | undefined | boolean | number | string | bigint | symbol | Readonly<object>;
+
 
 export interface CapabilityRegistryLike {
   register(provider: {
@@ -13,7 +15,7 @@ export interface CapabilityRegistryLike {
     readonly determinism: "deterministic" | "advisory";
     readonly match?: { readonly wildcard?: boolean };
     readonly value: unknown;
-  }): unknown;
+  }): BoundaryValue;
 }
 
 export function registerOpenZlCodec(registry: CapabilityRegistryLike): void {

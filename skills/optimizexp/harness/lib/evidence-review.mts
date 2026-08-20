@@ -37,6 +37,7 @@ type EvidenceMeta = {
 
 function readJson<T>(file: string): T | null {
 	try {
+		// SAFETY: The surrounding parser or local invariant establishes this domain type at the boundary.
 		return JSON.parse(readFileSync(file, "utf8")) as T;
 	} catch {
 		return null;

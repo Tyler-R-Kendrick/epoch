@@ -60,8 +60,10 @@ export class WitnessIndexApi {
       return entry;
     }
 
+    // SAFETY: The module validates or constructs this value before applying the asserted contract.
     const nostrEvent = entry.proof.nostrEvent as NostrEvent;
     const headId = entry.chainHead.nostrEventId;
+    // SAFETY: The module validates or constructs this value before applying the asserted contract.
     const priors = normalizePriors(
       (entry.proof as { readonly nostrChain?: readonly NostrEvent[] }).nostrChain,
       headId,

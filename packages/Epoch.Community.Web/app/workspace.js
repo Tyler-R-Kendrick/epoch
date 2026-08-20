@@ -86,7 +86,7 @@
 
   function sessionPrincipal() {
     try {
-      if (window.CW_SESSION && typeof window.CW_SESSION.principal === "function") {
+      if (window.CW_SESSION && globalThis.CW_VALUE.isFunction(window.CW_SESSION.principal)) {
         var principal = window.CW_SESSION.principal();
         if (principal) return String(principal);
       }
@@ -101,7 +101,7 @@
    * silent one that loses the session.
    */
   async function openStorage() {
-    if (!window.CW_RUNTIME || typeof window.CW_RUNTIME.openDurableStorage !== "function") return undefined;
+    if (!window.CW_RUNTIME || !globalThis.CW_VALUE.isFunction(window.CW_RUNTIME.openDurableStorage)) return undefined;
     try {
       return await window.CW_RUNTIME.openDurableStorage({
         // Matches the key prefix BrowserEpoch writes ("epoch:<namespace>:") and
@@ -117,7 +117,7 @@
 
   function localStorageAdapter() {
     try {
-      if (typeof localStorage === "undefined") return undefined;
+      if (globalThis.CW_VALUE.isUndefined(localStorage)) return undefined;
       return {
         get length() { return localStorage.length; },
         key: function (index) { return localStorage.key(index); },
@@ -134,7 +134,7 @@
   async function resolveActor() {
     var claimed = sessionPrincipal();
     if (claimed) return claimed;
-    if (!window.CW_RUNTIME || typeof window.CW_RUNTIME.resolveBrowserIdentity !== "function") return "browser";
+    if (!window.CW_RUNTIME || !globalThis.CW_VALUE.isFunction(window.CW_RUNTIME.resolveBrowserIdentity)) return "browser";
     try {
       identity = await window.CW_RUNTIME.resolveBrowserIdentity({
         namespace: "epoch:community-web",
@@ -147,7 +147,7 @@
   }
 
   function boot(actorId) {
-    if (!window.CW_RUNTIME || typeof window.CW_RUNTIME.createCommunityRuntime !== "function") {
+    if (!window.CW_RUNTIME || !globalThis.CW_VALUE.isFunction(window.CW_RUNTIME.createCommunityRuntime)) {
       lastError = "runtime bundle missing";
       return null;
     }
@@ -163,7 +163,7 @@
       runtime = window.CW_RUNTIME.createCommunityRuntime({
         namespace: "community-web",
         actor: actorId,
-        ...(storage ? { storage: storage } : {}),
+        ...(storage ? { storage: storage } : undefined),
         harness: harness,
         // The workspace is this person's own browser. Capability attenuation
         // matters for agents and remotes, not for the owner of the tab.
@@ -254,7 +254,7 @@
       node.setAttribute("data-c", "live-activity");
       var unread = 0;
       try {
-        if (window.CW_APP && typeof window.CW_APP.unreadCount === "function") unread = window.CW_APP.unreadCount();
+        if (window.CW_APP && globalThis.CW_VALUE.isFunction(window.CW_APP.unreadCount)) unread = window.CW_APP.unreadCount();
       } catch { unread = 0; }
       node.appendChild(line("activity", unread ? unread + " unread" : "nothing new"));
       return node;
@@ -263,7 +263,7 @@
       var node = element("div", "cw-ws-card cw-ws-generated");
       node.setAttribute("data-c", "generated-panel");
       var source = (placement.props && placement.props.source) || "";
-      var parsed = window.CW_GENERATE && typeof window.CW_GENERATE.parse === "function"
+      var parsed = window.CW_GENERATE && globalThis.CW_VALUE.isFunction(window.CW_GENERATE.parse)
         ? window.CW_GENERATE.parse(source)
         : null;
       if (!parsed) {
@@ -414,7 +414,7 @@
    */
   function registerTools() {
     if (!runtime || !window.CW_MCP || !window.CW_RUNTIME) return [];
-    if (typeof window.CW_RUNTIME.createWebMcpTools !== "function") return [];
+    if (!globalThis.CW_VALUE.isFunction(window.CW_RUNTIME.createWebMcpTools)) return [];
 
     var registered = [];
     window.CW_RUNTIME.createWebMcpTools(runtime).forEach(function (tool) {

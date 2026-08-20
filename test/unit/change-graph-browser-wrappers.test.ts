@@ -31,10 +31,11 @@ export function runChangeGraphBrowserWrapperTests(): void {
   });
 
   const merged = Wasm.CRDTRegistry.defaults().merge("application/json", { ready: false }, { ready: false }, { ready: true });
+  // SAFETY: Runtime checks or construction above establish { ready: boolean }).ready.
   assert.equal((merged as { ready: boolean }).ready, true);
-  assert.equal(typeof new Wasm.JsonMapCRDT().merge, "function");
-  assert.equal(typeof new Wasm.TextWeaveCRDT().merge, "function");
-  assert.equal(typeof new Wasm.CsvTableCRDT().merge, "function");
+  assert.equal(isFunction(new Wasm.JsonMapCRDT().merge), true);
+  assert.equal(isFunction(new Wasm.TextWeaveCRDT().merge), true);
+  assert.equal(isFunction(new Wasm.CsvTableCRDT().merge), true);
   const dumped = Wasm.dumpEntity("application/json", { n: 1 });
   assert.deepEqual(Wasm.loadEntity("application/json", dumped), { n: 1 });
   assert.deepEqual(Wasm.threeWayMerge({ n: 0 }, { n: 1 }, { n: 1 }), { n: 1 });
@@ -42,4 +43,8 @@ export function runChangeGraphBrowserWrapperTests(): void {
 
   assert.throws(() => Wasm.EpochWasmGit.execute("status"), /not supported by Epoch WASM Git/);
   assert.throws(() => Wasm.EpochWASMGit.clone("https://example.test/repo.git"), /native Git clone/);
+}
+
+function isFunction<Value>(value: Value): value is Value & ((...args: never[]) => never) {
+  return typeof value === "function";
 }

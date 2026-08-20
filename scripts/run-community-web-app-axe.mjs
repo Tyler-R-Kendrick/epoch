@@ -30,15 +30,13 @@ try {
   browser = await chromium.launch({
     headless: true,
     args: ["--no-sandbox"],
-    ...(process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH
-      ? { executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH }
-      : {}),
+    ...(process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH && { executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH }),
   });
   for (const viewport of VIEWPORTS) {
     const page = await browser.newPage({ viewport: { width: viewport.width, height: viewport.height } });
     await page.goto(`${server.url}board.html`, { waitUntil: "networkidle" });
     await page.waitForFunction(
-      () => !!(window.CW_APP && typeof window.CW_APP.navigate === "function"),
+      () => !!(window.CW_APP && window.CW_APP.navigate instanceof Function),
       { timeout: 10000 },
     );
     await page.addScriptTag({ content: axeSource });

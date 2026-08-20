@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import type { JsonObject, JsonValue } from "./json";
 import type { ObjectStore } from "./object-store";
 import { applySyncV2Batch, type SyncV2Object } from "./sync-v2";
 
@@ -116,7 +117,7 @@ export class SyncV2TransactionReceiver {
       });
       return this.receipt(transaction, "applied", applied.applied);
     } catch (error) {
-      return this.receipt(transaction, "rejected", [], (error as Error).message);
+      return this.receipt(transaction, "rejected", [], error instanceof Error ? error.message : String(error));
     }
   }
 
@@ -126,7 +127,7 @@ export class SyncV2TransactionReceiver {
     const body = JSON.stringify({ transactionId: transaction.transactionId, outcome, objectIds, detail });
     const receipt: SyncReceipt = Object.freeze({
       protocol: "epoch.sync-receipt/v2", transactionId: transaction.transactionId, outcome,
-      objectIds, receiptId: createHash("sha256").update(body).digest("hex"), ...(detail === undefined ? {} : { detail }),
+      objectIds, receiptId: createHash("sha256").update(body).digest("hex"), detail,
     });
     this.#receipts.set(transaction.transactionId, receipt);
     return receipt;
@@ -134,12 +135,12 @@ export class SyncV2TransactionReceiver {
 }
 
 export interface SyncV2Transport {
-  request(command: SyncV2Command, payload: unknown, signal?: AbortSignal): Promise<unknown>;
+  request(command: SyncV2Command, payload: JsonValue, signal?: AbortSignal): Promise<JsonValue>;
 }
 
 export class InProcessSyncV2Transport implements SyncV2Transport {
-  constructor(readonly handler: (command: SyncV2Command, payload: unknown) => Promise<unknown>) {}
-  request(command: SyncV2Command, payload: unknown, signal?: AbortSignal): Promise<unknown> {
+  constructor(readonly handler: (command: SyncV2Command, payload: JsonValue) => Promise<JsonValue>) {}
+  request(command: SyncV2Command, payload: JsonValue, signal?: AbortSignal): Promise<JsonValue> {
     if (signal?.aborted) return Promise.reject(signal.reason ?? new Error("Sync request aborted"));
     return this.handler(command, payload);
   }
@@ -151,12 +152,26 @@ export class HttpSyncV2Transport implements SyncV2Transport {
       throw new Error("Sync HTTP endpoint must use HTTPS outside loopback");
     }
   }
-  async request(command: SyncV2Command, payload: unknown, signal?: AbortSignal): Promise<unknown> {
+  async request(command: SyncV2Command, payload: JsonValue, signal?: AbortSignal): Promise<JsonValue> {
+    const headers = new Headers({ "content-type": "application/json" });
+    if (this.credential) headers.set("authorization", `Bearer ${this.credential}`);
     const response = await this.fetchImpl(new URL(command, this.endpoint), {
-      method: "POST", headers: { "content-type": "application/json", ...(this.credential ? { authorization: `Bearer ${this.credential}` } : {}) },
+      method: "POST", headers,
       body: JSON.stringify(payload), signal,
     });
     if (!response.ok) throw new Error(`Sync HTTP ${response.status}`);
-    return response.json();
+    const value: unknown = await response.json();
+    if (!isJsonValue(value)) throw new Error("Sync HTTP response is not JSON");
+    return value;
   }
+}
+
+function isJsonValue<Value>(value: Value): value is Value & JsonValue {
+  if (value === null || typeof value === "string" || typeof value === "number" || typeof value === "boolean") return true;
+  if (Array.isArray(value)) return value.every(isJsonValue);
+  return isJsonObject(value) && Object.values(value).every(isJsonValue);
+}
+
+function isJsonObject<Value>(value: Value): value is Value & JsonObject {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }

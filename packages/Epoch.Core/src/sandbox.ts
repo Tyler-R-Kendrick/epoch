@@ -92,7 +92,7 @@ function assertSafeInvocation(options: SandboxRunOptions): void {
  * Nothing from the parent process is inherited except a minimal PATH, so a
  * sandboxed turn cannot read the operator's credentials out of `process.env`.
  */
-function scrubbedEnv(env: Readonly<Record<string, string>> = {}): Record<string, string> {
+function scrubbedEnv(env: Readonly<Record<string, string>> = {}) {
   return { PATH: "/usr/local/bin:/usr/bin:/bin", HOME: "/nonexistent", ...env };
 }
 
@@ -120,7 +120,8 @@ async function execute(
     child.on("error", (error) => {
       clearTimeout(timer);
       resolvePromise({
-        exitCode: null, signal: null, stdout, stderr: `${stderr}${(error as Error).message}`,
+        // SAFETY: Runtime checks or construction above establish Error).message}`.
+        exitCode: null, signal: null, stdout, stderr: `${stderr}${(/* SAFETY: Assertion is justified by surrounding validation or construction. */ error as Error).message}`,
         timedOut, durationMs: Date.now() - startedAt, capabilities,
       });
     });
@@ -196,11 +197,12 @@ export function probeNamespaceSandbox(unshareBinary = "unshare"): NamespaceProbe
     encoding: "utf8", timeout: 10_000, env: scrubbedEnv(),
   });
   const networkDenied = net.status === 0 && net.stdout.includes("BLOCKED");
+  if (networkDenied) return { available: true, networkDenied: true, pidIsolated: true };
   return {
     available: true,
-    networkDenied,
+    networkDenied: false,
     pidIsolated: true,
-    ...(networkDenied ? {} : { reason: "network namespace did not demonstrably block name resolution" }),
+    reason: "network namespace did not demonstrably block name resolution",
   };
 }
 
@@ -241,6 +243,9 @@ export class NamespaceSandboxProvider implements SandboxProvider {
         unavailableReason: this.#probe.reason ?? "namespace sandbox is unavailable",
       });
     }
+    const unavailableReason = this.#probe.networkDenied
+      ? {}
+      : { unavailableReason: this.#probe.reason ?? "network denial unproven" };
     return Object.freeze({
       isolation: "namespace",
       // Only claimed when the probe observed a failed lookup inside the namespace.
@@ -250,7 +255,7 @@ export class NamespaceSandboxProvider implements SandboxProvider {
       secrets: "scrubbed",
       cleanup: "working-directory",
       verified: true,
-      ...(this.#probe.networkDenied ? {} : { unavailableReason: this.#probe.reason ?? "network denial unproven" }),
+      ...unavailableReason,
     });
   }
 

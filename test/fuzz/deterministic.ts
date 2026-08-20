@@ -1,5 +1,10 @@
 import assert from "node:assert/strict";
 
+type TestJsonValue = boolean | null | number | string | TestJsonObject | readonly TestJsonValue[] | undefined;
+interface TestJsonObject {
+  readonly [key: string]: TestJsonValue;
+}
+
 /**
  * Small deterministic generator for bounded conformance fuzzing (smoke lane).
  * Not a CSPRNG. Not coverage-guided. Prefer fast-check for new shrinking properties.
@@ -48,18 +53,23 @@ export function property(name: string, seed: number, cases: number, run: (genera
       try {
         await run(new SeededGenerator(caseSeed), caseIndex);
       } catch (error) {
+        // SAFETY: Runtime checks or construction above establish Error).message ?? error)}`.
         throw new Error(`${name} failed (seed=${seed}, case=${caseIndex}, caseSeed=${caseSeed}): ${String((error as Error).message ?? error)}`, { cause: error });
       }
     }
   })();
 }
 
-export function canonical(value: unknown): string {
+export function canonical(value: TestJsonValue): string {
   if (Array.isArray(value)) return `[${value.map(canonical).join(",")}]`;
-  if (value !== null && typeof value === "object") {
-    return `{${Object.entries(value as Record<string, unknown>)
+  if (isJsonObject(value)) {
+    return `{${Object.entries(value)
       .sort(([left], [right]) => left.localeCompare(right))
       .map(([key, item]) => `${JSON.stringify(key)}:${canonical(item)}`).join(",")}}`;
   }
   return JSON.stringify(value);
+}
+
+function isJsonObject(value: TestJsonValue): value is TestJsonObject {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }

@@ -111,11 +111,17 @@ When("Jules posts a signed channel message {string}", function (body: string) {
 });
 
 Then("both clients project the same conversation", function () {
-  const projected = projectChannelEvents(world.events.filter((event) => {
-    return typeof event === "object" && event !== null && (event as { type?: string }).type?.startsWith("channel.");
-  }));
+  const projected = projectChannelEvents(world.events.filter(isChannelEvent));
   assert.ok(projected.messages.length >= 2);
 });
+
+function isChannelEvent<Event>(event: Event): event is Event & { readonly type: string } {
+  return typeof event === "object"
+    && event !== null
+    && "type" in event
+    && typeof event.type === "string"
+    && event.type.startsWith("channel.");
+}
 
 Then("forged channel messages are rejected", function () {
   assert.ok(world.maya);

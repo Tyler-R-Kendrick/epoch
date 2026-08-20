@@ -174,11 +174,7 @@ export function resolveComposition(
     mountChild(link, link.mountPath, [input.repositoryId], 0);
   }
 
-  const manifest = buildNamespaceManifest({
-    files,
-    ...(input.entities === undefined ? {} : { entities: input.entities }),
-    links: linkInputs,
-  });
+  const manifest = buildNamespaceManifest({ files, entities: input.entities, links: linkInputs });
 
   return {
     format: CompositionFormat,
@@ -195,14 +191,15 @@ export function resolveComposition(
       throw new CompositionError(`repository composition cycle through: ${link.target.repositoryId}`, "cycle");
     }
 
-    linkInputs.push({
+    const linkInput: NamespaceLinkInput = {
       linkId: link.linkId,
       mountPath,
       repositoryId: link.target.repositoryId,
       versionId: link.target.versionId,
       namespaceRoot: link.target.namespaceRoot,
-      ...(link.target.sourcePath === undefined ? {} : { sourcePath: link.target.sourcePath }),
-    });
+      sourcePath: link.target.sourcePath,
+    };
+    linkInputs.push(linkInput);
 
     const child = resolver.resolve(link.target.repositoryId, link.target.versionId);
     if (child === undefined) {
@@ -348,6 +345,7 @@ export function detectLinkRetargetConflicts(events: readonly LinkRetargetEvent[]
   for (const group of groups.values()) {
     const distinct = new Set(group.map((event) => event.toVersionId));
     if (distinct.size < 2) continue;
+    // SAFETY: Runtime checks or construction above establish LinkRetargetEvent.
     const first = group[0] as LinkRetargetEvent;
     conflicts.push({
       linkId: first.linkId,
@@ -398,16 +396,17 @@ export function planVendorize(link: RepositoryLink, child: ResolvedChildReposito
     files[suffix.length === 0 ? mountPath : `${mountPath}${TextToken.pathSeparator}${suffix}`] = { ...file };
   }
 
-  return {
-    provenance: {
+  const provenance: VendorProvenance = {
       format: CompositionFormat,
       sourceRepositoryId: link.target.repositoryId,
       sourceVersionId: link.target.versionId,
-      ...(sourcePath === undefined ? {} : { sourcePath }),
+      sourcePath,
       destinationPath: mountPath,
       importedRoot: link.target.namespaceRoot,
       fileCount: Object.keys(files).length,
-    },
+  };
+  return {
+    provenance,
     files,
   };
 }
@@ -523,15 +522,22 @@ export function planCrossRepositoryPublication(
   };
 }
 
-/** Diagnoses why a path is absent, so "excluded" is never confused with "unavailable" or "corrupt". */
-export function diagnoseAbsentPath(input: {
+export interface AbsentPathDiagnosis {
+  readonly reason: string;
+  readonly remedy: string;
+}
+
+export interface AbsentPathInput {
   readonly path: string;
   readonly inNamespace: boolean;
   readonly selected: boolean;
   readonly resident: boolean;
   readonly authorized: boolean;
   readonly digestMatches: boolean;
-}): { readonly reason: string; readonly remedy: string } {
+}
+
+/** Diagnoses why a path is absent, so "excluded" is never confused with "unavailable" or "corrupt". */
+export function diagnoseAbsentPath(input: AbsentPathInput): AbsentPathDiagnosis {
   if (!input.inNamespace) return { reason: "absent", remedy: "the path is not in this repository state" };
   if (!input.authorized) return { reason: "unauthorized", remedy: "request a grant covering this path" };
   if (!input.selected) return { reason: "excluded", remedy: "add the path to the workspace selection" };

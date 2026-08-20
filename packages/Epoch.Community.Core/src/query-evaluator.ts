@@ -6,6 +6,8 @@ export interface SearchEvaluation {
   readonly matchedFields: readonly string[];
 }
 
+interface SpecialFieldValues { readonly [key: string]: CommunityFieldValue | undefined }
+
 export function evaluateSearchExpression(
   entity: CommunityEntity,
   expression: SearchExpression,
@@ -36,7 +38,7 @@ export function evaluateSearchExpression(
       case "text": {
         const fields = node.fields.length === 0 ? Object.keys(entity.searchableText) : node.fields;
         const result = fields.some((field) => {
-          const found = values(entity, field).some((value) => typeof value === "string" && textMatches(value, node.value, node.mode));
+          const found = values(entity, field).some((value) => isStringScalar(value) && textMatches(value, node.value, node.mode));
           if (found) matched.add(field);
           return found;
         });
@@ -85,7 +87,7 @@ export function searchFieldValues(entity: CommunityEntity, field: string): reado
 }
 
 function values(entity: CommunityEntity, field: string): readonly CommunityFieldScalar[] {
-  const special: Readonly<Record<string, CommunityFieldValue | undefined>> = {
+  const special: SpecialFieldValues = {
     objectId: entity.ref.objectId,
     kind: entity.ref.kind,
     createdAt: entity.createdAt,
@@ -96,10 +98,12 @@ function values(entity: CommunityEntity, field: string): readonly CommunityField
     tombstone: entity.tombstone !== undefined,
   };
   const value = special[field] ?? entity.fields[field] ?? entity.searchableText[field];
+  // SAFETY: The surrounding validation and domain contract establish the asserted type.
   return value === undefined ? [] : Array.isArray(value) ? value : [value as CommunityFieldScalar];
 }
 
 function compareCandidates(candidates: readonly CommunityFieldScalar[], operator: "eq" | "ne" | "lt" | "lte" | "gt" | "gte" | "in", expected: CommunityFieldValue): boolean {
+  // SAFETY: The surrounding validation and domain contract establish the asserted type.
   const wanted = Array.isArray(expected) ? expected : [expected as CommunityFieldScalar];
   if (operator === "ne") return candidates.every((candidate) => wanted.every((value) => compare(candidate, value) !== 0));
   if (operator === "in") return candidates.some((candidate) => wanted.some((value) => compare(candidate, value) === 0));
@@ -113,11 +117,15 @@ function compare(left: CommunityFieldScalar, right: CommunityFieldScalar): numbe
   if (left === right) return 0;
   if (left === null) return -1;
   if (right === null) return 1;
-  if (typeof left !== typeof right) return Number.NaN;
-  if (typeof left === "number" && typeof right === "number") return left - right;
-  if (typeof left === "boolean" && typeof right === "boolean") return Number(left) - Number(right);
+  if (isNumberScalar(left) && isNumberScalar(right)) return left - right;
+  if (isBooleanScalar(left) && isBooleanScalar(right)) return Number(left) - Number(right);
+  if (!isStringScalar(left) || !isStringScalar(right)) return Number.NaN;
   return String(left).localeCompare(String(right), "en", { sensitivity: "variant" });
 }
+
+function isStringScalar(value: CommunityFieldScalar): value is string { return typeof value === "string"; }
+function isNumberScalar(value: CommunityFieldScalar): value is number { return typeof value === "number"; }
+function isBooleanScalar(value: CommunityFieldScalar): value is boolean { return typeof value === "boolean"; }
 
 function inRange(value: CommunityFieldScalar, range: Extract<SearchExpression, { readonly kind: "range" }>): boolean {
   if (value === null) return false;

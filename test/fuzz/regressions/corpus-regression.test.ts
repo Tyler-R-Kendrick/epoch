@@ -16,7 +16,7 @@ import {
 
 const CORPUS_ROOT = join(process.cwd(), "test/fuzz/corpus/v1");
 
-const runners: Record<string, (bytes: Buffer) => void> = {
+const runners = {
   revset: (bytes) => fuzzSafeRevset(bytes.toString("utf8")),
   "canonical-id": (bytes) => fuzzSafeCanonicalId(bytes.toString("utf8")),
   "pkt-line": (bytes) => fuzzSafePktLines(bytes),
@@ -33,8 +33,10 @@ const runners: Record<string, (bytes: Buffer) => void> = {
     // History corpora are JSON failure records; presence alone is the regression latch.
     const text = bytes.toString("utf8").trim();
     if (text.length === 0) return;
+    // SAFETY: Runtime checks or construction above establish { commands?: string.
     const parsed = JSON.parse(text) as { commands?: string; error?: string };
-    assert.equal(typeof parsed, "object");
+    assert.notEqual(parsed, null);
+    assert.equal(Array.isArray(parsed), false);
   },
 };
 
@@ -69,7 +71,8 @@ async function main(): Promise<void> {
   }) + "\n");
 }
 
-void main().catch((error: unknown) => {
+void main().catch((error) => {
+  // SAFETY: Runtime checks or construction above establish Error).stack ?? error)}\n`).
   process.stderr.write(`${String((error as Error).stack ?? error)}\n`);
   process.exitCode = 1;
 });

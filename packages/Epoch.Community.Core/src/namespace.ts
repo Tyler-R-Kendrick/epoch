@@ -73,7 +73,7 @@ export interface NamespaceRuntime {
 
 const RECOVERY_ROOT = "/.epoch";
 const RECOVERY_NAMES = ["default", "canonical", "projections", "sources", "diagnostics"] as const;
-const SCOPE_RANK: Readonly<Record<NamespaceScope, number>> = { session: 5, user: 4, workspace: 3, community: 2, builtin: 1 };
+const SCOPE_RANK = { session: 5, user: 4, workspace: 3, community: 2, builtin: 1 } satisfies Readonly<Record<NamespaceScope, number>>;
 const EMPTY: SearchCompleteness = Object.freeze({ status: "complete", sources: [], omittedSources: [], unsupportedPredicates: [] });
 const READ_ONLY = Object.freeze({ read: true, enter: true, expand: true, composeUnder: false, execute: false });
 
@@ -157,7 +157,13 @@ export function createNamespaceRuntime(projections: ProjectionRuntime, initial: 
       }
       const entry = occurrences[0];
       const shadowed = occurrences.slice(1);
-      return Object.freeze({ projectionId: "namespace", path: normalized, ...(entry === undefined ? {} : { entry }), componentOrder: components.map((component) => component.mount.mountId), shadowed, detail: entry === undefined ? "No visible mount component contains the path" : shadowed.length === 0 ? "The first matching mount component provides this path" : `${shadowed.length} lower-precedence occurrence(s) are shadowed` });
+      const detail = entry === undefined
+        ? "No visible mount component contains the path"
+        : shadowed.length === 0
+          ? "The first matching mount component provides this path"
+          : `${shadowed.length} lower-precedence occurrence(s) are shadowed`;
+      const explanation = { projectionId: "namespace", path: normalized, componentOrder: components.map((component) => component.mount.mountId), shadowed, detail };
+      return entry === undefined ? Object.freeze(explanation) : Object.freeze({ ...explanation, entry });
     },
 
     async *watch(path, context) {
@@ -280,6 +286,7 @@ function recoveryEntry(path: string): VfsEntry | undefined {
   if (path === RECOVERY_ROOT) return makeRecovery(".epoch", "recovery-root", "directory", RECOVERY_ROOT);
   if (!path.startsWith(`${RECOVERY_ROOT}/`)) return undefined;
   const remainder = path.slice(`${RECOVERY_ROOT}/`.length);
+  // SAFETY: The surrounding validation and domain contract establish the asserted type.
   if (!RECOVERY_NAMES.includes(remainder as typeof RECOVERY_NAMES[number])) return undefined;
   const kind = remainder === "default" ? "mount" : "directory";
   return makeRecovery(remainder, `recovery-${remainder}`, kind, path, remainder === "default" ? "builtin:default" : `recovery:${remainder}`);
@@ -318,7 +325,10 @@ function pageOf(entries: readonly VfsEntry[], page: PageRequest, freshness: Sear
   if (cursor !== undefined && start === 0) throw new CommunityError("CURSOR_STALE", "Namespace cursor no longer resolves in this snapshot");
   const values = entries.slice(start, start + page.first);
   const hasNextPage = start + page.first < entries.length;
-  const pageInfo: KeysetPageInfo = Object.freeze({ hasNextPage, ...(hasNextPage && values.length > 0 ? { endCursor: cursors.encode(values.at(-1)!.entryId, context) } : {}) });
+  const last = values.at(-1);
+  const pageInfo: KeysetPageInfo = hasNextPage && last !== undefined
+    ? Object.freeze({ hasNextPage, endCursor: cursors.encode(last.entryId, context) })
+    : Object.freeze({ hasNextPage });
   return Object.freeze({ entries: Object.freeze(values), pageInfo, freshness, shadowed: Object.freeze([...shadowed]), componentOrder: Object.freeze([...componentOrder]) });
 }
 
@@ -337,7 +347,8 @@ function createNamespaceCursorStore(): NamespaceCursorStore {
       for (const byte of bytes) binary += String.fromCharCode(byte);
       const token = globalThis.btoa(binary).replace(/\+/gu, "-").replace(/\//gu, "_").replace(/=+$/gu, "");
       issued.set(token, { entryId, snapshotId: context.snapshotId, authorizationFingerprint: context.authorizationFingerprint });
-      if (issued.size > 4096) issued.delete(issued.keys().next().value as string);
+      const oldest = issued.keys().next().value;
+      if (issued.size > 4096 && oldest !== undefined) issued.delete(oldest);
       return token;
     },
     decode(cursor, context) {

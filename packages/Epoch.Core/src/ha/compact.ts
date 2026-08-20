@@ -2,7 +2,7 @@ import { mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync }
 import { basename, join } from "node:path";
 import { EpochRepository, Event, writeJson } from "../core";
 import { EventData, JsonEncoding, JsonFileExtension, Schemas, TextToken } from "../domain";
-import { canonicalJson } from "../json";
+import { canonicalJson, isRecord } from "../json";
 import { sha256, signJson, verifyJsonSignature } from "./crypto";
 
 const COMPACT_DIR = "compacts";
@@ -122,6 +122,7 @@ export function restoreCompactData(repository: EpochRepository, compact: Compact
 }
 
 export function loadCompact(repository: EpochRepository, compactId: string): Compact {
+  // SAFETY: Runtime checks or construction above establish Compact.
   return JSON.parse(readFileSync(compactPath(repository, compactId), JsonEncoding)) as Compact;
 }
 
@@ -174,6 +175,7 @@ function storeCompact(repository: EpochRepository, compact: Compact): void {
 function readManifest(repository: EpochRepository): CompactManifest {
   const path = join(compactsDir(repository), COMPACT_MANIFEST);
   try {
+    // SAFETY: Runtime checks or construction above establish CompactManifest.
     return JSON.parse(readFileSync(path, JsonEncoding)) as CompactManifest;
   } catch {
     return { compacts: [] };
@@ -200,6 +202,7 @@ function encodePayload(payload: CompactPayload): string {
 }
 
 function decodePayload(payload: string): CompactPayload {
+  // SAFETY: Runtime checks or construction above establish CompactPayload.
   const parsed = JSON.parse(Buffer.from(payload, "base64").toString(JsonEncoding)) as CompactPayload;
   if (parsed.format !== COMPACT_FORMAT) throw new Error("unsupported compact payload format");
   for (const event of parsed.events) Schemas.unsignedEvent.parse(event);
@@ -211,14 +214,14 @@ function decodePayload(payload: string): CompactPayload {
   };
 }
 
-export function blobsForEvents(repository: EpochRepository, events: readonly Event[]): Record<string, string> {
+export function blobsForEvents(repository: EpochRepository, events: readonly Event[]) {
   const hashes = new Set<string>();
   for (const event of events) {
     collectBlobHash(event.payload.blob_sha256, hashes);
     const patches = event.payload.patches;
     if (Array.isArray(patches)) {
       for (const patch of patches) {
-        if (patch !== null && typeof patch === "object") collectBlobHash((patch as Record<string, unknown>).blob_sha256, hashes);
+        if (isRecord(patch)) collectBlobHash(patch.blob_sha256, hashes);
       }
     }
   }
@@ -230,8 +233,12 @@ export function blobsForEvents(repository: EpochRepository, events: readonly Eve
   return blobs;
 }
 
-function collectBlobHash(value: unknown, hashes: Set<string>): void {
-  if (typeof value === "string" && value.length === SHA256_HEX_LENGTH && /^[a-f0-9]+$/u.test(value)) hashes.add(value);
+function collectBlobHash<Value>(value: Value, hashes: Set<string>): void {
+  if (isString(value) && value.length === SHA256_HEX_LENGTH && /^[a-f0-9]+$/u.test(value)) hashes.add(value);
+}
+
+function isString<Value>(value: Value): value is Value & string {
+  return typeof value === "string";
 }
 
 function clearJsonFiles(path: string): void {

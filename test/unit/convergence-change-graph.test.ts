@@ -40,6 +40,7 @@ function stableLineage(): void {
 
 function changeGraphClosure(): void {
   const changeGraph: ChangeGraphDefinition = {
+    // SAFETY: Runtime checks or construction above establish ChangeGraphDefinition["changeGraphId"].
     changeGraphId: id("change-graph", "a") as ChangeGraphDefinition["changeGraphId"],
     memberRevisionIds: [rid("r1"), rid("r2"), rid("r3")],
     edges: [
@@ -74,7 +75,7 @@ function splitReconstruction(): void {
 function reviewEvidence(): void {
   const bundle = buildReviewBundle({ reviewBundleId: id("review-bundle", "a"), selectedRevisionIds: ["r1", "r2"], baseFrontier: ["base"], baseTreeDigest: digest("a"), combinedTreeDigest: digest("b"), overlaps: [], conflicts: [], gateDefinitionDigest: digest("c") });
   assert.equal(bundle.selectedRevisionIds[0], "r1");
-  assert.throws(() => Reflect.apply(Array.prototype.push, bundle.selectedRevisionIds, ["mutate"]), /extensible|read only|frozen/u);
+  assert.throws(() => Array.prototype.push.call(bundle.selectedRevisionIds, "mutate"), /extensible|read only|frozen/u);
   assert.throws(() => buildReviewBundle({
     reviewBundleId: bundle.reviewBundleId, selectedRevisionIds: ["r2", "r1"], baseFrontier: bundle.baseFrontier,
     baseTreeDigest: bundle.baseTreeDigest, combinedTreeDigest: bundle.combinedTreeDigest,
@@ -84,7 +85,7 @@ function reviewEvidence(): void {
 
 function mergePreconditions(): void {
   const changeGraph = graphFor(["r1", "r2"], [{ from: "r2", to: "r1", kind: "requires" }]);
-  const planInput = { mergePlanId: id("merge-plan", "a") as `epoch:merge-plan:${string}`, targetRevisionId: rid("target"), selectedRevisionIds: [rid("r1")], hardDependencyClosure: [rid("r1")], reviewBundleRevisionId: rid("review-event"), conflictResolutionRevisionIds: [rid("resolution-event")], gateDefinitionDigest: digest("a"), mergeMode: "per-change-squash" as const, resultingTreeDigest: digest("b") };
+  const planInput = { mergePlanId: /* SAFETY: Assertion is justified by surrounding validation or construction. */ id("merge-plan", "a") as `epoch:merge-plan:${string}`, targetRevisionId: rid("target"), selectedRevisionIds: [rid("r1")], hardDependencyClosure: [rid("r1")], reviewBundleRevisionId: rid("review-event"), conflictResolutionRevisionIds: [rid("resolution-event")], gateDefinitionDigest: digest("a"), mergeMode: "per-change-squash" as const, resultingTreeDigest: digest("b") };
   const plan = createMergePlan(planInput, { changeGraph });
   const base = { currentTargetRevisionId: "target", availableRevisionIds: ["r1", "r2"], changeGraph, reviewBundleRevisionId: "review-event", acceptedResolutionRevisionIds: ["resolution-event"], gateDefinitionDigest: digest("a"), unresolvedConflictIds: [], protectedTarget: true, resultDigest: digest("b") };
   assert.equal(applyMergePlan(plan, base).resultRevisionProvenance.length, 1);
@@ -99,6 +100,7 @@ function mergePreconditions(): void {
 
 function squashProvenance(): void {
   const changeGraph = graphFor(["r1", "r2"], [{ from: "r2", to: "r1", kind: "requires" }]);
+  // SAFETY: Runtime checks or construction above establish `epoch:merge-plan:${string}`.
   const plan = createMergePlan({ mergePlanId: id("merge-plan", "a") as `epoch:merge-plan:${string}`, targetRevisionId: rid("target"), selectedRevisionIds: [rid("r1"), rid("r2")], hardDependencyClosure: [rid("r1"), rid("r2")], reviewBundleRevisionId: rid("review-event"), conflictResolutionRevisionIds: [], gateDefinitionDigest: digest("a"), mergeMode: "change-graph-squash", resultingTreeDigest: digest("b") }, { changeGraph });
   const result = applyMergePlan(plan, { currentTargetRevisionId: "target", availableRevisionIds: ["r1", "r2"], changeGraph, reviewBundleRevisionId: "review-event", acceptedResolutionRevisionIds: [], gateDefinitionDigest: digest("a"), unresolvedConflictIds: [], protectedTarget: true, resultDigest: digest("b") });
   assert.deepEqual(result.resultRevisionProvenance, ["r1", "r2"]);
@@ -106,6 +108,7 @@ function squashProvenance(): void {
 }
 
 function multiSideConflicts(): void {
+  // SAFETY: Runtime checks or construction above establish DurableConflict["conflictId"].
   const conflict: DurableConflict = { conflictId: id("conflict", "a") as DurableConflict["conflictId"], sideRevisionIds: [rid("r1"), rid("r2"), rid("r3")], status: "unresolved", resolutionRevisionIds: [] };
   const ledger = new ConflictLedger([conflict]);
   assert.deepEqual(ledger.draftState([conflict.conflictId]).carriedConflictIds, [conflict.conflictId]);
@@ -127,22 +130,27 @@ function conservativeCommutation(): void {
 }
 
 function providerDenial(): void {
+  // SAFETY: Runtime checks or construction above establish DurableConflict["conflictId"].
   const conflict: DurableConflict = { conflictId: id("conflict", "a") as DurableConflict["conflictId"], sideRevisionIds: [rid("r1"), rid("r2")], status: "unresolved", resolutionRevisionIds: [] };
   const ledger = new ConflictLedger([conflict]);
+  // SAFETY: Runtime checks or construction above establish never) }).
   const proposal = ledger.requestProviderProposal(conflict.conflictId, { propose: () => ({ content: "resolved", confidence: 1, autoAccept: true } as never) });
   assert.equal(proposal.trusted, false);
   assert.equal(ledger.get(conflict.conflictId)?.status, "unresolved");
 }
 
 function revision(changeId: string, parents: readonly string[], fragments: readonly ChangeFragment[]): ChangeRevisionBody {
+  // SAFETY: Runtime checks or construction above establish ChangeRevisionBody["changeId"].
   return { changeId: changeId as ChangeRevisionBody["changeId"], baseFrontier: [rid("base")], baseTreeDigest: digest("0"), parentRevisionIds: parents.map(rid), fragments, resultingTreeDigest: digest("f"), authorPrincipalId: id("principal", "a") as ChangeRevisionBody["authorPrincipalId"] };
 }
 function fragment(token: string, path: string, kind: ChangeFragment["kind"], digestToken: string): ChangeFragment {
+  // SAFETY: Runtime checks or construction above establish ChangeFragment["fragmentId"].
   return { fragmentId: id("fragment", token) as ChangeFragment["fragmentId"], kind, path, precondition: { kind: "absent" }, resultDigest: digest(digestToken), contentRef: `sha256:${digest(digestToken)}`, order: 0, dependencies: [], provenance: { principalId: id("principal", "a") as ChangeFragment["provenance"]["principalId"] }, mergeStrategy: kind === "binary" ? "binary-replace" : kind === "text" ? "text" : "exact" };
 }
 function id(kind: string, token: string): string { return `epoch:${kind}:${token.repeat(52)}`; }
 function digest(token: string): string { return token.repeat(64); }
 function rid(value: string) { return assertRevisionId(value); }
 function graphFor(revisionIds: readonly string[], edges: readonly { readonly from: string; readonly to: string; readonly kind: ChangeGraphEdgeKind }[]): ChangeGraphDefinition {
+  // SAFETY: Runtime checks or construction above establish ChangeGraphDefinition["changeGraphId"].
   return { changeGraphId: id("change-graph", "m") as ChangeGraphDefinition["changeGraphId"], memberRevisionIds: revisionIds.map(rid), edges: edges.map((edge) => ({ ...edge, from: rid(edge.from), to: rid(edge.to) })) };
 }

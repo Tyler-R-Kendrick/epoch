@@ -442,7 +442,7 @@
     } else {
       try {
         // URL needs a base for relative; absolute http works.
-        var u = new (typeof URL !== "undefined" ? URL : window.URL)(raw, "https://community.local");
+        var u = new (!globalThis.CW_VALUE.isUndefined(URL) ? URL : window.URL)(raw, "https://community.local");
         protocol = u.protocol.replace(":", "");
         host = u.host || "";
         path = (u.pathname || "/") + (u.search || "");
@@ -539,7 +539,7 @@
    */
   function linkPreview(href, opts) {
     opts = opts || {};
-    var summary = typeof href === "object" && href && !Array.isArray(href)
+    var summary = globalThis.CW_VALUE.isObject(href) && href && !Array.isArray(href)
       ? summarizeLink(href.href || href.url, href)
       : summarizeLink(href, opts);
     if (!summary.href) return "";

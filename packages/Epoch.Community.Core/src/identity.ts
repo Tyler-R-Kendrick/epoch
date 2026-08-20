@@ -34,6 +34,19 @@ export interface ParsedObjectUrl {
   readonly revision?: string;
 }
 
+interface CommunityObjectRefBuilder {
+  objectId: string;
+  kind: CommunityObjectKind;
+  atUri?: string;
+  revision?: string;
+}
+
+interface ParsedObjectUrlBuilder {
+  objectId: string;
+  projectionId?: string;
+  revision?: string;
+}
+
 const kinds = new Set<CommunityObjectKind>([
   "message", "thread", "channel", "dm", "notification", "projection", "project",
   "issue", "change", "member", "agent", "artifact", "tombstone",
@@ -41,36 +54,39 @@ const kinds = new Set<CommunityObjectKind>([
 const opaqueId = /^[A-Za-z0-9][A-Za-z0-9._~-]{0,127}$/u;
 const MAX_REVISION_LENGTH = 512;
 
-function validateRevision(value: unknown): string {
-  if (typeof value !== "string" || value.length === 0 || value.length > MAX_REVISION_LENGTH) {
+function validateRevision<Value>(value: Value): string {
+  if (!isString(value) || value.length === 0 || value.length > MAX_REVISION_LENGTH) {
     throw new Error("Community object revision must be a non-empty bounded value");
   }
   return value;
 }
 
-export function validateObjectRef(value: unknown): CommunityObjectRef {
-  if (typeof value !== "object" || value === null) throw new Error("Community object reference must be an object");
+export function validateObjectRef<Value>(value: Value): CommunityObjectRef {
+  if (!isNonNullObject(value)) throw new Error("Community object reference must be an object");
+  // SAFETY: The surrounding validation and domain contract establish the asserted type.
   const ref = value as Partial<CommunityObjectRef>;
-  if (typeof ref.objectId !== "string" || !opaqueId.test(ref.objectId)) {
+  if (!isString(ref.objectId) || !opaqueId.test(ref.objectId)) {
     throw new Error("Community objectId must be an opaque URL-safe identifier");
   }
-  if (typeof ref.kind !== "string" || !kinds.has(ref.kind as CommunityObjectKind)) {
+  // SAFETY: The surrounding validation and domain contract establish the asserted type.
+  if (!isCommunityObjectKind(ref.kind)) {
     throw new Error(`Unsupported community object kind: ${String(ref.kind)}`);
   }
-  if (ref.atUri !== undefined && (typeof ref.atUri !== "string" || !/^at:\/\/[^/]+\/[^/]+\/[^/]+$/u.test(ref.atUri))) {
+  if (ref.atUri !== undefined && (!isString(ref.atUri) || !/^at:\/\/[^/]+\/[^/]+\/[^/]+$/u.test(ref.atUri))) {
     throw new Error("Federated object identity must be a valid AT URI");
   }
   if (ref.revision !== undefined) validateRevision(ref.revision);
-  return Object.freeze({
+  const validated: CommunityObjectRefBuilder = {
     objectId: ref.objectId,
-    kind: ref.kind as CommunityObjectKind,
-    ...(ref.atUri === undefined ? {} : { atUri: ref.atUri }),
-    ...(ref.revision === undefined ? {} : { revision: ref.revision }),
-  });
+    kind: ref.kind,
+  };
+  if (ref.atUri !== undefined) validated.atUri = ref.atUri;
+  if (ref.revision !== undefined) validated.revision = validateRevision(ref.revision);
+  return Object.freeze(validated);
 }
 
 export function validateProjectionId(projectionId: string): string {
-  if (typeof projectionId !== "string" || !opaqueId.test(projectionId)) {
+  if (!opaqueId.test(projectionId)) {
     throw new Error("Projection ID must be an opaque URL-safe identifier");
   }
   return projectionId;
@@ -113,9 +129,20 @@ export function parseObjectUrl(input: string): ParsedObjectUrl | undefined {
       return undefined;
     }
   }
-  return {
-    objectId,
-    ...(projectionId === undefined ? {} : { projectionId }),
-    ...(revision === undefined ? {} : { revision }),
-  };
+  const parsed: ParsedObjectUrlBuilder = { objectId };
+  if (projectionId !== undefined) parsed.projectionId = projectionId;
+  if (revision !== undefined) parsed.revision = revision;
+  return parsed;
+}
+
+function isString<Value>(value: Value): value is Value & string {
+  return typeof value === "string";
+}
+
+function isNonNullObject<Value>(value: Value): value is Value & object {
+  return typeof value === "object" && value !== null;
+}
+
+function isCommunityObjectKind(value: CommunityObjectKind | undefined): value is CommunityObjectKind {
+  return typeof value === "string" && kinds.has(value);
 }

@@ -349,6 +349,7 @@ function communityFeedHelpersPreferApiActivityAndLabelSnapshotFallback(): void {
 }
 
 function vercelConfigBuildsTheCommunityWebOutput(): void {
+  // SAFETY: Runtime checks or construction above establish VercelConfig.
   const config = JSON.parse(readFileSync("vercel.json", "utf8")) as VercelConfig;
 
   assert.equal(config.installCommand, "npm install");
@@ -542,6 +543,7 @@ async function communityWebMaterializesTheSiteThroughEpochHistory(): Promise<voi
   assert.match(html, /\.site-history-facts \{/u);
   assert.match(html, /overflow-wrap: anywhere/u);
 
+  // SAFETY: Runtime checks or construction above establish {.
   const manifest = JSON.parse(readFileSync(join(outputDirectory, "epoch-version.json"), "utf8")) as {
     readonly name: string;
     readonly files: readonly { readonly path: string }[];
@@ -549,6 +551,7 @@ async function communityWebMaterializesTheSiteThroughEpochHistory(): Promise<voi
   assert.equal(manifest.name, "community-site-dogfooded");
   assert.ok(manifest.files.some((file) => file.path === "community/index.html"));
 
+  // SAFETY: Runtime checks or construction above establish {.
   const repositoryExport = JSON.parse(readFileSync(join(outputDirectory, "community", "epoch-repository.json"), "utf8")) as {
     readonly events: readonly unknown[];
     readonly heads: readonly string[];

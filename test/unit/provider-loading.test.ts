@@ -80,13 +80,18 @@ function workspace(options: { readonly declaredDigest?: string } = {}): Fixture 
 }
 
 interface Sink {
-  stdout: { write(message: string): unknown };
-  stderr: { write(message: string): unknown };
+  stdout: { write(message: string): void };
+  stderr: { write(message: string): void };
+}
+
+interface CapturedSink {
+  readonly io: Sink;
+  readonly err: () => string;
 }
 
 const io: Sink = { stdout: { write: () => true }, stderr: { write: () => true } };
 
-function capture(): { io: Sink; err: () => string } {
+function capture(): CapturedSink {
   let err = "";
   return {
     io: { stdout: { write: () => true }, stderr: { write: (message: string) => { err += message; return true; } } },

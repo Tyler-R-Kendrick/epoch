@@ -3,6 +3,7 @@ import { ProtocolError, evaluatePosture, type PosturePolicy, type TrustPosture }
 import { createInMemoryPlatformCore } from "@epoch/platform-core";
 import { parseTomlDocument } from "@epoch/core";
 import { readFileSync } from "node:fs";
+import { isBoolean } from "../helpers/type-guards";
 
 const GATED = [
   "service-discovery",
@@ -56,18 +57,18 @@ function hostedPrivateOpenMatrix(): void {
 }
 
 function unknownAndMalformedDeny(): void {
-  assert.throws(() => evaluatePosture({ posture: "federated" }), (error: unknown) =>
+  assert.throws(() => evaluatePosture({ posture: "federated" }), (error) =>
     error instanceof ProtocolError && error.code === "policy-denied");
-  assert.throws(() => evaluatePosture("open"), (error: unknown) =>
+  assert.throws(() => evaluatePosture("open"), (error) =>
     error instanceof ProtocolError && error.code === "policy-denied");
-  assert.throws(() => evaluatePosture({ posture: "open", allowCrossCommunityFabric: true }), (error: unknown) =>
+  assert.throws(() => evaluatePosture({ posture: "open", allowCrossCommunityFabric: true }), (error) =>
     error instanceof ProtocolError && error.code === "policy-denied");
 }
 
 function openCannotEnableServiceDiscovery(): void {
   assert.throws(
     () => evaluatePosture({ posture: "open", allowServiceDiscovery: true }),
-    (error: unknown) => error instanceof ProtocolError && error.code === "policy-denied",
+    (error) => error instanceof ProtocolError && error.code === "policy-denied",
   );
 }
 
@@ -92,7 +93,7 @@ function platformCapabilityGates(): void {
   assert.equal(open.capability("inter-node-transport").enabled, false);
   assert.equal(open.capability("public-artifact-plane").enabled, true);
   for (const key of GATED) {
-    assert.equal(typeof hosted.capability(key).enabled, "boolean");
+    assert.equal(isBoolean(hosted.capability(key).enabled), true);
   }
 }
 

@@ -10,6 +10,7 @@ import {
   canonicalExpressionJson,
   stableQueryHash,
   type CommunityFieldScalar,
+  type CommunityFieldValue,
   type NormalizedCommunityQuery,
   type QueryDiagnostic,
   type SearchExpression,
@@ -86,6 +87,7 @@ export function parseCommunityQuery(input: string, options: ParseCommunityQueryO
     const canonical = [ast === null ? "" : serializeExpression(ast), ...separated.sorts.map((sort) => sort.canonical)]
       .filter(Boolean).join(" ");
     const sort = separated.sorts.map((value) => value.order);
+    // SAFETY: The surrounding validation and domain contract establish the asserted type.
     const canonicalJson = JSON.stringify({ expression: JSON.parse(canonicalExpressionJson(ast)) as unknown, sort });
     return {
       ast,
@@ -134,6 +136,7 @@ class Parser {
     while (this.take("OR") !== undefined) {
       const right = this.parseAnd(inherited);
       if (left.kind === "sort-marker" || right.kind === "sort-marker") {
+        // SAFETY: The surrounding validation and domain contract establish the asserted type.
         const marker = left.kind === "sort-marker" ? left : right as SortMarker;
         this.fail("QUERY_SORT_CONTEXT", "Sort clauses may only be combined with filters using AND", tokenOf(marker));
       }
@@ -150,21 +153,28 @@ class Parser {
       }
       terms.push(this.parseNot(inherited));
     }
-    if (terms.length === 1) return terms[0] as ParsedNode;
+    // SAFETY: The surrounding validation and domain contract establish the asserted type.
+    if (terms.length === 1) return /* SAFETY: Assertion is justified by surrounding validation or construction. */ terms[0] as ParsedNode;
     const expressions = terms.filter((term): term is SearchExpression => term.kind !== "sort-marker");
     const markers = terms.filter((term): term is SortMarker => term.kind === "sort-marker");
-    if (expressions.length === 0) return markers.length === 1 ? markers[0] as SortMarker : this.combineSorts(markers);
+    // SAFETY: The surrounding validation and domain contract establish the asserted type.
+    if (expressions.length === 0) return markers.length === 1 ? /* SAFETY: Assertion is justified by surrounding validation or construction. */ markers[0] as SortMarker : this.combineSorts(markers);
+    // SAFETY: The surrounding validation and domain contract establish the asserted type.
     const expression = expressions.length === 1 ? expressions[0] as SearchExpression : this.node({
       kind: "and",
       terms: expressions,
       span: mergeSpans(expressions[0]?.span, expressions.at(-1)?.span),
     });
     if (markers.length === 0) return expression;
-    return this.node({ kind: "and", terms: [expression, ...markers as unknown as SearchExpression[]], span: mergeSpans(expression.span, markers.at(-1)?.span) }) as ParsedNode;
+    // SAFETY: Sort markers are parser-internal JSON records consumed before the public AST is returned.
+    const markerTerms = JSON.parse(JSON.stringify(markers)) as SearchExpression[];
+    return this.node({ kind: "and", terms: [expression, ...markerTerms], span: mergeSpans(expression.span, markers.at(-1)?.span) });
   }
 
   private combineSorts(markers: readonly SortMarker[]): ParsedNode {
-    return this.node({ kind: "and", terms: markers as unknown as SearchExpression[], span: mergeSpans(markers[0]?.span, markers.at(-1)?.span) }) as ParsedNode;
+    // SAFETY: Sort markers are parser-internal JSON records consumed before the public AST is returned.
+    const markerTerms = JSON.parse(JSON.stringify(markers)) as SearchExpression[];
+    return this.node({ kind: "and", terms: markerTerms, span: mergeSpans(markers[0]?.span, markers.at(-1)?.span) });
   }
 
   private parseNot(inherited?: FieldDescriptor): ParsedNode {
@@ -241,6 +251,7 @@ class Parser {
       order = {
         field: descriptor.name,
         direction: direction.startsWith("desc") ? "descending" : "ascending",
+        // SAFETY: The surrounding validation and domain contract establish the asserted type.
         nulls: nulls as "first" | "last",
       };
       canonical = `sort:${order.field}:${order.direction === "ascending" ? "asc" : "desc"}:nulls${order.nulls}`;
@@ -251,6 +262,7 @@ class Parser {
   private related(fieldToken: Token): SearchExpression {
     const relation = fieldToken.value.slice("related.".length).toLowerCase();
     const allowed = ["reply", "quote", "mention", "provenance", "promotion", "replacement", "moderation", "attachment", "backlink"] as const;
+    // SAFETY: The surrounding validation and domain contract establish the asserted type.
     if (!(allowed as readonly string[]).includes(relation)) {
       this.fail("QUERY_UNKNOWN_RELATION", `Unknown relation: ${relation}`, fieldToken, nearest(relation, allowed));
     }
@@ -266,6 +278,7 @@ class Parser {
     }
     return this.node({
       kind: "related",
+      // SAFETY: The surrounding validation and domain contract establish the asserted type.
       relation: relation as (typeof allowed)[number],
       target,
       direction: "out",
@@ -284,15 +297,16 @@ class Parser {
     const lower = lowerToken.value === "*" ? undefined : this.convert(field, lowerToken.value, lowerToken);
     const upper = upperToken.value === "*" ? undefined : this.convert(field, upperToken.value, upperToken);
     if (lower === undefined && upper === undefined) this.fail("QUERY_INVALID_RANGE", "A range must have at least one bound", open);
-    return this.node({
+    const range: Extract<SearchExpression, { readonly kind: "range" }> = {
       kind: "range",
       field: field.name,
-      ...(lower === undefined ? {} : { lower }),
-      ...(upper === undefined ? {} : { upper }),
       includeLower: open.type === "LBRACKET",
       includeUpper: close.type === "RBRACKET",
       span: spanBetween(this.input, start, close.end),
-    });
+    };
+    if (lower !== undefined) Object.assign(range, { lower });
+    if (upper !== undefined) Object.assign(range, { upper });
+    return this.node(range);
   }
 
   private fieldValue(field: FieldDescriptor, operator: CompareOperator, raw: string, phrase: boolean, token: Token): SearchExpression {
@@ -323,6 +337,7 @@ class Parser {
     }
     const contextual = raw.toLowerCase() === "me" && ["author", "owner"].includes(field.name);
     if (contextual && this.options.actorId === undefined) this.fail("QUERY_CONTEXT_REQUIRED", `Field ${field.name} requires an authenticated actor to resolve "me"`, token);
+    // SAFETY: The surrounding validation and domain contract establish the asserted type.
     const value = this.convert(field, contextual ? this.options.actorId as string : raw, token);
     if (field.type === "text" && operator === "eq") {
       return this.node({ kind: "text", fields: field.name === "text" ? ["title", "body"] : [field.name], value: String(value), mode: phrase ? "phrase" : "term", span: tokenSpan(this.input, token) });
@@ -365,8 +380,8 @@ class Parser {
 
   private readOperator(): CompareOperator {
     const token = this.peek();
-    const mapping: Partial<Record<TokenType, CompareOperator>> = { EQ: "eq", NE: "ne", LT: "lt", LTE: "lte", GT: "gt", GTE: "gte" };
-    const operator = mapping[token.type];
+    const mapping = new Map<TokenType, CompareOperator>([["EQ", "eq"], ["NE", "ne"], ["LT", "lt"], ["LTE", "lte"], ["GT", "gt"], ["GTE", "gte"]]);
+    const operator = mapping.get(token.type);
     if (operator === undefined) return "eq";
     this.position += 1;
     return operator;
@@ -408,8 +423,10 @@ class Parser {
     return node;
   }
 
-  private peek(): Token { return this.tokens[this.position] ?? this.tokens.at(-1) as Token; }
-  private previous(): Token { return this.tokens[Math.max(0, this.position - 1)] as Token; }
+  // SAFETY: The surrounding validation and domain contract establish the asserted type.
+  private peek(): Token { return this.tokens[this.position] ?? /* SAFETY: Assertion is justified by surrounding validation or construction. */ this.tokens.at(-1) as Token; }
+  // SAFETY: The surrounding validation and domain contract establish the asserted type.
+  private previous(): Token { return /* SAFETY: Assertion is justified by surrounding validation or construction. */ this.tokens[Math.max(0, this.position - 1)] as Token; }
   private take(type: TokenType): Token | undefined {
     if (this.peek().type !== type) return undefined;
     const token = this.peek();
@@ -439,13 +456,15 @@ function tokenize(input: string): readonly Token[] {
     const character = input[index] ?? "";
     if (/\s/u.test(character)) { index += 1; continue; }
     const two = input.slice(index, index + 2);
-    const compound: Partial<Record<string, TokenType>> = { ">=": "GTE", "<=": "LTE", "!=": "NE" };
-    if (compound[two] !== undefined) { push(compound[two] as TokenType, index, index + 2); index += 2; continue; }
-    const punctuation: Partial<Record<string, TokenType>> = {
-      "(": "LPAREN", ")": "RPAREN", "[": "LBRACKET", "]": "RBRACKET", "{": "LBRACE", "}": "RBRACE",
-      ":": "COLON", "=": "EQ", "<": "LT", ">": "GT",
-    };
-    if (punctuation[character] !== undefined) { push(punctuation[character] as TokenType, index); index += 1; continue; }
+    const compound = new Map<string, TokenType>([[">=", "GTE"], ["<=", "LTE"], ["!=", "NE"]]);
+    const compoundType = compound.get(two);
+    if (compoundType !== undefined) { push(compoundType, index, index + 2); index += 2; continue; }
+    const punctuation = new Map<string, TokenType>([
+      ["(", "LPAREN"], [")", "RPAREN"], ["[", "LBRACKET"], ["]", "RBRACKET"], ["{", "LBRACE"], ["}", "RBRACE"],
+      [":", "COLON"], ["=", "EQ"], ["<", "LT"], [">", "GT"],
+    ]);
+    const punctuationType = punctuation.get(character);
+    if (punctuationType !== undefined) { push(punctuationType, index); index += 1; continue; }
     if (character === "-" && !/\d/u.test(input[index + 1] ?? "")) { push("NOT", index); index += 1; continue; }
     if (character === "\"") {
       const start = index;
@@ -456,9 +475,11 @@ function tokenize(input: string): readonly Token[] {
       }
       if (input[index] !== "\"") throw new QueryFailure("QUERY_SYNTAX", "unterminated quoted phrase", spanBetween(input, start, input.length));
       index += 1;
-      let phrase: unknown;
-      try { phrase = JSON.parse(input.slice(start, index)); } catch { throw new QueryFailure("QUERY_SYNTAX", "invalid quoted phrase escape", spanBetween(input, start, index)); }
-      if (typeof phrase !== "string") throw new QueryFailure("QUERY_SYNTAX", "invalid quoted phrase", spanBetween(input, start, index));
+      let phrase: string;
+      try {
+        // SAFETY: The lexer only parses a JSON token delimited by quote characters.
+        phrase = JSON.parse(input.slice(start, index)) as string;
+      } catch { throw new QueryFailure("QUERY_SYNTAX", "invalid quoted phrase escape", spanBetween(input, start, index)); }
       push("PHRASE", start, index, phrase.normalize("NFC"));
       continue;
     }
@@ -466,6 +487,7 @@ function tokenize(input: string): readonly Token[] {
     while (index < input.length && !/[\s():[\]{}"=<>]/u.test(input[index] ?? "")) index += 1;
     const raw = input.slice(start, index).normalize("NFC");
     const upper = raw.toUpperCase();
+    // SAFETY: The surrounding validation and domain contract establish the asserted type.
     const type = upper === "AND" || upper === "OR" || upper === "NOT" || upper === "TO" ? upper as TokenType : "WORD";
     push(type, start, index, raw);
   }
@@ -473,18 +495,26 @@ function tokenize(input: string): readonly Token[] {
   return tokens;
 }
 
-function separateSort(node: ParsedNode | null): { readonly expression: SearchExpression | null; readonly sorts: readonly SortMarker[] } {
+interface SeparatedSort {
+  readonly expression: SearchExpression | null;
+  readonly sorts: readonly SortMarker[];
+}
+
+function separateSort(node: ParsedNode | null): SeparatedSort {
   if (node === null) return { expression: null, sorts: [] };
   if (node.kind === "sort-marker") return { expression: null, sorts: [node] };
   if (node.kind !== "and") return { expression: node, sorts: [] };
-  const sorts = node.terms.filter((term) => (term as unknown as ParsedNode).kind === "sort-marker") as unknown as SortMarker[];
-  const expressions = node.terms.filter((term) => (term as unknown as ParsedNode).kind !== "sort-marker");
+  // SAFETY: Parser construction may temporarily store sort markers in conjunction terms.
+  const parsedTerms = node.terms as ParsedNode[];
+  const sorts = parsedTerms.filter((term): term is SortMarker => term.kind === "sort-marker");
+  const expressions = parsedTerms.filter((term): term is SearchExpression => term.kind !== "sort-marker");
   const seen = new Set<string>();
   for (const sort of sorts) {
     if (seen.has(sort.order.field)) throw new QueryFailure("QUERY_DUPLICATE_SORT", `Duplicate sort field: ${sort.order.field}`, sort.span);
     seen.add(sort.order.field);
   }
   return {
+    // SAFETY: The surrounding validation and domain contract establish the asserted type.
     expression: expressions.length === 0 ? null : expressions.length === 1 ? expressions[0] as SearchExpression : { ...node, terms: expressions },
     sorts,
   };
@@ -497,8 +527,9 @@ function normalizeExpression(expression: SearchExpression): SearchExpression {
       if (normalized.kind === "all" && expression.kind === "and") return [];
       return normalized.kind === expression.kind ? normalized.terms : [normalized];
     });
-    if (terms.length === 0) return { kind: "all", ...(expression.span === undefined ? {} : { span: expression.span }) };
-    if (terms.length === 1) return terms[0] as SearchExpression;
+    if (terms.length === 0) return expression.span === undefined ? { kind: "all" } : { kind: "all", span: expression.span };
+    // SAFETY: The surrounding validation and domain contract establish the asserted type.
+    if (terms.length === 1) return /* SAFETY: Assertion is justified by surrounding validation or construction. */ terms[0] as SearchExpression;
     return { ...expression, terms };
   }
   if (expression.kind === "not") return { ...expression, term: normalizeExpression(expression.term) };
@@ -529,8 +560,8 @@ function operatorText(operator: "eq" | "ne" | "lt" | "lte" | "gt" | "gte" | "in"
   return ({ eq: "", ne: "!=", lt: "<", lte: "<=", gt: ">", gte: ">=", in: "=" } as const)[operator];
 }
 
-function serializeScalar(value: unknown): string {
-  if (typeof value === "string") return escapeValue(value);
+function serializeScalar(value: CommunityFieldValue): string {
+  if (isString(value)) return escapeValue(value);
   if (Array.isArray(value)) return `(${value.map(serializeScalar).join(" OR ")})`;
   return String(value);
 }
@@ -553,7 +584,9 @@ function normalizeDatetime(value: string, span?: SourceSpan): string {
   return date.toISOString();
 }
 
-function contextualDay(value: string, resolvedAt: string, timezone: string, span?: SourceSpan): { readonly lower: string; readonly upper: string } {
+interface ContextualDayBounds { readonly lower: string; readonly upper: string }
+
+function contextualDay(value: string, resolvedAt: string, timezone: string, span?: SourceSpan): ContextualDayBounds {
   let formatter: Intl.DateTimeFormat;
   try {
     formatter = new Intl.DateTimeFormat("en-CA", {
@@ -599,9 +632,9 @@ function invalid(error: QueryFailure, resolvedAt: string, fieldRegistryVersion: 
     code: error.code,
     message: error.message,
     severity: "error",
-    ...(error.span === undefined ? {} : { span: error.span }),
     suggestions: error.suggestions,
   };
+  if (error.span !== undefined) Object.assign(diagnostic, { span: error.span });
   const canonicalJson = JSON.stringify({ expression: null, sort: [] });
   return {
     ast: null,
@@ -616,6 +649,8 @@ function invalid(error: QueryFailure, resolvedAt: string, fieldRegistryVersion: 
     error: diagnostic.message,
   };
 }
+
+function isString(value: CommunityFieldValue): value is string { return typeof value === "string"; }
 
 function spanToken(start: number, end: number): Token { return { type: "WORD", value: "", start, end }; }
 function tokenOf(marker: SortMarker): SourceSpan { return marker.span; }

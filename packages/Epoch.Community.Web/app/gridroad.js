@@ -283,7 +283,7 @@
     canvas.addEventListener("click", onClick);
     canvas.addEventListener("keydown", onKey);
 
-    if (typeof ResizeObserver !== "undefined") {
+    if (!globalThis.CW_VALUE.isUndefined(ResizeObserver)) {
       resizeObs = new ResizeObserver(function () {
         size();
       });

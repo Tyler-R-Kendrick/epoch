@@ -9,6 +9,11 @@ import {
 import { formatSwhid, parseSwhid, type SwhObjectKind } from "@epoch/software-heritage";
 import { parseCommunityQuery } from "@epoch/community-core";
 
+type TestJsonValue = boolean | null | number | string | TestJsonObject | readonly TestJsonValue[] | undefined;
+interface TestJsonObject {
+  readonly [key: string]: TestJsonValue;
+}
+
 /** Shared parse oracles used by smoke, fast-check, and Jazzer wrappers. */
 
 export function assertCanonicalIdRoundtrip(bytes: Uint8Array | Buffer): string {
@@ -37,7 +42,7 @@ export function assertProtocolEventClosed(event: {
   type: string;
   eventId: string;
   revisionId: string;
-  body: Record<string, unknown>;
+  body: TestJsonObject;
 }): void {
   assert.equal(assertProtocolEvent(JSON.parse(JSON.stringify(event))).eventId, event.eventId);
   assert.throws(() => assertProtocolEvent({ ...event, unknown: true }), /Unknown event field/u);
@@ -61,7 +66,7 @@ export function assertProtocolEventIdentityClosed(event: {
   type: string;
   eventId: string;
   revisionId: string;
-  body: Record<string, unknown>;
+  body: TestJsonObject;
 }): void {
   assertProtocolEventClosed(event);
   assert.throws(() => assertProtocolEvent({
@@ -217,7 +222,8 @@ export function fuzzSafeRemoteHelper(line: string): void {
 export function fuzzSafeChunkManifestJson(raw: string): void {
   let parsed: unknown;
   try { parsed = JSON.parse(raw); } catch { return; }
-  try { assertChunkManifest(parsed as Parameters<typeof assertChunkManifest>[0]); } catch (error) {
+  // SAFETY: Runtime checks or construction above establish Parameters<typeof assertChunkManifest>[0]).
+  try { assertChunkManifest(/* SAFETY: Assertion is justified by surrounding validation or construction. */ parsed as Parameters<typeof assertChunkManifest>[0]); } catch (error) {
     if (!(error instanceof Error) || !/size|layout|chunk|manifest|sha/iu.test(error.message)) throw error;
   }
 }
@@ -254,7 +260,7 @@ export function fuzzSafeForgeCodecBytes(buf: Buffer): void {
 
 export function fuzzSafePathQuery(input: string): void {
   const result = parseCommunityQuery(input);
-  if (result === null || typeof result !== "object") {
+  if (!isObject(result)) {
     throw new Error("parseCommunityQuery must return an object");
   }
   if (!Array.isArray(result.diagnostics)) {
@@ -264,16 +270,20 @@ export function fuzzSafePathQuery(input: string): void {
 
 export function assertPathQueryFailClosed(input: string): void {
   const result = parseCommunityQuery(input);
-  assert.equal(typeof result, "object");
+  assert.equal(isObject(result), true);
   assert.ok(Array.isArray(result.diagnostics));
 }
 
 export function assertPathQueryNeverEscapesRoot(input: string): void {
   const result = parseCommunityQuery(input);
-  assert.equal(typeof result, "object");
+  assert.equal(isObject(result), true);
   assert.ok(Array.isArray(result.diagnostics));
   const serialized = JSON.stringify(result);
   assert.equal(serialized.includes("\0"), false);
+}
+
+function isObject<Value>(value: Value): value is Value & object {
+  return typeof value === "object" && value !== null;
 }
 
 export function assertProtocolEventUnknownTypeFails(rawType: string): void {

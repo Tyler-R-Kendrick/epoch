@@ -10,9 +10,24 @@
  */
 import { createHash } from "node:crypto";
 import { deflateSync as zlibDeflate, inflateSync as zlibInflate } from "node:zlib";
+function __epochIsString<T>(value: T): value is T & string { return typeof value === "string"; }
 
 export const OPENZL_CODEC_ID = "openzl" as const;
 export const OPENZL_FRAME_FORMAT = "epoch.openzl-frame/v1" as const;
+
+/** JSON values the entropy prep walker may emit as typed columns. */
+type JsonWalkObject = { readonly [key: string]: JsonWalkValue };
+type JsonWalkValue =
+  | null
+  | boolean
+  | number
+  | string
+  | readonly JsonWalkValue[]
+  | JsonWalkObject;
+
+function isJsonWalkObject(value: JsonWalkValue): value is JsonWalkObject {
+  return value !== null && !Array.isArray(value) && Object.prototype.toString.call(value) === "[object Object]";
+}
 
 export type OpenZlProfile =
   | "json"
@@ -51,7 +66,7 @@ function sha256Hex(bytes: Uint8Array): string {
 }
 
 function toBytes(input: Uint8Array | string): Uint8Array {
-  return typeof input === "string" ? new TextEncoder().encode(input) : input;
+  return __epochIsString(input) ? new TextEncoder().encode(input) : input;
 }
 
 /** Map MIME-ish entity types to OpenZL profiles. */
@@ -74,23 +89,25 @@ export function prepareForEntropy(plain: Uint8Array, profile: OpenZlProfile): Ui
   if (profile !== "json" && profile !== "semantic-patch") return plain;
   try {
     const text = new TextDecoder().decode(plain);
-    const value = JSON.parse(text) as unknown;
+    // SAFETY: Profile is already json/semantic-patch; malformed JSON is caught below and returns plaintext.
+    const value = JSON.parse(text) as JsonWalkValue;
     const lines: string[] = [];
-    const walk = (node: unknown, path: string): void => {
-      if (node === null || typeof node !== "object") {
-        lines.push(`${path}\t${JSON.stringify(node)}`);
-        return;
-      }
+    const walk = (node: JsonWalkValue, path: string): void => {
       if (Array.isArray(node)) {
         lines.push(`${path}\t[]\t${node.length}`);
         node.forEach((item, index) => walk(item, `${path}[${index}]`));
         return;
       }
-      const keys = Object.keys(node as Record<string, unknown>).sort();
-      lines.push(`${path}\t{}\t${keys.join(",")}`);
-      for (const key of keys) {
-        walk((node as Record<string, unknown>)[key], path ? `${path}.${key}` : key);
+      if (isJsonWalkObject(node)) {
+        const keys = Object.keys(node).sort();
+        lines.push(`${path}\t{}\t${keys.join(",")}`);
+        for (const key of keys) {
+          if (!Object.hasOwn(node, key)) continue;
+          walk(node[key], path ? `${path}.${key}` : key);
+        }
+        return;
       }
+      lines.push(`${path}\t${JSON.stringify(node)}`);
     };
     walk(value, "$");
     return new TextEncoder().encode(lines.join("\n"));
@@ -113,7 +130,7 @@ function encodeFrame(header: OpenZlFrameHeader, payload: Uint8Array): Uint8Array
   return out;
 }
 
-function decodeFrame(frame: Uint8Array): { header: OpenZlFrameHeader; payload: Uint8Array } {
+function decodeFrame(frame: Uint8Array) {
   if (frame.length < 8 || frame[0] !== 0x45 || frame[1] !== 0x5a || frame[2] !== 0x4c || frame[3] !== 0x31) {
     throw new Error("not an epoch.openzl-frame/v1 object");
   }
@@ -122,6 +139,7 @@ function decodeFrame(frame: Uint8Array): { header: OpenZlFrameHeader; payload: U
   const headerStart = 8;
   const headerEnd = headerStart + headerLen;
   if (headerEnd > frame.length) throw new Error("openzl frame header truncated");
+  // SAFETY: The module validates or constructs this value before applying the asserted contract.
   const header = JSON.parse(new TextDecoder().decode(frame.subarray(headerStart, headerEnd))) as OpenZlFrameHeader;
   if (header.format !== OPENZL_FRAME_FORMAT || header.codecId !== OPENZL_CODEC_ID) {
     throw new Error("unsupported openzl frame header");

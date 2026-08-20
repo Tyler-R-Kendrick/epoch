@@ -57,6 +57,7 @@ function listPactsForProvider(provider: string): string[] {
     .map((name) => join(PACT_DIR, name))
     .filter((path) => {
       try {
+        // SAFETY: Runtime checks or construction above establish {.
         const parsed = JSON.parse(readFileSync(path, "utf8")) as {
           provider?: { name?: string };
         };

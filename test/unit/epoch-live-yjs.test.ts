@@ -2,14 +2,24 @@ import assert from "node:assert/strict";
 import { createLiveStore, type LiveStore } from "@epoch/live";
 import {
   bindLiveStoreToSharedMap,
+  type SharedMapBindingOptions,
   type SharedMapEventLike,
   type SharedMapLike,
 } from "@epoch/live-yjs";
 
+type SharedValue = ReturnType<SharedMapLike["get"]>;
+type SharedOrigin = SharedMapEventLike["transaction"]["origin"];
+
 interface DocState {
   readonly title?: string;
   readonly count?: number;
-  readonly [key: string]: unknown;
+  readonly [key: string]: SharedValue;
+}
+
+interface LiveYjsHarness {
+  readonly store: LiveStore<DocState>;
+  readonly map: FakeSharedMap;
+  readonly unbind: () => void;
 }
 
 export function runEpochLiveYjsTests(): void {
@@ -21,11 +31,7 @@ export function runEpochLiveYjsTests(): void {
   unbindStopsBothDirections();
 }
 
-function harness(initialState: DocState = {}): {
-  store: LiveStore<DocState>;
-  map: FakeSharedMap;
-  unbind: () => void;
-} {
+function harness(initialState: DocState = {}): LiveYjsHarness {
   const store = createLiveStore<DocState>({ entity: "doc", author: "alice", initialState });
   const map = new FakeSharedMap();
   const unbind = bindLiveStoreToSharedMap(store, map, { transact: map.transact });
@@ -107,11 +113,11 @@ function unbindStopsBothDirections(): void {
 /** Test double satisfying the structural shared-map contract. */
 class FakeSharedMap implements SharedMapLike {
   writeCount = 0;
-  private readonly values = new Map<string, unknown>();
+  private readonly values = new Map<string, SharedValue>();
   private readonly observers = new Set<(event: SharedMapEventLike) => void>();
-  private currentOrigin: unknown = "remote";
+  private currentOrigin: SharedOrigin = "remote";
 
-  readonly transact = (changes: () => void, origin: unknown): void => {
+  readonly transact: NonNullable<SharedMapBindingOptions["transact"]> = (changes, origin): void => {
     const previous = this.currentOrigin;
     this.currentOrigin = origin;
     try {
@@ -121,11 +127,11 @@ class FakeSharedMap implements SharedMapLike {
     }
   };
 
-  get(key: string): unknown {
+  get(key: string): SharedValue {
     return this.values.get(key);
   }
 
-  set(key: string, value: unknown): void {
+  set(key: string, value: SharedValue): void {
     this.values.set(key, value);
     this.writeCount += 1;
     this.emit([key]);
@@ -137,7 +143,7 @@ class FakeSharedMap implements SharedMapLike {
     this.emit([key]);
   }
 
-  forEach(callback: (value: unknown, key: string) => void): void {
+  forEach(callback: Parameters<SharedMapLike["forEach"]>[0]): void {
     for (const [key, value] of this.values) callback(value, key);
   }
 
@@ -149,7 +155,7 @@ class FakeSharedMap implements SharedMapLike {
     this.observers.delete(callback);
   }
 
-  remoteSet(key: string, value: unknown): void {
+  remoteSet(key: string, value: SharedValue): void {
     this.set(key, value);
   }
 

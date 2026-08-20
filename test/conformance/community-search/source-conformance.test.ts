@@ -27,7 +27,8 @@ export async function assertCommunitySourceConformance(
   let after: string | undefined;
   let pages = 0;
   while (pages < 10_000) {
-    const page = await source.scan({ ...(after === undefined ? {} : { after }), limit: 1, authorization });
+    const request = after === undefined ? { limit: 1, authorization } : { after, limit: 1, authorization };
+    const page = await source.scan(request);
     pages += 1;
     checkpoints.push(page.checkpoint.token);
     ids.push(...page.entities.map((entity) => entity.ref.objectId));
@@ -75,6 +76,6 @@ export function assertStableEntityProvenance(first: CommunityEntity, second: Com
 if (require.main === module) {
   runCommunitySourceConformance().then(
     () => console.log("community source conformance passed"),
-    (error: unknown) => { console.error(error); process.exitCode = 1; },
+    (error) => { console.error(error); process.exitCode = 1; },
   );
 }

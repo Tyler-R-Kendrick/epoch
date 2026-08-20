@@ -1,3 +1,4 @@
+import type { JsonObject } from "../lib/value-types.mts";
 import assert from "node:assert/strict";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -5,7 +6,7 @@ import path from "node:path";
 import { describe, it } from "node:test";
 import { validateEvidenceReview } from "../lib/evidence-review.mts";
 
-function seed(dir: string, review: Record<string, unknown>) {
+function seed(dir: string, review: JsonObject) {
 	mkdirSync(dir, { recursive: true });
 	writeFileSync(path.join(dir, "primary.cast"), "cast");
 	writeFileSync(path.join(dir, "meta.json"), JSON.stringify({

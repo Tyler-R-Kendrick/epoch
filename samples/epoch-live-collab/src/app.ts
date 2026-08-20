@@ -4,10 +4,12 @@ import {
   createLiveStore,
   stableJson,
 } from "@epoch/live";
+type DictionaryValue = null | undefined | boolean | number | string | bigint | readonly DictionaryValue[] | { readonly [key: string]: DictionaryValue };
+
 
 export interface CollabState {
   readonly title?: string;
-  readonly [key: string]: unknown;
+  readonly [key: string]: DictionaryValue;
 }
 
 export interface CollabSummary {

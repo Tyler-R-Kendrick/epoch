@@ -54,7 +54,7 @@ function tamperDenied(): void {
   const source = freshRepo("maya");
   const bundle = exportExitBundle(source);
   const tampered = { ...bundle, events: [...bundle.events, { ...bundle.events[0], id: "forged" }] };
-  assert.throws(() => parseExitBundle(tampered), (error: unknown) => error instanceof ExitBundleError);
+  assert.throws(() => parseExitBundle(tampered), (error) => error instanceof ExitBundleError);
 }
 
 function truncationDenied(): void {
@@ -70,7 +70,7 @@ function truncationDenied(): void {
     events: bundle.events.slice(0, bundle.events.length - 1),
     manifest: { ...bundle.manifest, eventCount: bundle.events.length - 1 },
   };
-  assert.throws(() => parseExitBundle(truncated), (error: unknown) => error instanceof ExitBundleError);
+  assert.throws(() => parseExitBundle(truncated), (error) => error instanceof ExitBundleError);
 }
 
 function bindingsSurvive(): void {
@@ -82,6 +82,7 @@ function bindingsSurvive(): void {
   const bundle = exportExitBundle(source, { bindings: samePrincipalDifferentCommunities });
   assert.equal(bundle.bindings.length, 2);
   assert.notEqual(
+    // SAFETY: Runtime checks or construction above establish { community?: string }).community.
     (bundle.bindings[0] as { community?: string }).community,
     undefined,
   );
@@ -95,7 +96,7 @@ function craftedDowngradeDenied(): void {
     to,
     fromPosture: { posture: "open" },
     toPosture: { posture: "hosted" },
-  }), (error: unknown) => error instanceof ExitBundleError);
+  }), (error) => error instanceof ExitBundleError);
 }
 
 function binding(author: string, community: string) {

@@ -68,6 +68,7 @@ describe("optimizexp doctor", () => {
 				},
 			],
 			requested: ["toy"],
+			// SAFETY: The test fixture intentionally constructs this typed value to exercise the boundary.
 			unknown: [] as string[],
 		};
 

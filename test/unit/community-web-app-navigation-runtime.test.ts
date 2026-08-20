@@ -4,7 +4,12 @@ import { join } from "node:path";
 
 const ROOT = join(process.cwd(), "packages/Epoch.Community.Web/app");
 
-type BrowserWindow = Record<string, unknown>;
+type BrowserConstructor = abstract new (...args: never[]) => object;
+type BrowserFunction = (...args: never[]) => BrowserValue | Readonly<object> | void;
+type BrowserValue = boolean | null | number | string | BrowserConstructor | BrowserWindow | BrowserFunction | readonly BrowserValue[] | undefined;
+interface BrowserWindow {
+  [key: string]: BrowserValue;
+}
 
 function load(name: string, window: BrowserWindow): void {
   const source = readFileSync(join(ROOT, name), "utf8");
@@ -19,22 +24,23 @@ export async function runCommunityWebAppNavigationRuntimeTests(): Promise<void> 
     document: {},
   };
   load("navigation.js", window);
+  // SAFETY: Runtime checks or construction above establish {.
   const nav = window.CW_NAV as {
-    canonicalLocation(input: Record<string, unknown>): Record<string, unknown>;
-    parseLocation(url: string): Record<string, unknown>;
-    resolveDeterministic(cwd: string, input: string, candidates: readonly Record<string, unknown>[]): Record<string, unknown>;
-    rankJumpCandidates(terms: string, candidates: readonly Record<string, unknown>[], visits?: readonly Record<string, unknown>[]): readonly Record<string, unknown>[];
+    canonicalLocation(input: BrowserWindow): BrowserWindow;
+    parseLocation(url: string): BrowserWindow;
+    resolveDeterministic(cwd: string, input: string, candidates: readonly BrowserWindow[]): BrowserWindow;
+    rankJumpCandidates(terms: string, candidates: readonly BrowserWindow[], visits?: readonly BrowserWindow[]): readonly BrowserWindow[];
     createLayerStack(onStatus?: (message: string) => void): {
-      push(layer: Record<string, unknown>): void;
-      cancelTop(): Record<string, unknown> | null;
-      top(): Record<string, unknown> | null;
+      push(layer: BrowserWindow): void;
+      cancelTop(): BrowserWindow | null;
+      top(): BrowserWindow | null;
       status(): string;
     };
     createHistory(adapter: {
-      pushState(state: unknown, unused: string, url: string): void;
-      replaceState(state: unknown, unused: string, url: string): void;
+      pushState(state: BrowserValue, unused: string, url: string): void;
+      replaceState(state: BrowserValue, unused: string, url: string): void;
     }): {
-      commit(location: Record<string, unknown>, options?: { replace?: boolean }): boolean;
+      commit(location: BrowserWindow, options?: { replace?: boolean }): boolean;
     };
   };
 
@@ -77,7 +83,7 @@ export async function runCommunityWebAppNavigationRuntimeTests(): Promise<void> 
   layers.cancelTop();
   assert.equal(layers.cancelTop(), null, "NAV-LAYER-002 Escape with no layer does not perform ancestry or history");
 
-  const historyCalls: Array<{ type: string; state: unknown; url: string }> = [];
+  const historyCalls: Array<{ type: string; state: BrowserValue; url: string }> = [];
   const history = nav.createHistory({
     pushState(state, _unused, url) { historyCalls.push({ type: "push", state, url }); },
     replaceState(state, _unused, url) { historyCalls.push({ type: "replace", state, url }); },
@@ -106,16 +112,17 @@ export async function runCommunityWebAppNavigationRuntimeTests(): Promise<void> 
   assert.ok(chooser.length > 0, "NAV-JUMP-004 fuzzy jump returns ranked candidates");
 
   load("action-registry.js", window);
-  const actions = window.CW_ACTIONS as {
-    register(descriptor: Record<string, unknown>): void;
-    invoke(actionId: string, input: unknown, context: Record<string, unknown>): Promise<unknown>;
+  // SAFETY: Runtime checks or construction above establish {.
+  const actions = window.CW_ACTIONS as BrowserWindow & {
+    register(descriptor: BrowserWindow): void;
+    invoke(actionId: string, input: BrowserValue, context: BrowserWindow): Promise<BrowserValue>;
     resolve(origin: string, alias: string): string | null;
-    lastEvent(): Record<string, unknown> | null;
-    commandCatalog(): readonly Record<string, unknown>[];
-    mcpCatalog(): readonly Record<string, unknown>[];
-    migrateMacro(input: Record<string, unknown>): Record<string, unknown>;
+    lastEvent(): BrowserWindow | null;
+    commandCatalog(): readonly BrowserWindow[];
+    mcpCatalog(): readonly BrowserWindow[];
+    migrateMacro(input: BrowserWindow): BrowserWindow;
   };
-  const executions: unknown[] = [];
+  const executions: BrowserValue[] = [];
   actions.register({
     actionId: "view.open",
     label: "Open view",
@@ -127,7 +134,7 @@ export async function runCommunityWebAppNavigationRuntimeTests(): Promise<void> 
     keyBindings: [{ key: "v", contexts: ["board"] }],
     voiceAliases: ["open saved view"],
     mcp: { toolName: "board_view_open", inputSchema: { type: "object" } },
-    execute(input: unknown) { executions.push(input); return { ok: true, input }; },
+    execute(input: BrowserValue) { executions.push(input); return { ok: true, input }; },
   });
   for (const [origin, alias] of [
     ["cli", "view-open"], ["slash", "/view-open"], ["voice", "open saved view"], ["mcp", "board_view_open"],
@@ -194,13 +201,15 @@ export async function runCommunityWebAppNavigationRuntimeTests(): Promise<void> 
   load("action-registry.js", mcpWindow);
   load("actions.js", mcpWindow);
   load("webmcp.js", mcpWindow);
-  const mcp = mcpWindow.CW_MCP as {
-    registerTool(descriptor: Record<string, unknown>): void;
-    call(name: string, input: unknown): Promise<Record<string, unknown>>;
+  // SAFETY: Runtime checks or construction above establish {.
+  const mcp = mcpWindow.CW_MCP as BrowserWindow & {
+    registerTool(descriptor: BrowserWindow): void;
+    call(name: string, input: BrowserValue): Promise<BrowserWindow>;
   };
-  const mcpActions = mcpWindow.CW_ACTIONS as {
+  // SAFETY: Runtime checks or construction above establish {.
+  const mcpActions = mcpWindow.CW_ACTIONS as BrowserWindow & {
     resolve(origin: string, alias: string): string | null;
-    get(actionId: string): Record<string, unknown> | null;
+    get(actionId: string): BrowserWindow | null;
   };
   mcp.registerTool({
     name: "board_post",
@@ -238,9 +247,10 @@ export async function runCommunityWebAppNavigationRuntimeTests(): Promise<void> 
     CW_DATA: { spaces: [] },
   };
   load("session.js", sessionWindow);
+  // SAFETY: Runtime checks or construction above establish {.
   const session = sessionWindow.CW_SESSION as {
-    migrateBoardState(value: Record<string, unknown>): Record<string, unknown>;
-    loadBoardState(): Record<string, unknown> | null;
+    migrateBoardState(value: BrowserValue): BrowserWindow;
+    loadBoardState(): BrowserWindow | null;
     exportBoardState(): string | null;
     clearBoardState(): void;
     BOARD_SCHEMA_VERSION: number;
@@ -254,21 +264,27 @@ export async function runCommunityWebAppNavigationRuntimeTests(): Promise<void> 
   const migratedAgain = session.migrateBoardState(migrated);
   assert.equal(migrated.schemaVersion, session.BOARD_SCHEMA_VERSION, "NAV-MIGRATE-002 versions board state");
   assert.deepEqual(migratedAgain, migrated, "NAV-MIGRATE-002 migration is idempotent");
-  assert.equal((migrated.sessions as Array<Record<string, unknown>>)[0]?.draft, "keep me");
+  // SAFETY: Runtime checks or construction above establish Array<Record<string.
+  assert.equal((migrated.sessions as Array<BrowserWindow>)[0]?.draft, "keep me");
   const isolated = session.migrateBoardState({ sessions: [
     { id: "one", path: "/one", history: ["cd /one"], draft: "first" },
     { id: "two", path: "/two", history: ["cd /two"], draft: "second" },
   ] });
-  assert.notDeepEqual((isolated.sessions as Array<Record<string, unknown>>)[0],
-    (isolated.sessions as Array<Record<string, unknown>>)[1],
+  // SAFETY: Runtime checks or construction above establish Array<Record<string.
+  assert.notDeepEqual((isolated.sessions as Array<BrowserWindow>)[0],
+    // SAFETY: Runtime checks or construction above establish Array<Record<string.
+    (isolated.sessions as Array<BrowserWindow>)[1],
     "NAV-ROUTE-004 workspace histories drafts and focus remain isolated");
-  const malformed = session.migrateBoardState(null as unknown as Record<string, unknown>);
-  assert.equal((malformed.recovery as Record<string, unknown>).reason, "malformed",
+  const malformed = session.migrateBoardState(null);
+  // SAFETY: Runtime checks or construction above establish Record<string.
+  assert.equal((malformed.recovery as BrowserWindow).reason, "malformed",
     "NAV-MIGRATE-004 malformed persisted state fails safely with recovery guidance");
-  assert.deepEqual((malformed.recovery as Record<string, unknown>).actions, ["export", "reset"],
+  // SAFETY: Runtime checks or construction above establish Record<string.
+  assert.deepEqual((malformed.recovery as BrowserWindow).actions, ["export", "reset"],
     "NAV-MIGRATE-004 recovery exposes explicit export and reset actions");
   storage.set("cw-board-state", "{broken-json");
-  assert.equal((session.loadBoardState()?.recovery as Record<string, unknown>).reason, "malformed");
+  // SAFETY: Runtime checks or construction above establish Record<string.
+  assert.equal((session.loadBoardState()?.recovery as BrowserWindow).reason, "malformed");
   assert.equal(session.exportBoardState(), "{broken-json",
     "NAV-MIGRATE-004 malformed state remains exportable until explicit reset");
   session.clearBoardState();

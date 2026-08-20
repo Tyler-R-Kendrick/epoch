@@ -168,6 +168,7 @@ function readScenarioSpecs(features: readonly FeatureSpec[]): readonly ScenarioS
       if (scenario != null) {
         currentScenario = {
           featurePath: feature.path,
+          // SAFETY: Runtime checks or construction above establish ScenarioSpec["keyword"].
           keyword: scenario[1] as ScenarioSpec["keyword"],
           name: scenario[2],
           personaTags: pendingTags.filter((tag) => tag.startsWith("@persona.")),

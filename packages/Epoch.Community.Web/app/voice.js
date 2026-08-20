@@ -27,11 +27,11 @@
   var SPEAKING_MS = 80;
 
   function rtcSupported() {
-    var nav = typeof window !== "undefined" ? window.navigator : null;
-    return !!(typeof window !== "undefined" &&
+    var nav = !globalThis.CW_VALUE.isUndefined(window) ? window.navigator : null;
+    return !!(!globalThis.CW_VALUE.isUndefined(window) &&
       window.RTCPeerConnection &&
       nav && nav.mediaDevices &&
-      typeof nav.mediaDevices.getUserMedia === "function");
+      globalThis.CW_VALUE.isFunction(nav.mediaDevices.getUserMedia));
   }
 
   function uid() {
@@ -41,7 +41,7 @@
 
   /** Prefer Opus via transceiver API — never munge SDP (Chrome rejects that). */
   function preferOpusOnPc(pc) {
-    if (!pc || typeof pc.getTransceivers !== "function") return;
+    if (!pc || !globalThis.CW_VALUE.isFunction(pc.getTransceivers)) return;
     var caps = window.RTCRtpSender && window.RTCRtpSender.getCapabilities
       ? window.RTCRtpSender.getCapabilities("audio")
       : null;
@@ -58,7 +58,7 @@
       if (!tr) return;
       var track = tr.sender && tr.sender.track;
       if (track && track.kind !== "audio") return;
-      if (typeof tr.setCodecPreferences === "function") {
+      if (globalThis.CW_VALUE.isFunction(tr.setCodecPreferences)) {
         try { tr.setCodecPreferences(ordered); } catch { /* unsupported */ }
       }
     });
@@ -411,7 +411,7 @@
           var report = await pc.getStats();
           report.forEach(function (r) {
             if (r.type === "candidate-pair" && r.state === "succeeded" &&
-                typeof r.currentRoundTripTime === "number") {
+                globalThis.CW_VALUE.isNumber(r.currentRoundTripTime)) {
               samples.push(r.currentRoundTripTime * 1000);
             }
           });
@@ -447,7 +447,7 @@
       state.channelPath = channelPath || null;
       state.error = null;
       handle = (opts.handle) ||
-        (window.CW_APP && typeof window.CW_APP.getIdentity === "function" &&
+        (window.CW_APP && globalThis.CW_VALUE.isFunction(window.CW_APP.getIdentity) &&
           (function () {
             var id = window.CW_APP.getIdentity();
             return id && (id.handle || id.displayName);

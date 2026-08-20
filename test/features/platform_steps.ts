@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { Given, Then, When } from "@cucumber/cucumber";
+import { isString } from "../helpers/type-guards";
 import {
   createInMemoryPlatformCore,
   PlatformError,
@@ -112,6 +113,7 @@ function rememberError(action: () => void): void {
   try {
     action();
   } catch (error) {
+    // SAFETY: Runtime checks or construction above establish Error.
     platformState.error = error as Error;
   }
 }
@@ -784,6 +786,7 @@ Then("the platform action suggests {string}", function (suggestion: string) {
 
 Then("the platform action has a correlation id", function () {
   assert.ok(platformState.error instanceof PlatformError);
+  // SAFETY: Runtime checks or construction above establish PlatformError & { correlationId?: string }).correlationId).
   assert.ok((platformState.error as PlatformError & { correlationId?: string }).correlationId);
 });
 
@@ -1163,7 +1166,7 @@ Then("discussion {string} moderation state is {string}", function (title: string
 });
 
 Then("Community legal hold includes discussion {string}", function (title: string) {
-  assert.ok(platformState.legalHold?.discussions.some((discussion) => (typeof discussion === "string" ? discussion === title : discussion.title === title)));
+  assert.ok(platformState.legalHold?.discussions.some((discussion) => (isString(discussion) ? discussion === title : discussion.title === title)));
 });
 
 Then("Community background workers are disabled", function () {

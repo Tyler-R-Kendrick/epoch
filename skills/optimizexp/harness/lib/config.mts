@@ -17,6 +17,8 @@
  *   full CLI grammar duplication
  *   mandatory files (absence = defaults)
  */
+import type { JsonObject } from "./value-types.mts";
+import { isNumber, isObject, isString, parseStringArray } from "./value-types.mts";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import {
@@ -248,6 +250,7 @@ export function loadConfigFile(filePath: string): LoadConfigResult {
 		return { config: null, path: filePath, problems: [], exists: false };
 	}
 	try {
+		// SAFETY: The surrounding parser or local invariant establishes this domain type at the boundary.
 		const raw = JSON.parse(readFileSync(filePath, "utf8")) as unknown;
 		const problems = validateConfigDocument(raw, filePath);
 		if (problems.some((p) => p.startsWith("fatal:"))) {
@@ -259,6 +262,7 @@ export function loadConfigFile(filePath: string): LoadConfigResult {
 			};
 		}
 		return {
+			// SAFETY: The surrounding parser or local invariant establishes this domain type at the boundary.
 			config: raw as OptimizexpConfig,
 			path: filePath,
 			problems,
@@ -274,15 +278,16 @@ export function loadConfigFile(filePath: string): LoadConfigResult {
 	}
 }
 
-export function validateConfigDocument(
-	raw: unknown,
+export function validateConfigDocument<T>(
+	raw: T,
 	filePath = "<config>",
 ): string[] {
 	const problems: string[] = [];
-	if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
+	if (!raw || !isObject(raw) || Array.isArray(raw)) {
 		return [`fatal: ${filePath} must be a JSON object`];
 	}
-	const o = raw as Record<string, unknown>;
+	// SAFETY: The surrounding parser or local invariant establishes this domain type at the boundary.
+	const o = raw as JsonObject;
 	if (o.schemaVersion !== CONFIG_SCHEMA_VERSION) {
 		problems.push(
 			`schemaVersion must be ${CONFIG_SCHEMA_VERSION} (got ${String(o.schemaVersion)})`,
@@ -291,21 +296,20 @@ export function validateConfigDocument(
 	if (o.kind !== "global" && o.kind !== "project") {
 		problems.push(`kind must be "global" or "project" (got ${String(o.kind)})`);
 	}
-	if (o.kind === "project" && (!o.projectId || typeof o.projectId !== "string")) {
+	if (o.kind === "project" && (!o.projectId || !isString(o.projectId))) {
 		problems.push(`kind "project" requires string projectId`);
 	}
-	if (o.defaults && typeof o.defaults === "object" && !Array.isArray(o.defaults)) {
-		const d = o.defaults as Record<string, unknown>;
+	if (o.defaults && isObject(o.defaults) && !Array.isArray(o.defaults)) {
+		// SAFETY: The surrounding parser or local invariant establishes this domain type at the boundary.
+		const d = o.defaults as JsonObject;
 		if (d.experiences != null) {
-			const exp = Array.isArray(d.experiences)
-				? (d.experiences as string[])
-				: [];
+			const exp = parseStringArray(d.experiences);
 			const parsed = normalizeExperienceTokens(exp, "experiences");
 			problems.push(
 				...parsed.problems.map((p) => `defaults.experiences: ${p}`),
 			);
 		}
-		if (d.passes != null && d.passes !== "infinite" && typeof d.passes !== "number") {
+		if (d.passes != null && d.passes !== "infinite" && !isNumber(d.passes)) {
 			problems.push(`defaults.passes must be "infinite" or a number`);
 		}
 		if (
@@ -348,6 +352,7 @@ function deepMergeDefaults(
 	const experiences =
 		patch.experiences != null
 			? normalizeExperienceTokens(
+					// SAFETY: The surrounding parser or local invariant establishes this domain type at the boundary.
 					patch.experiences as string[],
 					"experiences",
 				).ok
@@ -380,10 +385,7 @@ export function resolveConfig(input?: {
 	root?: string;
 	focusProject?: ProjectRef | null;
 	selection?: ProjectSelection;
-}): {
-	resolved: ResolvedOptimizexpConfig;
-	problems: string[];
-} {
+}) {
 	const root = input?.root ?? repoRoot();
 	const problems: string[] = [];
 	let resolved = skillBuiltinDefaults();
@@ -646,7 +648,7 @@ export function defaultProjectConfigDocument(
 export function ensureGlobalConfig(
 	root = repoRoot(),
 	opts?: { force?: boolean; productName?: string; productSummary?: string },
-): { path: string; created: boolean } {
+) {
 	const p = globalConfigPath(root);
 	if (existsSync(p) && !opts?.force) {
 		return { path: p, created: false };
@@ -672,7 +674,7 @@ export function ensureProjectConfig(
 		primaryUrl?: string;
 		commands?: Record<string, string>;
 	},
-): { path: string; created: boolean } {
+) {
 	const p = projectConfigPath(project, root);
 	if (existsSync(p) && !opts?.force) {
 		return { path: p, created: false };

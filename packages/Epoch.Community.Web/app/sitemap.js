@@ -56,8 +56,8 @@
     var ref = post && post.ref && post.ref.objectId ? post.ref : {
       objectId: String(post && (post.objectId || post.id) || ""),
       kind: post && post.tombstone ? "tombstone" : "message",
-      ...(post && post.atUri ? { atUri: post.atUri } : {}),
-      ...(post && (post.revision || post.cid) ? { revision: post.revision || post.cid } : {}),
+      ...(post && post.atUri ? { atUri: post.atUri } : undefined),
+      ...(post && (post.revision || post.cid) ? { revision: post.revision || post.cid } : undefined),
     };
     return core().validateObjectRef(ref);
   }
@@ -87,14 +87,14 @@
       title: post.title || post.subject,
       body: post.body || "",
       publishedAt: post.publishedAt || D.board.observedAt,
-      ...(post.updatedAt ? { updatedAt: post.updatedAt } : {}),
-      ...(parentId ? { inReplyTo: core().validateObjectRef({ objectId: parentId, kind: "message" }) } : {}),
+      ...(post.updatedAt ? { updatedAt: post.updatedAt } : undefined),
+      ...(parentId ? { inReplyTo: core().validateObjectRef({ objectId: parentId, kind: "message" }) } : undefined),
       threadRoot: core().validateObjectRef({ objectId: rootId, kind: "message" }),
       relations: post.relations || [],
-      ...(post.reactions ? { reactions: Object.assign({}, post.reactions) } : {}),
+      ...(post.reactions ? { reactions: Object.assign({}, post.reactions) } : undefined),
       state: post.state || "unavailable",
       aliases: [ref.objectId].concat(legacyPostNames(post)),
-      ...(post.tombstone ? { tombstone: post.tombstone } : {}),
+      ...(post.tombstone ? { tombstone: post.tombstone } : undefined),
       source: post,
     };
   }
@@ -165,7 +165,7 @@
     var pool = posts || [];
     var graph = messageGraph(pool);
     return pool.map(function (post) {
-      var hint = typeof hintForPost === "function" ? hintForPost(post) : hintForPost;
+      var hint = globalThis.CW_VALUE.isFunction(hintForPost) ? hintForPost(post) : hintForPost;
       return postEntry(post, hint, graph);
     });
   }
@@ -240,7 +240,7 @@
         }),
         alias: name,
         aliasPath: resolve(path, entry.name),
-        ...(entry.parentRef ? { parentRef: entry.parentRef } : {}),
+        ...(entry.parentRef ? { parentRef: entry.parentRef } : undefined),
         depth: 1,
         position: index + 1,
         setSize: list.length,
@@ -601,16 +601,16 @@
 
   function notificationTargetId(notification) {
     if (!notification) return null;
-    if (typeof notification.ref === "string") return notification.ref;
+    if (globalThis.CW_VALUE.isString(notification.ref)) return notification.ref;
     if (notification.targetRef) {
-      return typeof notification.targetRef === "string"
+      return globalThis.CW_VALUE.isString(notification.targetRef)
         ? notification.targetRef : notification.targetRef.objectId;
     }
     return null;
   }
 
   function notificationObjectRef(notification) {
-    if (notification && notification.ref && typeof notification.ref === "object") {
+    if (notification && notification.ref && globalThis.CW_VALUE.isObject(notification.ref)) {
       return core().validateObjectRef(notification.ref);
     }
     return core().validateObjectRef({

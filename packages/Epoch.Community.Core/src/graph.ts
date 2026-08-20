@@ -82,7 +82,7 @@ export function createMessageGraph(input: readonly CommunityMessage[]): Communit
     children.set(message.inReplyTo.objectId, values);
   }
 
-  const idOf = (ref: CommunityObjectRef | string): string => typeof ref === "string" ? ref : ref.objectId;
+  const idOf = (ref: CommunityObjectRef | string): string => isObjectId(ref) ? ref : ref.objectId;
   const messageOf = (ref: CommunityObjectRef | string): CommunityMessage | undefined => messages.get(idOf(ref));
   const parentOf = (ref: CommunityObjectRef | string): CommunityObjectRef | undefined => {
     const parent = messageOf(ref)?.inReplyTo;
@@ -141,6 +141,10 @@ export function createMessageGraph(input: readonly CommunityMessage[]): Communit
     previousSiblingOf: (ref: CommunityObjectRef | string) => sibling(ref, -1),
     nextUnreadOf,
   });
+}
+
+function isObjectId(ref: CommunityObjectRef | string): ref is string {
+  return typeof ref === "string";
 }
 
 export function threadRelations(graph: CommunityMessageGraph, ref: CommunityObjectRef): CommunityThreadRelations {

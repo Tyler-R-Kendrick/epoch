@@ -56,13 +56,13 @@ async function i3SourceServerConfusionDenied(): Promise<void> {
 }
 
 function i4FailClosedModes(): void {
-  assert.throws(() => evaluatePosture({ posture: "mystery" }), (error: unknown) =>
+  assert.throws(() => evaluatePosture({ posture: "mystery" }), (error) =>
     error instanceof ProtocolError && error.code === "policy-denied");
   assert.equal(evaluateEvidence({ gateId: "E01", evidence: "timeout" }), "rejected");
 }
 
 function i5ExitTamper(): void {
-  assert.throws(() => parseExitBundle({ schema: "epoch-exit/v1", events: [], bindings: [], manifest: { sha256: "00", eventCount: 0, headId: "" } }), (error: unknown) =>
+  assert.throws(() => parseExitBundle({ schema: "epoch-exit/v1", events: [], bindings: [], manifest: { sha256: "00", eventCount: 0, headId: "" } }), (error) =>
     error instanceof ExitBundleError);
 }
 
@@ -73,17 +73,18 @@ async function i6BridgeOptOutNoResidue(): Promise<void> {
 
 async function i7PrivateNeverFederates(): Promise<void> {
   const xmpp = new InMemoryXmppTransport({ enabled: true });
-  assert.throws(() => xmpp.assertPublic("private"), (error: unknown) => error instanceof XmppPrivate);
+  assert.throws(() => xmpp.assertPublic("private"), (error) => error instanceof XmppPrivate);
   const community = new FederatedCommunity({ mode: "federated", pds: new MockPds() });
   community.bindIdentity({ did: "did:plc:x", handle: "x.test", pdsEndpoint: "mock://pds" });
   await assert.rejects(async () => {
     await community.publishPublicArtifacts({
+      // SAFETY: Runtime checks or construction above establish never.
       repository: {} as never,
       versionOrEventId: "x",
       ownerDid: "did:plc:x",
       visibility: "private",
     });
-  }, (error: unknown) => error instanceof AtPrivate);
+  }, (error) => error instanceof AtPrivate);
 }
 
 function timeoutNeverLaunders(): void {

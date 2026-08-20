@@ -40,11 +40,11 @@
   var failures = [];
 
   function nativeContext() {
-    return (typeof document !== "undefined" && document.modelContext) || null;
+    return (!globalThis.CW_VALUE.isUndefined(document) && document.modelContext) || null;
   }
 
   function actionContext() {
-    if (window.CW_APP && typeof window.CW_APP.actionContext === "function") {
+    if (window.CW_APP && globalThis.CW_VALUE.isFunction(window.CW_APP.actionContext)) {
       return window.CW_APP.actionContext("mcp");
     }
     return { origin: "mcp", context: "board" };
@@ -90,10 +90,10 @@
     var entry = Object.assign({}, descriptor, { annotations: annotations });
     local.set(entry.name, entry);
 
-    var controller = typeof AbortController === "function" ? new AbortController() : null;
+    var controller = globalThis.CW_VALUE.isFunction(AbortController) ? new AbortController() : null;
     registrations.set(entry.name, { controller: controller, native: false });
     var native = nativeContext();
-    if (native && typeof native.registerTool === "function") {
+    if (native && globalThis.CW_VALUE.isFunction(native.registerTool)) {
       // The descriptor handed to the browser carries only what WebMCP defines;
       // actionId, permission, and side-effect are ours.
       var registration = {
@@ -140,7 +140,7 @@
     try {
       var result = await tool.execute(args || {});
       // Normalise: a tool that returns a bare string is still a valid answer.
-      if (typeof result === "string") return { content: [{ type: "text", text: result }] };
+      if (globalThis.CW_VALUE.isString(result)) return { content: [{ type: "text", text: result }] };
       if (!result || !result.content) return { content: [{ type: "text", text: "ok" }] };
       return result;
     } catch (err) {

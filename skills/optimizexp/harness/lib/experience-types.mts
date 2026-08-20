@@ -17,15 +17,16 @@ export const EXPERIENCE_TYPES = ["ux", "dx", "ax"] as const;
 export type ExperienceType = (typeof EXPERIENCE_TYPES)[number];
 
 export function isExperienceType(v: string): v is ExperienceType {
+	// SAFETY: The surrounding parser or local invariant establishes this domain type at the boundary.
 	return (EXPERIENCE_TYPES as readonly string[]).includes(v);
 }
 
 /** Canonical display order for normalized lists. */
-export const EXPERIENCE_ORDER: Record<ExperienceType, number> = {
+export const EXPERIENCE_ORDER = {
 	ux: 0,
 	dx: 1,
 	ax: 2,
-};
+} satisfies Record<ExperienceType, number>;
 
 export type ParseExperiencesResult = {
 	/** Normalized unique list in ux → dx → ax order */

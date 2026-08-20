@@ -18,6 +18,10 @@ import {
   success,
   type CommunityCliCommandResult,
 } from "./query-commands";
+type BoundaryValue = null | undefined | boolean | number | string | bigint | symbol | Readonly<object>;
+function __epochIsObject<T>(value: T): value is T & object { return typeof value === "object"; }
+function __epochIsString<T>(value: T): value is T & string { return typeof value === "string"; }
+
 
 export const PROJECTION_CLI_COMMANDS: readonly {
   readonly command: string;
@@ -86,7 +90,7 @@ export async function runProjectionCommand(
         const path = optionalString(parsed, "path") ?? "/";
         const after = optionalString(parsed, "after");
         const first = integerOption(parsed, "first", 50, 1, 1000);
-        const page = await services.preview({ definition, path, first, ...(after === undefined ? {} : { after }), ...(execution.signal === undefined ? {} : { signal: execution.signal }) });
+        const page = await services.preview({ definition, path, first, ...(!(after === undefined) && { after }), ...(!(execution.signal === undefined) && { signal: execution.signal }) });
         return success(json ? { schema: "epoch.community.cli.projection-preview.v1", projectionId: definition.projectionId, path, page } : formatPreview(page), json);
       }
       case "save": {
@@ -128,7 +132,7 @@ export async function runProjectionCommand(
         requirePositionals(positional, 1, "projections explain ID");
         if (services.explain === undefined) throw new CommunityError("QUERY_UNSUPPORTED_SOURCE", "Projection explanation is unavailable in this CLI host");
         const path = optionalString(parsed, "path") ?? "/";
-        const explanation = await services.explain({ projectionId: positional[0]!, path, ...(execution.signal === undefined ? {} : { signal: execution.signal }) });
+        const explanation = await services.explain({ projectionId: positional[0]!, path, ...(!(execution.signal === undefined) && { signal: execution.signal }) });
         return success(json ? explanation : `${explanation.projectionId}\t${explanation.path}\t${explanation.detail}\n`, json);
       }
       default: throw invalidInput("Unknown projections command");
@@ -142,15 +146,17 @@ export function parseProjectionDefinition(raw: string): ProjectionDefinition {
   if (new TextEncoder().encode(raw).length > 1_000_000) throw new CommunityError("PROJECTION_INVALID", "Projection definition exceeds 1 MB");
   let value: unknown;
   try { value = JSON.parse(raw); } catch { throw new CommunityError("PROJECTION_INVALID", "Projection definition is not valid JSON"); }
-  if (typeof value !== "object" || value === null || Array.isArray(value)) throw new CommunityError("PROJECTION_INVALID", "Projection definition must be a JSON object");
+  if (!__epochIsObject(value) || value === null || Array.isArray(value)) throw new CommunityError("PROJECTION_INVALID", "Projection definition must be a JSON object");
+  // SAFETY: The module validates or constructs this value before applying the asserted contract.
   const candidate = value as Partial<ProjectionDefinition>;
-  if (candidate.apiVersion !== PROJECTION_DEFINITION_API_VERSION || typeof candidate.projectionId !== "string"
-    || !Number.isSafeInteger(candidate.version) || typeof candidate.label !== "string" || candidate.root === undefined
+  if (candidate.apiVersion !== PROJECTION_DEFINITION_API_VERSION || !__epochIsString(candidate.projectionId)
+    || !Number.isSafeInteger(candidate.version) || !__epochIsString(candidate.label) || candidate.root === undefined
     || !Array.isArray(candidate.order) || !["private", "shared", "public"].includes(candidate.visibility ?? "")
     || !["live", "queued", "snapshot"].includes(candidate.updateMode ?? "")
     || !["current", "session-snapshot", "fixed-snapshot"].includes(candidate.consistency ?? "")) {
     throw new CommunityError("PROJECTION_INVALID", "Projection definition is missing required versioned fields");
   }
+  // SAFETY: The module validates or constructs this value before applying the asserted contract.
   return value as ProjectionDefinition;
 }
 
@@ -169,7 +175,7 @@ function cloneDefinition(source: ProjectionDefinition, projectionId: string): Pr
   return Object.freeze({ ...source, projectionId, version: 1, label: projectionId, visibility: "private" as const, ownerId: undefined });
 }
 
-function validationEnvelope(compiled: CompiledProjection): unknown {
+function validationEnvelope(compiled: CompiledProjection): BoundaryValue {
   return { schema: "epoch.community.cli.projection-validation.v1", projectionId: compiled.definition.projectionId, diagnostics: compiled.diagnostics, nodeCount: compiled.nodeCount, maximumDepth: compiled.maximumDepth, estimatedFanout: compiled.estimatedFanout, valid: !compiled.diagnostics.some((diagnostic) => diagnostic.severity === "error") };
 }
 

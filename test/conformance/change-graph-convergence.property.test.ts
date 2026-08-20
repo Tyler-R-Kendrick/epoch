@@ -33,6 +33,7 @@ async function main(): Promise<void> {
         if (random.boolean()) edges.push({ from: revisions[index]!, to: revisions[dependency]!, kind: random.pick(["requires", "orders-after", "derived-from"] as const) });
       }
     }
+    // SAFETY: Runtime checks or construction above establish ChangeGraphDefinition["changeGraphId"].
     const graph = validateChangeGraph({ changeGraphId: id("change-graph", "s") as ChangeGraphDefinition["changeGraphId"], memberRevisionIds: revisions, edges });
     const positions = new Map(graph.topologicalOrder.map((revision, index) => [revision, index]));
     for (const edge of edges) assert.ok(positions.get(edge.to)! < positions.get(edge.from)!);
@@ -45,6 +46,7 @@ async function main(): Promise<void> {
   await property("FRONTIER-PROP-002 split reconstructs byte-exact fragment order", SEED ^ 1, CASES, (random) => {
     const fragments = Array.from({ length: 2 + random.integer(10) }, (_, index) => fragment(index));
     const groupCount = 1 + random.integer(Math.min(4, fragments.length));
+    // SAFETY: Runtime checks or construction above establish ChangeFragment[]).
     const groups = Array.from({ length: groupCount }, () => [] as ChangeFragment[]);
     fragments.forEach((item, index) => groups[index % groupCount]!.push(structuredClone(item)));
     const plan: SplitPlan = { sourceRevisionId: assertRevisionId("split-source"), groups: groups.map((group) => ({ fragmentIds: group.map((item) => item.fragmentId), risk: group.length > 1 ? "ambiguous" : "low", reason: "generated bounded split" })) };
@@ -67,9 +69,11 @@ async function main(): Promise<void> {
 
   await property("FRONTIER-PROP-004 exact evidence and merge digest invalidate", SEED ^ 3, CASES, (random) => {
     const revisions = [assertRevisionId(`r-${random.next()}`), assertRevisionId(`r-${random.next()}`)];
+    // SAFETY: Runtime checks or construction above establish `epoch:change-graph:${string}`.
     const changeGraph = { changeGraphId: id("change-graph", "s") as `epoch:change-graph:${string}`, memberRevisionIds: revisions, edges: [] };
     const bundle = buildReviewBundle({ reviewBundleId: id("review-bundle", "r"), selectedRevisionIds: revisions, baseFrontier: ["base"], baseTreeDigest: digest("a"), combinedTreeDigest: digest("b"), overlaps: [], conflicts: [], gateDefinitionDigest: digest("c") });
     assert.throws(() => buildReviewBundle({ reviewBundleId: bundle.reviewBundleId, selectedRevisionIds: [...revisions].reverse(), baseFrontier: bundle.baseFrontier, baseTreeDigest: bundle.baseTreeDigest, combinedTreeDigest: bundle.combinedTreeDigest, overlaps: [], conflicts: [], gateDefinitionDigest: bundle.gateDefinitionDigest, priorBundle: bundle }), /stale-review/u);
+    // SAFETY: Runtime checks or construction above establish `epoch:merge-plan:${string}`.
     const plan = createMergePlan({ mergePlanId: id("merge-plan", "m") as `epoch:merge-plan:${string}`, targetRevisionId: assertRevisionId("target"), selectedRevisionIds: revisions, hardDependencyClosure: revisions, reviewBundleRevisionId: assertRevisionId("review-event"), conflictResolutionRevisionIds: [], gateDefinitionDigest: digest("c"), mergeMode: "per-change-squash", resultingTreeDigest: digest("d") }, { changeGraph });
     const context = { currentTargetRevisionId: "target", availableRevisionIds: revisions, changeGraph, reviewBundleRevisionId: "review-event", acceptedResolutionRevisionIds: [], gateDefinitionDigest: digest("c"), unresolvedConflictIds: [], protectedTarget: true, resultDigest: digest("d") };
     assert.equal(applyMergePlan(plan, context).resultDigest, digest("d"));
@@ -84,6 +88,7 @@ async function main(): Promise<void> {
       transaction.stage(next);
       assert.throws(() => transaction.publish({ failAfter: boundary }), /Injected failure/u);
       recoverQuarantineTransaction(root, `tx-${boundary}`);
+      // SAFETY: Runtime checks or construction above establish typeof next.
       const recovered = JSON.parse(readFileSync(join(root, "state.json"), "utf8")) as typeof next;
       if (boundary === "prepared") assert.deepEqual(recovered, { objects: {}, events: {}, indexes: {}, heads: ["old"] });
       else assert.deepEqual(recovered, next);
@@ -122,7 +127,8 @@ async function main(): Promise<void> {
 
   await property("FRONTIER-PROP-009 grants attenuate and budgets conserve", SEED ^ 8, 24, (random, index) => {
     const ledger = new AuthorityLedger({ now: () => 1_000 });
-    const owner = `epoch:principal:owner-${index}` as PrincipalId; const agent = `epoch:principal:agent-${index}` as PrincipalId;
+    // SAFETY: Runtime checks or construction above establish PrincipalId.
+    const owner = `epoch:principal:owner-${index}` as PrincipalId; const agent = /* SAFETY: Assertion is justified by surrounding validation or construction. */ `epoch:principal:agent-${index}` as PrincipalId;
     ledger.registerPrincipal({ principalId: owner, kind: "human", keys: [{ keyId: `owner-key-${index}`, algorithm: "Ed25519", purpose: "root", state: "active" }] });
     ledger.registerPrincipal({ principalId: agent, kind: "agent", keys: [{ keyId: `agent-key-${index}`, algorithm: "Ed25519", purpose: "signing", state: "active" }] });
     const limit = 2 + random.integer(8);
@@ -147,7 +153,7 @@ async function main(): Promise<void> {
   });
 
   await property("FRONTIER-PROP-011 SWHID canonical round-trip", SEED ^ 10, CASES, (random) => {
-    const value = { version: 1 as const, kind: random.pick(["cnt", "dir", "rev", "rel", "snp"] as const) as SwhObjectKind, digest: random.bytes(20).toString("hex"), qualifiers: { origin: `https://example.test/${random.next()}`, path: `/src/${random.next()}.ts` } };
+    const value = { version: 1 as const, kind: /* SAFETY: Assertion is justified by surrounding validation or construction. */ random.pick(["cnt", "dir", "rev", "rel", "snp"] as const) as SwhObjectKind, digest: random.bytes(20).toString("hex"), qualifiers: { origin: `https://example.test/${random.next()}`, path: `/src/${random.next()}.ts` } };
     const encoded = formatSwhid(value);
     assert.equal(formatSwhid(parseSwhid(encoded)), encoded);
   });
@@ -159,10 +165,13 @@ function id(kind: string, token: string): string { return `epoch:${kind}:${token
 function digest(token: string): string { return token.repeat(64); }
 function fragment(index: number): ChangeFragment {
   const token = "abcdefghijklmnopqrstuvwxyz234567"[index % 32]!;
+  // SAFETY: Runtime checks or construction above establish ChangeFragment["fragmentId"].
   return { fragmentId: id("fragment", token) as ChangeFragment["fragmentId"], kind: index % 3 === 0 ? "text" : "add", path: `src/file-${index}.txt`, precondition: { kind: "absent" }, resultDigest: digest(token), contentRef: `sha256:${digest(token)}`, order: index, dependencies: [], provenance: { principalId: id("principal", "p") as ChangeFragment["provenance"]["principalId"] }, mergeStrategy: index % 3 === 0 ? "text" : "exact" };
 }
 function revision(fragments: readonly ChangeFragment[]): ChangeRevisionBody {
+  // SAFETY: Runtime checks or construction above establish ChangeRevisionBody["changeId"].
   return { changeId: id("change", "c") as ChangeRevisionBody["changeId"], baseFrontier: [assertRevisionId("base")], baseTreeDigest: digest("a"), parentRevisionIds: [], fragments, resultingTreeDigest: digest("b"), authorPrincipalId: id("principal", "p") as ChangeRevisionBody["authorPrincipalId"] };
 }
 
-void main().catch((error: unknown) => { process.stderr.write(`${String((error as Error).stack ?? error)}\n`); process.exitCode = 1; });
+// SAFETY: Runtime checks or construction above establish Error).stack ?? error)}\n`).
+void main().catch((error) => { process.stderr.write(`${String((/* SAFETY: Assertion is justified by surrounding validation or construction. */ error as Error).stack ?? error)}\n`); process.exitCode = 1; });

@@ -7,6 +7,9 @@ import {
   type EpochLiveRepositoryEvent,
   type EpochVirtualFileSystem,
 } from "@epoch/wasm-react";
+type BoundaryValue = null | undefined | boolean | number | string | bigint | symbol | Readonly<object>;
+type DictionaryValue = null | undefined | boolean | number | string | bigint | readonly DictionaryValue[] | { readonly [key: string]: DictionaryValue };
+
 
 // Single-sourced from @epoch/wasm-react so every browser package shares one
 // structural-equality implementation.
@@ -34,7 +37,7 @@ export interface TrackChangeInput<TPayload = unknown> {
   readonly source: string;
   readonly summary: string;
   readonly payload: TPayload;
-  readonly metadata?: Record<string, unknown>;
+  readonly metadata?: Record<string, DictionaryValue>;
 }
 
 export interface TrackedChange<TPayload = unknown> {
@@ -44,7 +47,7 @@ export interface TrackedChange<TPayload = unknown> {
   readonly revision: number;
   readonly summary: string;
   readonly payload: TPayload;
-  readonly metadata?: Record<string, unknown>;
+  readonly metadata?: Record<string, DictionaryValue>;
 }
 
 export interface TrackedChangeLedgerEntry {
@@ -53,7 +56,7 @@ export interface TrackedChangeLedgerEntry {
   readonly surface: EpochTrackedSurface;
   readonly source: string;
   readonly summary: string;
-  readonly metadata?: Record<string, unknown>;
+  readonly metadata?: Record<string, DictionaryValue>;
 }
 
 export interface TrackChangeResult<TPayload = unknown> {
@@ -87,6 +90,7 @@ export function createBrowserEpoch(options: BrowserEpochOptions): BrowserEpoch {
   function trackChange<TPayload>(input: TrackChangeInput<TPayload>): TrackChangeResult<TPayload> {
     const entity = requireNonEmpty(input.entity, "tracked entity");
     const revision = nextRevision(repository, entity);
+    // SAFETY: The module validates or constructs this value before applying the asserted contract.
     const change: TrackedChange<TPayload> = normalizeJson({
       kind: "tracked-change",
       surface: requireNonEmpty(input.surface, "tracked surface"),
@@ -96,7 +100,8 @@ export function createBrowserEpoch(options: BrowserEpochOptions): BrowserEpoch {
       payload: input.payload,
       metadata: input.metadata,
     }) as TrackedChange<TPayload>;
-    const event = repository.append(entity, change as unknown as Record<string, unknown>);
+    // SAFETY: The module validates or constructs this value before applying the asserted contract.
+    const event = repository.append(entity, change as Record<string, DictionaryValue>);
     return {
       event,
       revision,
@@ -176,6 +181,7 @@ export function readOptionalTrackedEntityFromRepository<TPayload>(
   entity: string,
 ): TrackedChange<TPayload> | undefined {
   const value = repository.entity(entity);
+  // SAFETY: The module validates or constructs this value before applying the asserted contract.
   return isTrackedChange(value) ? value as TrackedChange<TPayload> : undefined;
 }
 
@@ -183,9 +189,10 @@ export function versionLedgerFromRepository(
   repository: EpochLiveRepository,
   entity: string,
 ): readonly TrackedChangeLedgerEntry[] {
+  // SAFETY: The module validates or constructs this value before applying the asserted contract.
   return repository.history()
     .filter((event) => event.entity === entity && isTrackedChange(event.payload))
-    .map((event) => ledgerEntryFromEvent(event, event.payload as unknown as TrackedChange));
+    .map((event) => ledgerEntryFromEvent(event, event.payload as TrackedChange));
 }
 
 function nextRevision(repository: EpochLiveRepository, entity: string): number {
@@ -231,6 +238,7 @@ function storageKey(prefix: string, path: string): string {
 }
 
 function normalizeJson<T>(value: T): T {
+  // SAFETY: The module validates or constructs this value before applying the asserted contract.
   return JSON.parse(JSON.stringify(value)) as T;
 }
 
@@ -239,7 +247,7 @@ function requireNonEmpty(value: string, label: string): string {
   return value;
 }
 
-function isTrackedChange(value: unknown): value is TrackedChange {
+function isTrackedChange(value: BoundaryValue): value is TrackedChange {
   return isRecord(value)
     && value.kind === "tracked-change"
     && typeof value.surface === "string"

@@ -67,7 +67,7 @@ export function createCommunityWebSource(data: CommunityWebFixtureData, observed
       const last = page.at(-1);
       return Object.freeze({
         entities: Object.freeze(page),
-        ...(last === undefined || start + page.length >= visible.length ? {} : { next: sourceKeysetCursor(sourceId, last.ref.objectId) }),
+        ...(last === undefined || start + page.length >= visible.length ? undefined : { next: sourceKeysetCursor(sourceId, last.ref.objectId) }),
         checkpoint,
       });
     },
@@ -95,7 +95,7 @@ export function normalizeCommunityWebData(data: CommunityWebFixtureData, observe
     const body = record.body ?? "";
     const visibility = record.visibility ?? defaultVisibility;
     return validateCommunityEntity({
-      ref: { objectId, kind: record.kind ?? defaultKind, ...(record.revision === undefined ? {} : { revision: record.revision }) },
+      ref: { objectId, kind: record.kind ?? defaultKind, ...(record.revision === undefined ? undefined : { revision: record.revision }) },
       fields: {
         objectId,
         kind: record.kind ?? defaultKind,
@@ -106,18 +106,18 @@ export function normalizeCommunityWebData(data: CommunityWebFixtureData, observe
         visibility,
         createdAt,
         updatedAt: record.updatedAt ?? createdAt,
-        ...(record.channel === undefined ? {} : { channelId: record.channel }),
-        ...(record.project === undefined ? {} : { projectId: record.project }),
-        ...(record.dm === undefined ? {} : { dmId: record.dm }),
+        ...(record.channel === undefined ? undefined : { channelId: record.channel }),
+        ...(record.project === undefined ? undefined : { projectId: record.project }),
+        ...(record.dm === undefined ? undefined : { dmId: record.dm }),
       },
       searchableText: { title, body },
       relations: [],
       visibility,
-      ...(record.ownerId === undefined ? {} : { ownerId: record.ownerId }),
+      ...(record.ownerId === undefined ? undefined : { ownerId: record.ownerId }),
       participantIds: record.participantIds ?? [],
       createdAt,
       updatedAt: record.updatedAt ?? createdAt,
-      provenance: { sourceId: "community-web-host", nativeId: record.id ?? objectId, observedAt, ...(record.revision === undefined ? {} : { revision: record.revision }) },
+      provenance: { sourceId: "community-web-host", nativeId: record.id ?? objectId, observedAt, ...(record.revision === undefined ? undefined : { revision: record.revision }) },
     });
   }));
   const ids = new Set<string>();

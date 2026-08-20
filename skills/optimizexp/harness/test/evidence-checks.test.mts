@@ -55,8 +55,10 @@ describe("scorecard evidenceChecks shape", () => {
 		});
 		card.evidenceChecks = [
 			{ evidence: "ev" },
+			// SAFETY: The test fixture intentionally constructs this typed value to exercise the boundary.
 			{ exitCodeEquals: 0 } as never,
 			{ evidence: "ev", exitCodeEquals: 0.5 },
+			// SAFETY: The test fixture intentionally constructs this typed value to exercise the boundary.
 			{ evidence: "ev", transcriptContains: 42 as never },
 		];
 		const problems = validateScorecard(card, "outcome");
@@ -75,11 +77,12 @@ describe("scorecard evidenceChecks shape", () => {
 			friction: 0,
 			uncertainty: 0,
 		});
+		// SAFETY: The test fixture intentionally constructs this typed value to exercise the boundary.
 		const raw = {
 			...card,
 			evidenceChecks: "nope",
 			justification: 7,
-		} as unknown;
+		};
 		const problems = validateScorecard(raw, "expect");
 		assert.ok(problems.some((p) => p.includes("evidenceChecks must be an array")));
 		assert.ok(problems.some((p) => p.includes("justification must be a string")));

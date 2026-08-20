@@ -3,6 +3,7 @@
  * This is the Epoch-native auth contract for ADR-0054 (not HTTP Pact).
  */
 import assert from "node:assert/strict";
+import { isObjectNonNull, isString } from "../helpers/type-guards";
 import { createInMemoryPlatformCore } from "@epoch/platform-core";
 import { createAuthenticatedNatsLiveProvider, createLiveStore, createNatsLiveProvider } from "@epoch/live";
 import {
@@ -17,13 +18,18 @@ import {
   permissionsForScopes,
 } from "@epoch/nats";
 
+type TestJsonValue = boolean | null | number | string | TestJsonObject | readonly TestJsonValue[] | undefined;
+interface TestJsonObject {
+  readonly [key: string]: TestJsonValue;
+}
+
 export async function runPlatformFabricNatsContractTests(): Promise<void> {
   await mintVerifyAllowsGatedLiveConvergence();
   await sessionIdIsNotAcceptedAsFabricSecret();
   await revokeParentDeniesCalloutAndBlocksConnect();
   await expiredTicketDeniesCallout();
   await emptyApiTokenScopesDenyCallout();
-  await authCalloutResponseShapeIsStable();
+  await authCalloutResponseIsStable();
 }
 
 async function mintVerifyAllowsGatedLiveConvergence(): Promise<void> {
@@ -83,6 +89,7 @@ async function mintVerifyAllowsGatedLiveConvergence(): Promise<void> {
   });
   bob.connect(bobProvider);
   alice.dispatch({ type: "set", payload: { title: "contract-ok" } });
+  // SAFETY: Runtime checks or construction above establish { title?: string }).title.
   assert.equal((bob.getState() as { title?: string }).title, "contract-ok");
 
   aliceOpened.stop();
@@ -210,7 +217,7 @@ async function emptyApiTokenScopesDenyCallout(): Promise<void> {
   assert.match(deny.reason || "", /empty permissions/i);
 }
 
-async function authCalloutResponseShapeIsStable(): Promise<void> {
+async function authCalloutResponseIsStable(): Promise<void> {
   const bus = createInMemoryNatsBus();
   const core = createInMemoryPlatformCore();
   const user = core.createUser({ handle: "shape", displayName: "Shape" });
@@ -241,10 +248,12 @@ async function authCalloutResponseShapeIsStable(): Promise<void> {
     JSON.stringify({ authToken: ticket.secret, username: "shape" }),
     { timeout: 500 },
   );
-  const body = JSON.parse(Buffer.from(reply.data).toString("utf8")) as Record<string, unknown>;
+  // SAFETY: Runtime checks or construction above establish Record<string.
+  const body = JSON.parse(Buffer.from(reply.data).toString("utf8")) as TestJsonObject;
   assert.equal(body.type, "allow");
-  assert.equal(typeof body.user, "string");
-  assert.ok(body.permissions && typeof body.permissions === "object");
+  assert.equal(isString(body.user), true);
+  assert.ok(body.permissions && isObjectNonNull(body.permissions));
+  // SAFETY: Runtime checks or construction above establish { publish: unknown.
   const perms = body.permissions as { publish: unknown; subscribe: unknown };
   assert.ok(Array.isArray(perms.publish));
   assert.ok(Array.isArray(perms.subscribe));

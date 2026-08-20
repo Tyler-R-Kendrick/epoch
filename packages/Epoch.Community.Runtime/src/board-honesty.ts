@@ -1,3 +1,5 @@
+
+function __epochIsNumber<T>(value: T): value is T & number { return typeof value === "number"; }
 /**
  * Board honesty helpers shared by the Community Web board and its tests.
  *
@@ -140,7 +142,7 @@ export function describeReceiptBlade(receipt: BoardReceipt, source?: { readonly 
 }
 
 export function honestAgentStatus(status: string | undefined, heartbeatAt?: number, now = Date.now()): string {
-  if (status === "working" && !(typeof heartbeatAt === "number" && now - heartbeatAt < 30_000)) {
+  if (status === "working" && !(__epochIsNumber(heartbeatAt) && now - heartbeatAt < 30_000)) {
     return "idle";
   }
   return status || "idle";

@@ -20,7 +20,7 @@ async function federationModesAndSocialGraph(): Promise<void> {
     did: "did:plc:alice",
     handle: "alice.test",
     pdsEndpoint: "mock://pds",
-  }), (error: unknown) => error instanceof FeatureDisabledError && error.code === "feature_disabled");
+  }), (error) => error instanceof FeatureDisabledError && error.code === "feature_disabled");
 
   const local = new FederatedCommunity({ mode: "local-only", pds });
   local.bindIdentity({
@@ -92,7 +92,7 @@ async function issuesProposalsPrivateGatesAndLegalHold(): Promise<void> {
       visibility: "private",
       payload: { name: "secret" },
     }),
-    (error: unknown) => error instanceof PrivatePublishError,
+    (error) => error instanceof PrivatePublishError,
   );
 
   await assert.rejects(
@@ -103,7 +103,7 @@ async function issuesProposalsPrivateGatesAndLegalHold(): Promise<void> {
       visibility: "private",
       ownerDid: "did:plc:alice",
     }),
-    (error: unknown) => error instanceof PrivatePublishError,
+    (error) => error instanceof PrivatePublishError,
   );
 
   const issue = await community.openIssue({

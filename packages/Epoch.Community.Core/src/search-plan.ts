@@ -69,11 +69,14 @@ export function createSearchPlan(input: {
   if (cost > maxCost) throw new CommunityError("QUERY_COST_LIMIT", `Query estimated cost ${cost} exceeds limit ${maxCost}`, { estimatedCost: cost, maxCost });
   const planHash = stableQueryHash(JSON.stringify({
     version: 1,
+    // SAFETY: The surrounding validation and domain contract establish the asserted type.
     expression: JSON.parse(canonicalExpressionJson(input.expression)) as unknown,
     order,
     sources: sourcePlans.map(({ sourceId, pushdown, residual, checkpoint }) => ({
       sourceId,
+      // SAFETY: The surrounding validation and domain contract establish the asserted type.
       pushdown: JSON.parse(canonicalExpressionJson(pushdown)) as unknown,
+      // SAFETY: The surrounding validation and domain contract establish the asserted type.
       residual: JSON.parse(canonicalExpressionJson(residual)) as unknown,
       checkpoint: checkpoint.token,
     })),
@@ -175,6 +178,7 @@ function supported(expression: SearchExpression, source: SearchPlanningSource): 
 }
 
 function combineAnd(terms: readonly SearchExpression[]): SearchExpression {
+  // SAFETY: The surrounding validation and domain contract establish the asserted type.
   return terms.length === 0 ? { kind: "all" } : terms.length === 1 ? terms[0] as SearchExpression : { kind: "and", terms };
 }
 

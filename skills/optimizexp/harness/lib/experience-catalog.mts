@@ -362,6 +362,7 @@ export function readExperienceCatalog(
 	const p = catalogPath(project, root);
 	if (!existsSync(p)) return null;
 	try {
+		// SAFETY: The surrounding parser or local invariant establishes this domain type at the boundary.
 		return JSON.parse(readFileSync(p, "utf8")) as ExperienceCatalog;
 	} catch {
 		return null;

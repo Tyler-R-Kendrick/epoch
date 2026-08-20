@@ -1,4 +1,6 @@
 import { identifier } from "./digest";
+type BoundaryValue = null | undefined | boolean | number | string | bigint | symbol | Readonly<object>;
+
 
 /**
  * Command receipts.
@@ -102,9 +104,9 @@ export function createCommandReceipt<TData>(input: CommandReceiptInput<TData>): 
     actor: input.actor,
     workspaceId: input.workspaceId,
     readOnly: input.readOnly,
-    ...(input.baseRef === undefined ? {} : { baseRef: input.baseRef }),
-    ...(input.proposalRef === undefined ? {} : { proposalRef: input.proposalRef }),
-    ...(input.changeId === undefined ? {} : { changeId: input.changeId }),
+    ...(!(input.baseRef === undefined) && { baseRef: input.baseRef }),
+    ...(!(input.proposalRef === undefined) && { proposalRef: input.proposalRef }),
+    ...(!(input.changeId === undefined) && { changeId: input.changeId }),
     revisionIds: input.revisionIds ?? [],
     eventIds: input.eventIds ?? [],
     policy: input.policy,
@@ -124,7 +126,7 @@ export function policyReceipt(
     decision,
     capability,
     receiptId: identifier("pol", { decision, capability, reason: reason ?? null }),
-    ...(reason === undefined ? {} : { reason }),
+    ...(!(reason === undefined) && { reason }),
   };
 }
 
@@ -134,7 +136,7 @@ export const skippedValidation: EpochValidationReceipt = {
   errors: [],
 };
 
-export function validationReceipt(subject: unknown, errors: readonly string[]): EpochValidationReceipt {
+export function validationReceipt(subject: BoundaryValue, errors: readonly string[]): EpochValidationReceipt {
   return {
     state: errors.length === 0 ? "valid" : "invalid",
     receiptIds: [identifier("val", { subject, errors })],

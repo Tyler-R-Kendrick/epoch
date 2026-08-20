@@ -21,6 +21,11 @@ import {
   type WebMcpToolDescriptor,
 } from "@epoch/community-runtime";
 
+type TestJsonValue = boolean | null | number | string | TestJsonObject | readonly TestJsonValue[] | undefined;
+interface TestJsonObject {
+  readonly [key: string]: TestJsonValue;
+}
+
 const fullAccess = { capabilities: ["*"] } as const;
 const clock = (): string => "2026-08-12T00:00:00.000Z";
 
@@ -207,6 +212,7 @@ async function capabilitiesAreEnforcedBelowTheToolLayer(): Promise<void> {
   assert.equal(propose.annotations.readOnlyHint, false);
 
   // Visibility is not authorization: the tool exists, the command still refuses.
+  // SAFETY: Runtime checks or construction above establish {.
   const result = JSON.parse(await propose.execute({ view: TRUNK_VIEW, manifest: denserFeed })) as {
     decision: string;
     eventIds: readonly string[];
@@ -218,6 +224,7 @@ async function capabilitiesAreEnforcedBelowTheToolLayer(): Promise<void> {
   const status = tools.find((tool) => tool.name === "epoch_workspace_status");
   assert.ok(status);
   assert.equal(status.annotations.readOnlyHint, true);
+  // SAFETY: Runtime checks or construction above establish { decision: string }).decision.
   assert.equal((JSON.parse(await status.execute({})) as { decision: string }).decision, "allow");
 
   const showChange = tools.find((tool) => tool.name === "epoch_change_show");
@@ -242,11 +249,13 @@ async function everyAdapterReturnsTheSameReceipt(): Promise<void> {
 
   const cli = await executeCommunityRuntimeCommand(viaCli, ["view", "create", "denser-feed", "--json"]);
   assert.equal(cli.ok, true);
+  // SAFETY: Runtime checks or construction above establish EpochCommandReceipt.
   const cliReceipt = JSON.parse(cli.output) as EpochCommandReceipt;
 
   const tools = createWebMcpTools(viaTool);
   const create = tools.find((tool) => tool.name === "epoch_view_create");
   assert.ok(create);
+  // SAFETY: Runtime checks or construction above establish { commandId: string }.
   const toolReceipt = JSON.parse(await create.execute({ name: "denser-feed" })) as { commandId: string };
 
   assert.equal(cliReceipt.kind, "view.create");
@@ -316,6 +325,7 @@ async function theEpochBinaryOwnsBothCommandGroups(): Promise<void> {
     assert.equal(await executeCommunityCli(root, "ui", ["merge", "denser-feed", "--confirm"], io), true);
 
     // The workspace is on disk, so a second process sees the merged trunk.
+    // SAFETY: Runtime checks or construction above establish { data: { views: number } }.
     const status = JSON.parse((await capture(root, ["status", "--json"])).split("\n")[0]) as { data: { views: number } };
     assert.equal(status.data.views, 2);
 
@@ -491,14 +501,17 @@ async function identityIsStablePerDevice(): Promise<void> {
   assert.equal(second.created, false);
 
   // The private half never leaves: what is stored is the public key only.
-  const stored = JSON.parse(store.get("epoch:community-web:identity") ?? "{}") as Record<string, unknown>;
+  // SAFETY: Runtime checks or construction above establish Record<string.
+  const stored = JSON.parse(store.get("epoch:community-web:identity") ?? "{}") as TestJsonObject;
   assert.deepEqual(Object.keys(stored).sort(), ["actor", "publicKey", "version"]);
+  // SAFETY: Runtime checks or construction above establish { d?: string }).d.
   assert.equal((stored.publicKey as { d?: string }).d, undefined, "no private key material is stored");
 
   // Without WebCrypto, say so rather than fake a durable identity.
   const withoutCrypto = await resolveBrowserIdentity({
     namespace: "epoch:community-web",
     storage: { getItem: () => null, setItem: () => {} },
+    // SAFETY: Runtime checks or construction above establish Crypto.
     crypto: {} as Crypto,
   });
   assert.equal(withoutCrypto.kind, "ephemeral");

@@ -14,5 +14,6 @@ export function runProtocolRequiredEventTests(): void {
     "mirror.checkpoint", "mirror.run", "object.promise.recorded", "software-heritage.mapping",
     "software-heritage.archive-requested", "software-heritage.archive-status",
   ];
+  // SAFETY: Runtime checks or construction above establish never)).
   assert.deepEqual(required.filter((type) => !PROTOCOL_EVENT_SCHEMAS.includes(type as never)), []);
 }

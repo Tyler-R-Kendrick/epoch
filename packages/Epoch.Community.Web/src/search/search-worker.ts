@@ -4,6 +4,7 @@ import {
   type OramaLexicalDocument,
   type SearchWorkerRequest,
   type SearchWorkerResponse,
+  type SearchWorkerResult,
 } from "./browser-index";
 import { createOramaLexicalIndex } from "./orama-backend";
 
@@ -103,11 +104,14 @@ function validateDocuments(documents: readonly OramaLexicalDocument[]): void {
   }
 }
 
-function success(requestId: string, result?: unknown): SearchWorkerResponse {
-  return { requestId, ok: true, ...(result === undefined ? {} : { result }) };
+function success<Result extends SearchWorkerResult>(
+  requestId: string,
+  result?: Result,
+): SearchWorkerResponse {
+  return { requestId, ok: true, ...(result === undefined ? undefined : { result }) };
 }
 
-function failure(requestId: string, error: unknown): SearchWorkerResponse {
+function failure<ErrorValue>(requestId: string, error: ErrorValue): SearchWorkerResponse {
   if (isCommunityError(error)) {
     return { requestId, ok: false, error: { code: error.code, message: error.message } };
   }

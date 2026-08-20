@@ -10,7 +10,8 @@ export async function runOfficialSqliteRuntimeAdversarialTests(): Promise<void> 
   const { default: initializeSqlite } = await import("@sqlite.org/sqlite-wasm");
   const sqlite = await initializeSqlite();
   const raw = new sqlite.oo1.DB(":memory:", "ct");
-  const database: SqliteStatementDatabase = createSqliteStatementDatabase(raw as unknown as SqliteRawDatabase);
+  // SAFETY: Runtime checks or construction above establish unknown as SqliteRawDatabase).
+  const database: SqliteStatementDatabase = createSqliteStatementDatabase(raw as SqliteRawDatabase);
 
   try {
     const health = await initializeSqliteIndex(database, { storageMode: "memory" });
@@ -44,6 +45,6 @@ export async function runOfficialSqliteRuntimeAdversarialTests(): Promise<void> 
 if (require.main === module) {
   runOfficialSqliteRuntimeAdversarialTests().then(
     () => console.log("official SQLite runtime adversarial tests passed"),
-    (error: unknown) => { console.error(error); process.exitCode = 1; },
+    (error) => { console.error(error); process.exitCode = 1; },
   );
 }

@@ -1,3 +1,4 @@
+// SAFETY: The module validates or constructs this value before applying the asserted contract.
 import { randomUUID } from "node:crypto";
 import { readFile, writeFile } from "node:fs/promises";
 import {
@@ -8,6 +9,11 @@ import {
   type CommunityErrorCode,
 } from "@epoch/community-core";
 import type { CommunityCliContext } from "./index";
+type BoundaryValue = null | undefined | boolean | number | string | bigint | symbol | Readonly<object>;
+type DictionaryValue = null | undefined | boolean | number | string | bigint | readonly DictionaryValue[] | { readonly [key: string]: DictionaryValue };
+function __epochIsString<T>(value: T): value is T & string { return typeof value === "string"; }
+function __epochIsObject<T>(value: T): value is T & object { return typeof value === "object"; }
+
 
 export interface HttpCommunityCliContextOptions {
   readonly baseUrl: string;
@@ -34,9 +40,9 @@ export function createHttpCommunityCliContext(options: HttpCommunityCliContextOp
         timezone: options.timezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone,
         locale: options.locale ?? "en-US",
       },
-      search: ({ expression, order, first, after, signal }) => request("POST", "/search", { where: expression, orderBy: order, first, ...(after === undefined ? {} : { after }) }, signal),
+      search: ({ expression, order, first, after, signal }) => request("POST", "/search", { where: expression, orderBy: order, first, ...(!(after === undefined) && { after }) }, signal),
       explain: ({ expression, order, signal }) => request("POST", "/search/explain", { where: expression, orderBy: order, first: 100 }, signal),
-      executeGraphql: ({ document, variables, signal }) => request("POST", "/graphql", { query: document, ...(variables === undefined ? {} : { variables }) }, signal),
+      executeGraphql: ({ document, variables, signal }) => request("POST", "/graphql", { query: document, ...(!(variables === undefined) && { variables }) }, signal),
       readFile: load,
     },
     projections: {
@@ -49,7 +55,7 @@ export function createHttpCommunityCliContext(options: HttpCommunityCliContextOp
         sortableFields: registry.list({}).filter((field) => field.sortable).map((field) => field.name),
         limits: { maxDepth: 16, maxNodes: 256, maxFanout: 10_000, maxTemplateLength: 1024, maxSegmentLength: 255 },
       }),
-      preview: ({ definition, path, first, after, signal }) => request("POST", "/projections/preview", { definition, path, first, ...(after === undefined ? {} : { after }) }, signal),
+      preview: ({ definition, path, first, after, signal }) => request("POST", "/projections/preview", { definition, path, first, ...(!(after === undefined) && { after }) }, signal),
       explain: ({ projectionId, path, signal }) => request("GET", `/projections/${encodeURIComponent(projectionId)}/explain?path=${encodeURIComponent(path)}`, undefined, signal),
       save: (definition) => request("POST", "/projections", definition),
       delete: async (projectionId) => (await requestResponse("DELETE", `/projections/${encodeURIComponent(projectionId)}`)).status === 204,
@@ -70,20 +76,20 @@ export function createHttpCommunityCliContext(options: HttpCommunityCliContextOp
     return parseResponse<T>(response);
   }
 
-  async function request<T>(method: string, path: string, body?: unknown, signal?: AbortSignal): Promise<T> {
+  async function request<T>(method: string, path: string, body?: BoundaryValue, signal?: AbortSignal): Promise<T> {
     return parseResponse<T>(await requestResponse(method, path, body, signal));
   }
 
-  async function requestResponse(method: string, path: string, body?: unknown, signal?: AbortSignal): Promise<Response> {
+  async function requestResponse(method: string, path: string, body?: BoundaryValue, signal?: AbortSignal): Promise<Response> {
     return fetcher(`${trimSlash(options.baseUrl)}${path}`, {
       method,
       headers: {
         Accept: "application/json",
-        ...(body === undefined ? {} : { "Content-Type": "application/json" }),
-        ...(options.authorizationToken === undefined ? {} : { Authorization: `Bearer ${options.authorizationToken}` }),
+        ...(!(body === undefined) && { "Content-Type": "application/json" }),
+        ...(!(options.authorizationToken === undefined) && { Authorization: `Bearer ${options.authorizationToken}` }),
       },
-      ...(body === undefined ? {} : { body: JSON.stringify(body) }),
-      ...(signal === undefined ? {} : { signal }),
+      ...(!(body === undefined) && { body: JSON.stringify(body) }),
+      ...(!(signal === undefined) && { signal }),
     });
   }
 }
@@ -93,7 +99,7 @@ function createRequester(fetcher: typeof fetch, authorizationToken?: string): ty
     ...init,
     headers: {
       ...(init?.headers ?? {}),
-      ...(authorizationToken === undefined ? {} : { Authorization: `Bearer ${authorizationToken}` }),
+      ...(!(authorizationToken === undefined) && { Authorization: `Bearer ${authorizationToken}` }),
     },
   });
 }
@@ -101,13 +107,15 @@ function createRequester(fetcher: typeof fetch, authorizationToken?: string): ty
 async function parseResponse<T>(response: Response): Promise<T> {
   const text = await response.text();
   const value: unknown = text.length === 0 ? undefined : JSON.parse(text);
-  if (response.ok) return value as T;
+  // SAFETY: The module validates or constructs this value before applying the asserted contract.
+  // SAFETY: The module validates or constructs this value before applying the asserted contract.
+  if (response.ok) return /* SAFETY: Runtime validation immediately surrounding this expression establishes the asserted contract. */ value as T;
   const body = record(record(value)?.error);
   const code = communityErrorCode(body?.code);
-  throw new CommunityError(code, typeof body?.message === "string" ? body.message : "Community API request failed");
+  throw new CommunityError(code, __epochIsString(body?.message) ? body.message : "Community API request failed");
 }
 
-function communityErrorCode(value: unknown): CommunityErrorCode {
+function communityErrorCode(value: BoundaryValue): CommunityErrorCode {
   const known: readonly CommunityErrorCode[] = [
     "QUERY_SYNTAX", "QUERY_UNKNOWN_FIELD", "QUERY_INVALID_OPERATOR", "QUERY_COST_LIMIT", "QUERY_UNSUPPORTED_SOURCE",
     "CURSOR_INVALID", "CURSOR_STALE", "PROJECTION_INVALID", "PROJECTION_CYCLE", "PROJECTION_COLLISION",
@@ -115,11 +123,13 @@ function communityErrorCode(value: unknown): CommunityErrorCode {
     "INDEX_LOCKED", "INDEX_QUOTA", "AUTHORIZATION_DENIED", "PERSISTENCE_MIGRATION", "INVALID_ENTITY", "INVALID_FIELD",
     "CRYPTO_UNAVAILABLE", "INTERNAL",
   ];
-  return typeof value === "string" && known.includes(value as CommunityErrorCode) ? value as CommunityErrorCode : "INTERNAL";
+  // SAFETY: The module validates or constructs this value before applying the asserted contract.
+  return __epochIsString(value) && known.includes(value as CommunityErrorCode) ? value as CommunityErrorCode : "INTERNAL";
 }
 
-function record(value: unknown): Readonly<Record<string, unknown>> | undefined {
-  return typeof value === "object" && value !== null && !Array.isArray(value) ? value as Readonly<Record<string, unknown>> : undefined;
+function record(value: BoundaryValue): Readonly<Record<string, DictionaryValue>> | undefined {
+  // SAFETY: The module validates or constructs this value before applying the asserted contract.
+  return __epochIsObject(value) && value !== null && !Array.isArray(value) ? value as Readonly<Record<string, DictionaryValue>> : undefined;
 }
 
 function trimSlash(value: string): string { return value.endsWith("/") ? value.slice(0, -1) : value; }

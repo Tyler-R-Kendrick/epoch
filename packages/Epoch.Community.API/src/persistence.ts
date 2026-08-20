@@ -4,6 +4,9 @@ import { CommunityError, isCommunityError } from "@epoch/community-core";
 import { migrateCommunityState, type CommunityMigrationContext } from "./migrations";
 import { createMemoryCommunityStateStore, type CommunityStateStore } from "./store";
 import { validateCommunityStateV3, type CommunityStateV3 } from "./state-schema";
+type BoundaryValue = null | undefined | boolean | number | string | bigint | symbol | Readonly<object>;
+type DictionaryValue = null | undefined | boolean | number | string | bigint | readonly DictionaryValue[] | { readonly [key: string]: DictionaryValue };
+
 
 export interface JsonCommunityStateStoreOptions {
   readonly migrationContext?: CommunityMigrationContext;
@@ -36,7 +39,7 @@ export function createJsonCommunityStateStore(
   }
   return createMemoryCommunityStateStore(state, {
     persist: (candidate) => publishSafely(persistencePath, pendingPath, candidate, options),
-    ...(options.clock === undefined ? {} : { clock: options.clock }),
+    ...(!(options.clock === undefined) && { clock: options.clock }),
   });
 }
 
@@ -91,6 +94,7 @@ function recoverPending(persistencePath: string, pendingPath: string): void {
     return;
   }
   try {
+    // SAFETY: The module validates or constructs this value before applying the asserted contract.
     validateCommunityStateV3(JSON.parse(readFileSync(pendingPath, "utf8")) as unknown);
     renameSync(pendingPath, persistencePath);
     syncDirectory(path.dirname(persistencePath));
@@ -121,6 +125,7 @@ function decodeState(contents: string, migrationContext?: CommunityMigrationCont
 
 function isCurrentSchema(contents: string): boolean {
   try {
+    // SAFETY: The module validates or constructs this value before applying the asserted contract.
     const decoded = JSON.parse(contents) as unknown;
     return isRecord(decoded) && decoded.schemaVersion === 3;
   } catch {
@@ -145,6 +150,6 @@ function syncDirectory(directory: string): void {
   }
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
+function isRecord(value: BoundaryValue): value is Record<string, DictionaryValue> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }

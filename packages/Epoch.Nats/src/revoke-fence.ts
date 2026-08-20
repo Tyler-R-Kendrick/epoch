@@ -9,21 +9,16 @@ export type TrackedConnection = {
   isClosed(): boolean;
 };
 
-export function createConnectionFencer(options: { readonly boundMs?: number } = {}): {
-  track(connection: TrackedConnection): void;
-  revoke(principal: string): { readonly severed: number; readonly boundMs: number };
-  isRevoked(principal: string): boolean;
-  revokedAt(principal: string): number | undefined;
-} {
+export function createConnectionFencer(options: { readonly boundMs?: number } = {}) {
   const boundMs = options.boundMs ?? 1_000;
   const connections = new Set<TrackedConnection>();
   const revoked = new Map<string, number>();
 
   return {
-    track(connection) {
+    track(connection: TrackedConnection) {
       connections.add(connection);
     },
-    revoke(principal) {
+    revoke(principal: string) {
       revoked.set(principal, Date.now());
       let severed = 0;
       for (const connection of connections) {
@@ -35,10 +30,10 @@ export function createConnectionFencer(options: { readonly boundMs?: number } = 
       }
       return { severed, boundMs };
     },
-    isRevoked(principal) {
+    isRevoked(principal: string) {
       return revoked.has(principal);
     },
-    revokedAt(principal) {
+    revokedAt(principal: string) {
       return revoked.get(principal);
     },
   };

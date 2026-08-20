@@ -45,7 +45,7 @@ export async function interopDoctor(
   const copyOnWrite = await probeCopyOnWrite();
   const report = {
     schemaVersion: 1,
-    git: { ...git, ...(protocol ? { mode: protocol } : {}) },
+    git: { ...git, ...(protocol && { mode: protocol }) },
     optionalTools: Object.freeze([
       tool("jj", "jj", ["--version"], exec), tool("hg", "hg", ["--version", "--quiet"], exec),
       tool("rift", "rift", ["--version"], exec),

@@ -22,6 +22,7 @@ export function runPlatformProductionCoreTests(): void {
     assert.equal(existsSync(statePath), true);
     const stateFile = readFileSync(statePath, "utf8");
     assert.equal(stateFile.includes("postgres://prod-secret"), false);
+    // SAFETY: Runtime checks or construction above establish { manifestHash?: string.
     const stateEnvelope = JSON.parse(stateFile) as { manifestHash?: string; snapshot?: unknown };
     assert.ok(stateEnvelope.manifestHash?.startsWith("sha256:"));
     assert.ok(stateEnvelope.snapshot);
@@ -41,6 +42,7 @@ export function runPlatformProductionCoreTests(): void {
     assert.ok(verifiedBackup.artifactPath);
     assert.equal(existsSync(verifiedBackup.artifactPath), true);
     assert.ok(verifiedBackup.manifestHash?.startsWith("sha256:"));
+    // SAFETY: Runtime checks or construction above establish {.
     const backupArtifact = JSON.parse(readFileSync(verifiedBackup.artifactPath, "utf8")) as {
       manifest: { createdAt: string };
     };

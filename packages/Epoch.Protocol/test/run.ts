@@ -23,6 +23,8 @@ import {
   protocolJsonSchemas,
   type ProtocolEvent,
 } from "../src/index";
+type BoundaryValue = null | undefined | boolean | number | string | bigint | symbol | Readonly<object>;
+
 
 const tests: readonly [string, () => void][] = [
   ["PROTO-ID-001 canonical vectors are stable across runtimes", canonicalVectors],
@@ -47,6 +49,7 @@ for (const [name, run] of tests) {
 }
 
 function canonicalVectors(): void {
+  // SAFETY: The module validates or constructs this value before applying the asserted contract.
   const fixture = JSON.parse(readFileSync(join(__dirname, "../fixtures/canonical-id-vectors.json"), "utf8")) as {
     readonly schemaVersion: number;
     readonly vectors: readonly { readonly kind: "change" | "repo"; readonly bytesHex: string; readonly canonicalId: string }[];
@@ -155,7 +158,7 @@ function revsetContract(): void {
   assert.deepEqual(evaluateRevset("author(alice-smith)", [
     { revisionId: "r4", parentRevisionIds: [], authorId: "alice-smith" },
   ]), ["r4"], "hyphenated opaque arguments are not parsed as difference operators");
-  assert.throws(() => parseRevset("unknown()"), (error: unknown) =>
+  assert.throws(() => parseRevset("unknown()"), (error: BoundaryValue) =>
     error instanceof Error && "code" in error && error.code === "invalid-revset");
 }
 
@@ -186,7 +189,8 @@ function swhidContract(): void {
 }
 
 function eventBodySchemaContract(): void {
-  const schema = protocolJsonSchemas() as unknown as {
+  // SAFETY: The module validates or constructs this value before applying the asserted contract.
+  const schema = protocolJsonSchemas() as {
     readonly oneOf: readonly { readonly properties: { readonly type: { readonly const: string }; readonly body: { readonly $ref: string } } }[];
     readonly $defs: Readonly<Record<string, { readonly required?: readonly string[]; readonly additionalProperties?: boolean }>>;
   };

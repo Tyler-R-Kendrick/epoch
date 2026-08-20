@@ -45,7 +45,7 @@ export async function startFetchHandlerServer(
   const host = options.host ?? "127.0.0.1";
   const port = options.port ?? 0;
   const server: Server = createServer((req, res) => {
-    void adapt(req, res, handler).catch((error: unknown) => {
+    void adapt(req, res, handler).catch((error) => {
       res.statusCode = 500;
       res.setHeader("Content-Type", "text/plain");
       res.end(error instanceof Error ? error.message : String(error));
@@ -58,7 +58,7 @@ export async function startFetchHandlerServer(
   });
 
   const address = server.address();
-  if (address === null || typeof address === "string") {
+  if (address === null || isPipeAddress(address)) {
     throw new Error("pact provider server failed to bind");
   }
 
@@ -70,6 +70,10 @@ export async function startFetchHandlerServer(
         server.close((error) => (error ? reject(error) : resolveClose()));
       }),
   };
+}
+
+function isPipeAddress<Address>(address: Address): address is Address & string {
+  return typeof address === "string";
 }
 
 async function adapt(

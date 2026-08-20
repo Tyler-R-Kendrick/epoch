@@ -25,7 +25,7 @@
         }
         return;
       }
-      out[key] = typeof value === "string" ? value : text(value);
+      out[key] = globalThis.CW_VALUE.isString(value) ? value : text(value);
     });
     return out;
   }
@@ -140,7 +140,7 @@
 
   function createLayerStack(onStatus) {
     var layers = [];
-    var report = typeof onStatus === "function" ? onStatus : function () {};
+    var report = globalThis.CW_VALUE.isFunction(onStatus) ? onStatus : function () {};
     function status() {
       var top = layers[layers.length - 1];
       return top ? "Esc: " + (top.escapeLabel || ("close " + (top.label || top.id))) : "Esc: no action";
@@ -163,8 +163,8 @@
       cancelTop: function () {
         if (!layers.length) { report(status()); return null; }
         var removed = layers.pop();
-        if (typeof removed.cancel === "function") removed.cancel();
-        if (removed.returnFocus && removed.returnFocus.isConnected && typeof removed.returnFocus.focus === "function") {
+        if (globalThis.CW_VALUE.isFunction(removed.cancel)) removed.cancel();
+        if (removed.returnFocus && removed.returnFocus.isConnected && globalThis.CW_VALUE.isFunction(removed.returnFocus.focus)) {
           removed.returnFocus.focus({ preventScroll: true });
         }
         report(status());

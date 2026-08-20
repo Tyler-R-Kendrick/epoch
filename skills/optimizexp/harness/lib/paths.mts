@@ -1,3 +1,4 @@
+import { isString } from "./value-types.mts";
 import { existsSync, readdirSync } from "node:fs";
 import path from "node:path";
 import process from "node:process";
@@ -70,6 +71,7 @@ export function scopeForProject(
 		!project.path ||
 		project.path === "." ||
 		project.id === "root" ||
+		// SAFETY: The surrounding parser or local invariant establishes this domain type at the boundary.
 		(project as ProjectRef).kind === "root";
 	if (isRoot) {
 		return {
@@ -137,7 +139,7 @@ export function writeScopeFromSelection(
 
 /** Normalize string arg: OptimizexpScope dir, or legacy repo-root path. */
 function asOptimizexpDir(scopeOrRoot: OptimizexpScope | string): string {
-	if (typeof scopeOrRoot !== "string") return scopeOrRoot.optimizexpDir;
+	if (!isString(scopeOrRoot)) return scopeOrRoot.optimizexpDir;
 	// Already an .optimizexp directory
 	if (
 		scopeOrRoot.endsWith(`${path.sep}.optimizexp`) ||

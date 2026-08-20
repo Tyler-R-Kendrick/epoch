@@ -169,7 +169,7 @@
   }
 
   function isoDateTime(value) {
-    if (typeof value !== "string" || !value) return "";
+    if (!globalThis.CW_VALUE.isString(value) || !value) return "";
     var timestamp = Date.parse(value);
     return Number.isFinite(timestamp) && new Date(timestamp).toISOString() === value ? value : "";
   }

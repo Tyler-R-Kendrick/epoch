@@ -153,9 +153,10 @@ function localSavedViewsMigrate(): void {
 function conflictingDuplicatesFailClosed(): void {
   const legacy = schemaTwo();
   legacy.objects.push({ ...legacy.objects[0], body: "different" });
-  assert.throws(() => migrateCommunityState(legacy, runtime()), (error: unknown) => {
+  assert.throws(() => migrateCommunityState(legacy, runtime()), (error) => {
     assert.ok(error instanceof CommunityError);
     assert.equal(error.code, "PERSISTENCE_MIGRATION");
+    // SAFETY: Runtime checks or construction above establish { conflicts?: unknown[] } | undefined)?.conflicts?.length.
     assert.equal((error.details?.recovery as { conflicts?: unknown[] } | undefined)?.conflicts?.length, 1);
     assert.doesNotMatch(JSON.stringify(error.details), /different/u, "recovery details contain identifiers, not content");
     return true;
@@ -177,7 +178,8 @@ async function storeTransactionsAreAtomic(): Promise<void> {
 async function storeExportImportIsolated(): Promise<void> {
   const store = createMemoryCommunityStateStore(migrateCommunityState(schemaTwo(), runtime()));
   const exported = await store.export();
-  (exported.entities as unknown as { ref: { objectId: string } }[])[0]!.ref.objectId = "tampered";
+  // SAFETY: Runtime checks or construction above establish unknown as { ref: { objectId: string } }[])[0]!.ref.objectId = "tampered".
+  (exported.entities as { ref: { objectId: string } }[])[0]!.ref.objectId = "tampered";
   assert.equal(await store.read((snapshot) => snapshot.entity("m-api-1")?.ref.objectId), "m-api-1");
   const empty = emptyState();
   await store.import(empty);
@@ -252,6 +254,6 @@ function emptyState(): CommunityStateV3 {
   };
 }
 
-function typedMigrationError(error: unknown): boolean {
+function typedMigrationError(error): boolean {
   return error instanceof CommunityError && error.code === "PERSISTENCE_MIGRATION";
 }

@@ -142,8 +142,13 @@ const MANIFEST = [
 
 const EXECUTABLE_DIGEST = createHash("sha256").update("#!/bin/sh\nexit 0\n").digest("hex");
 
+interface PublisherFixture {
+  readonly publisher: string;
+  readonly signManifest: (text: string) => string;
+}
+
 /** A real Ed25519 publisher, so signature tests exercise actual verification. */
-function publisherFixture(): { publisher: string; signManifest: (text: string) => string } {
+function publisherFixture(): PublisherFixture {
   const { publicKey, privateKey } = generateKeyPairSync("ed25519");
   const der = publicKey.export({ type: "spki", format: "der" });
   const publisher = `epoch:principal:${der.toString("base64url")}`;
@@ -158,14 +163,14 @@ function publisherFixture(): { publisher: string; signManifest: (text: string) =
 
 /** Build a manifest body with the given overrides applied. */
 function manifestWith(overrides: Record<string, string>): string {
-  const base: Record<string, string> = {
+  const base = {
     name: `"difftastic"`,
     api: "1",
     version: `"0.65.0"`,
     publisher: `"epoch:principal:abc123"`,
     capabilities: `["syntax", "diff"]`,
     determinism: `"deterministic"`,
-  };
+  } satisfies Record<string, string>;
   return Object.entries({ ...base, ...overrides })
     .filter(([, value]) => value.length > 0)
     .map(([key, value]) => `${key} = ${value}`)
@@ -208,7 +213,7 @@ function manifestFailsClosedOnBadInput(): void {
   const rejects = (text: string, code: string): void => {
     assert.throws(
       () => parseExtensionManifest(text),
-      (error: unknown) => error instanceof ExtensionManifestError && error.code === code,
+      (error) => error instanceof ExtensionManifestError && error.code === code,
       `expected ${code} for: ${text.replace(/\n/gu, " | ")}`,
     );
   };
@@ -482,7 +487,7 @@ function registryHonoursPins(): void {
 
   assert.throws(
     () => registry.pin("syntax", "not.installed"),
-    (error: unknown) => error instanceof CapabilityRegistryError && error.code === "unknown-pin",
+    (error) => error instanceof CapabilityRegistryError && error.code === "unknown-pin",
   );
 
   // A pin that cannot be honoured must fail loudly. Falling through to the
@@ -495,7 +500,7 @@ function registryHonoursPins(): void {
   assert.equal(advisory.resolve("syntax", {})?.id, "ai.grammar");
   assert.throws(
     () => advisory.resolve("syntax", { forSignedState: true }),
-    (error: unknown) => error instanceof CapabilityRegistryError && error.code === "unknown-pin",
+    (error) => error instanceof CapabilityRegistryError && error.code === "unknown-pin",
   );
 }
 
@@ -516,7 +521,7 @@ function registryRefusesDuplicateProviders(): void {
   registry.register(builtinProvider("same.id"));
   assert.throws(
     () => registry.register(builtinProvider("same.id")),
-    (error: unknown) => error instanceof CapabilityRegistryError && error.code === "duplicate-provider",
+    (error) => error instanceof CapabilityRegistryError && error.code === "duplicate-provider",
   );
 }
 

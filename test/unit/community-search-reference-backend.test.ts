@@ -28,6 +28,7 @@ const CHECKPOINT = {
 const REGISTRY = createCommunityFieldRegistry();
 const SOURCE: SearchPlanningSource = {
   sourceId: "community-store",
+  // SAFETY: Runtime checks or construction above establish never] }).
   fields: Object.fromEntries(REGISTRY.list({ actorId: "maya", permissions: ["field:sensitive:read" as never] })
     .map((field) => [field.name, { operators: field.operators, sortable: field.sortable, facetable: field.facetable }])),
   fullText: "substring",
@@ -84,7 +85,7 @@ async function conflictingCanonicalEntitiesFailBeforeBackendPublication(): Promi
     context: fixedContext(),
     sources: [sourceAdapter("source-a", [entity("same", "public", NOW, "First")]), sourceAdapter("source-b", [entity("same", "public", NOW, "Second")])],
     authorization: MAYA,
-  }), (error: unknown) => error instanceof CommunityError && error.code === "INVALID_ENTITY");
+  }), (error) => error instanceof CommunityError && error.code === "INVALID_ENTITY");
   const service = new SearchService({ backend, registry: REGISTRY, context: fixedContext(), sources: [SOURCE] });
   const page = await service.search({ expression: { kind: "all" }, order: [], authorization: MAYA, first: 10 });
   assert.deepEqual(page.hits.map((hit) => hit.target.objectId), ["existing"]);
@@ -96,6 +97,7 @@ function sourceAdapter(sourceId: string, corpus: readonly CommunityEntity[]): Co
     sourceId,
     capabilities: () => ({
       sourceId,
+      // SAFETY: Runtime checks or construction above establish never] }).
       fields: Object.fromEntries(REGISTRY.list({ actorId: "maya", permissions: ["field:sensitive:read" as never] })
         .map((field) => [field.name, {
           type: field.type,
@@ -119,6 +121,7 @@ function sourceAdapter(sourceId: string, corpus: readonly CommunityEntity[]): Co
 }
 
 function evaluatorCoversEveryExpressionKind(): void {
+  // SAFETY: Runtime checks or construction above establish CommunityEntity.
   const entity = entities()[0] as CommunityEntity;
   const relationTarget = { objectId: "issue-02", kind: "issue" as const };
   const cases: readonly [SearchExpression, boolean][] = [
@@ -173,7 +176,7 @@ function plannerPartitionsPushdownAndResidualAndBoundsCost(): void {
     snapshot: snapshot("expensive"),
     limit: 25,
     limits: { maxCost: 3 },
-  }), (error: unknown) => error instanceof CommunityError && error.code === "QUERY_COST_LIMIT");
+  }), (error) => error instanceof CommunityError && error.code === "QUERY_COST_LIMIT");
 }
 
 async function snapshotsResolveTimeOnceAndBindAuthorization(): Promise<void> {
@@ -228,16 +231,16 @@ async function cursorsAreOpaqueBoundAndTamperEvident(): Promise<void> {
   const tampered = `${cursor.slice(0, tamperIndex)}${cursor[tamperIndex] === "A" ? "B" : "A"}${cursor.slice(tamperIndex + 1)}`;
   await assert.rejects(() => codec.decode(tampered, {
     snapshotId: "snapshot-7", planHash: "plan-7", authorizationFingerprint: "sha256:maya",
-  }), (error: unknown) => error instanceof CommunityError && error.code === "CURSOR_INVALID");
+  }), (error) => error instanceof CommunityError && error.code === "CURSOR_INVALID");
   await assert.rejects(() => codec.decode("!!!not-a-cursor!!!", {
     snapshotId: "snapshot-7", planHash: "plan-7", authorizationFingerprint: "sha256:maya",
-  }), (error: unknown) => error instanceof CommunityError && error.code === "CURSOR_INVALID");
+  }), (error) => error instanceof CommunityError && error.code === "CURSOR_INVALID");
   await assert.rejects(() => codec.decode("", {
     snapshotId: "snapshot-7", planHash: "plan-7", authorizationFingerprint: "sha256:maya",
-  }), (error: unknown) => error instanceof CommunityError && error.code === "CURSOR_INVALID");
+  }), (error) => error instanceof CommunityError && error.code === "CURSOR_INVALID");
   assert.throws(
     () => createKeysetCursorCodec({ key: new Uint8Array(16) }),
-    (error: unknown) => error instanceof CommunityError && error.code === "CURSOR_INVALID",
+    (error) => error instanceof CommunityError && error.code === "CURSOR_INVALID",
   );
   await assert.rejects(() => codec.encode({
     version: 2,
@@ -246,10 +249,10 @@ async function cursorsAreOpaqueBoundAndTamperEvident(): Promise<void> {
     authorizationFingerprint: "sha256:maya",
     sortKey: [NOW, "issue", "issue-01"],
     objectId: "issue-01",
-  }), (error: unknown) => error instanceof CommunityError && error.code === "CURSOR_INVALID");
+  }), (error) => error instanceof CommunityError && error.code === "CURSOR_INVALID");
   await assert.rejects(() => codec.decode(cursor, {
     snapshotId: "snapshot-other", planHash: "plan-7", authorizationFingerprint: "sha256:maya",
-  }), (error: unknown) => error instanceof CommunityError && error.code === "CURSOR_STALE");
+  }), (error) => error instanceof CommunityError && error.code === "CURSOR_STALE");
 }
 
 async function referenceBackendIsOrderedPageableAndIncremental(): Promise<void> {
@@ -283,7 +286,7 @@ async function referenceBackendIsOrderedPageableAndIncremental(): Promise<void> 
     authorization: { actorId: "rene" },
     snapshot: first.snapshot,
     after: first.pageInfo.endCursor,
-  }), (error: unknown) => error instanceof CommunityError && error.code === "CURSOR_STALE");
+  }), (error) => error instanceof CommunityError && error.code === "CURSOR_STALE");
 
   const changes: CommunitySearchChangeSet = {
     sourceId: "community-store",
@@ -357,7 +360,7 @@ async function cancellationFailsClosed(): Promise<void> {
   const service = new SearchService({ backend, registry: REGISTRY, context: fixedContext(), sources: [SOURCE] });
   await assert.rejects(() => service.search({
     expression: { kind: "all" }, order: [], authorization: MAYA, first: 10, signal: controller.signal,
-  }), (error: unknown) => error instanceof DOMException && error.name === "AbortError");
+  }), (error) => error instanceof DOMException && error.name === "AbortError");
 }
 
 function compare(field: string, operator: "eq" | "ne" | "lt" | "lte" | "gt" | "gte" | "in", value: string | number | readonly string[]): SearchExpression {
@@ -430,7 +433,7 @@ function snapshot(snapshotId: string) {
 if (require.main === module) {
   runCommunitySearchReferenceBackendTests().then(
     () => console.log("community search reference backend tests passed"),
-    (error: unknown) => {
+    (error) => {
       console.error(error);
       process.exitCode = 1;
     },

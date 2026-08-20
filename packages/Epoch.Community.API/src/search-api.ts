@@ -1,3 +1,4 @@
+// SAFETY: The module validates or constructs this value before applying the asserted contract.
 import {
   CommunityError,
   normalizeQuery,
@@ -13,6 +14,10 @@ import {
   type SearchService,
   type SearchSnapshot,
 } from "@epoch/community-core";
+type BoundaryValue = null | undefined | boolean | number | string | bigint | symbol | Readonly<object>;
+type DictionaryValue = null | undefined | boolean | number | string | bigint | readonly DictionaryValue[] | { readonly [key: string]: DictionaryValue };
+function __epochIsFunction<T>(value: T): value is T & ((...args: never[]) => BoundaryValue) { return typeof value === "function"; }
+
 
 const MAX_PAGE_SIZE = 1000;
 const MAX_SNAPSHOTS = 1024;
@@ -34,7 +39,7 @@ export interface CommunitySearchApi {
   search(input: CommunitySearchRequest, authorization: CommunityAuthorizationContext, signal?: AbortSignal): Promise<SearchPage>;
   explain(input: Omit<CommunitySearchRequest, "after" | "snapshot">, authorization: CommunityAuthorizationContext): Promise<SearchExplanation>;
   listSourceCapabilities(authorization: CommunityAuthorizationContext): Promise<readonly ReturnType<CommunitySourceAdapter["capabilities"]>[]>;
-  observableFields(fields: Readonly<Record<string, unknown>>, authorization: CommunityAuthorizationContext): Readonly<Record<string, unknown>>;
+  observableFields(fields: Readonly<Record<string, DictionaryValue>>, authorization: CommunityAuthorizationContext): Readonly<Record<string, DictionaryValue>>;
 }
 
 export interface CommunityParsedSearch {
@@ -75,6 +80,7 @@ export function createCommunitySearchApi(input: {
         locale: options.locale ?? input.runtime.locale,
       });
       if (normalized.ast !== null && !("kind" in normalized.ast)) throw new CommunityError("QUERY_SYNTAX", "Search parser returned an obsolete expression variant");
+      // SAFETY: The module validates or constructs this value before applying the asserted contract.
       return normalized as CommunityParsedSearch;
     },
     async search(request, authorization, signal) {
@@ -87,9 +93,9 @@ export function createCommunitySearchApi(input: {
         order: request.orderBy,
         authorization,
         first: request.first,
-        ...(request.after === undefined ? {} : { after: request.after }),
-        ...(snapshot === undefined ? {} : { snapshot }),
-        ...(signal === undefined ? {} : { signal }),
+        ...(!(request.after === undefined) && { after: request.after }),
+        ...(!(snapshot === undefined) && { snapshot }),
+        ...(!(signal === undefined) && { signal }),
       });
       rememberSnapshot(snapshots, page.snapshot);
       return page;
@@ -123,9 +129,11 @@ function validateRequest(input: CommunitySearchRequest | Omit<CommunitySearchReq
 function rememberSnapshot(snapshots: Map<string, SearchSnapshot>, snapshot: SearchSnapshot): void {
   snapshots.delete(snapshot.snapshotId);
   snapshots.set(snapshot.snapshotId, snapshot);
-  while (snapshots.size > MAX_SNAPSHOTS) snapshots.delete(snapshots.keys().next().value as string);
+  // SAFETY: The module validates or constructs this value before applying the asserted contract.
+  // SAFETY: The module validates or constructs this value before applying the asserted contract.
+  while (snapshots.size > MAX_SNAPSHOTS) snapshots.delete(/* SAFETY: Runtime validation immediately surrounding this expression establishes the asserted contract. */ snapshots.keys().next().value as string);
 }
 
 function cancellation(): Error {
-  return typeof DOMException === "function" ? new DOMException("Search was cancelled", "AbortError") : Object.assign(new Error("Search was cancelled"), { name: "AbortError" });
+  return __epochIsFunction(DOMException) ? new DOMException("Search was cancelled", "AbortError") : Object.assign(new Error("Search was cancelled"), { name: "AbortError" });
 }

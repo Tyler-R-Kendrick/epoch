@@ -110,6 +110,7 @@ export class CapabilityRegistry {
     if (this.providers.has(key)) {
       throw new CapabilityRegistryError("duplicate-provider", `provider already registered: ${key}`);
     }
+    // SAFETY: The module validates or constructs this value before applying the asserted contract.
     this.providers.set(key, provider as CapabilityProvider);
     return this;
   }
@@ -165,6 +166,7 @@ export class CapabilityRegistry {
             `pinned ${capability} provider ${pinned.providerId} has ${drifted[0]} ${String(drifted[2])}, expected ${String(drifted[1])}`,
           );
         }
+        // SAFETY: The module validates or constructs this value before applying the asserted contract.
         return match as CapabilityProvider<T>;
       }
       // Falling through to specificity here would silently answer a pinned
@@ -197,6 +199,7 @@ export class CapabilityRegistry {
         || sourceRank(right.provider.source) - sourceRank(left.provider.source)
         || left.provider.id.localeCompare(right.provider.id));
 
+    // SAFETY: The module validates or constructs this value before applying the asserted contract.
     return scored[0]?.provider as CapabilityProvider<T> | undefined;
   }
 

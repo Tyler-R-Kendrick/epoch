@@ -111,14 +111,14 @@ async function measure(
     durations.push(performance.now() - started);
   }
   durations.sort((left, right) => left - right);
-  return Object.freeze({
+  const result = {
     operation,
     entityCount,
     samples,
     p50Milliseconds: rounded(percentile(durations, 0.50)),
     p95Milliseconds: rounded(percentile(durations, 0.95)),
-    ...(logicalBytes === undefined ? {} : { logicalBytes }),
-  });
+  };
+  return Object.freeze(logicalBytes === undefined ? result : { ...result, logicalBytes });
 }
 
 function benchmarkPlan() {
@@ -163,6 +163,6 @@ function rounded(value: number): number { return Math.round(value * 1000) / 1000
 if (require.main === module) {
   runCommunitySearchBenchmarks({ include100k: process.env.EPOCH_BENCH_100K === "1" }).then(
     (report) => console.log(JSON.stringify(report, null, 2)),
-    (error: unknown) => { console.error(error); process.exitCode = 1; },
+    (error) => { console.error(error); process.exitCode = 1; },
   );
 }

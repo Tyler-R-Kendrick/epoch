@@ -104,7 +104,7 @@ export function bootstrapContext(
   });
 }
 
-function takeRemoteOption(argv: readonly string[]): { remote?: string; rest: readonly string[] } {
+function takeRemoteOption(argv: readonly string[]) {
   const index = argv.indexOf("--remote");
   if (index === -1) return { rest: argv };
   const value = argv[index + 1];
@@ -229,7 +229,7 @@ const processCliIO: CommunityCliIO = {
   stderr: (message) => process.stderr.write(message),
 };
 
-function parseOptions(args: readonly string[]): Record<string, string> {
+function parseOptions(args: readonly string[]) {
   const options: Record<string, string> = {};
   for (let index = 0; index < args.length; index += 1) {
     const key = args[index];

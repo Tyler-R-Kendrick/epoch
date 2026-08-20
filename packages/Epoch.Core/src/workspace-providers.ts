@@ -21,6 +21,7 @@ function child(root: string, path: string): string {
     try {
       if (lstatSync(cursor).isSymbolicLink()) throw new Error("Workspace path crosses a symbolic link");
     } catch (error) {
+      // SAFETY: Runtime checks or construction above establish NodeJS.ErrnoException).code === "ENOENT") break.
       if ((error as NodeJS.ErrnoException).code === "ENOENT") break;
       throw error;
     }
@@ -40,7 +41,7 @@ export class FileSystemWorkspaceProvider implements WorkspaceProvider {
     // result of actually cloning a file on this filesystem -- reports as
     // probed. `create()` below is the path that produces one (ADR-0043 phase 4).
     const probe = options.reflink;
-    const reflink = typeof probe === "object"
+    const reflink = probe !== undefined && probe !== true && probe !== false
       ? probe.supported
         ? supported(probe.mode)
         : unsupported(probe.reason ?? "filesystem refused a reflink clone")

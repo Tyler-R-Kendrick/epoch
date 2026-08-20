@@ -56,7 +56,7 @@
       if (!key || !value) return;
       tokens[key.startsWith("--") ? key : "--" + key] = value;
     });
-    return window.CW_THEME && typeof window.CW_THEME.sanitize === "function"
+    return window.CW_THEME && globalThis.CW_VALUE.isFunction(window.CW_THEME.sanitize)
       ? window.CW_THEME.sanitize(tokens).tokens
       : tokens;
   }
@@ -139,7 +139,7 @@
       return null;
     }
 
-    if (source && window.CW_GENERATE && typeof window.CW_GENERATE.parse === "function") {
+    if (source && window.CW_GENERATE && globalThis.CW_VALUE.isFunction(window.CW_GENERATE.parse)) {
       var parsed = window.CW_GENERATE.parse(source);
       if (!parsed) {
         say("That is not openui-lang the pinned library recognises, so it will not be proposed.", "rejected");
@@ -183,7 +183,7 @@
   }
 
   function modelLabel() {
-    return typeof window.LanguageModel === "undefined" ? "pasted-or-edited" : "on-device";
+    return globalThis.CW_VALUE.isUndefined(window.LanguageModel) ? "pasted-or-edited" : "on-device";
   }
 
   function toggleDecision(show) {

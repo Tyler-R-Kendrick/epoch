@@ -33,10 +33,10 @@
   };
   /** Markdown + colourised ASCII for bodies (tables, code, marks). */
   function honestAgentStatus(status, heartbeatAt) {
-    if (window.CW_RUNTIME && typeof window.CW_RUNTIME.honestAgentStatus === "function") {
+    if (window.CW_RUNTIME && globalThis.CW_VALUE.isFunction(window.CW_RUNTIME.honestAgentStatus)) {
       return window.CW_RUNTIME.honestAgentStatus(status, heartbeatAt);
     }
-    if (status === "working" && !(typeof heartbeatAt === "number")) return "idle";
+    if (status === "working" && !(globalThis.CW_VALUE.isNumber(heartbeatAt))) return "idle";
     return status || "idle";
   }
 
@@ -54,7 +54,7 @@
 
   function receiptLocatorHtml(raw) {
     var text = String(raw == null ? "" : raw);
-    var opened = window.CW_RUNTIME && typeof window.CW_RUNTIME.parseBoardReceiptLocator === "function"
+    var opened = window.CW_RUNTIME && globalThis.CW_VALUE.isFunction(window.CW_RUNTIME.parseBoardReceiptLocator)
       ? window.CW_RUNTIME.parseBoardReceiptLocator(text)
       : null;
     if (!opened) return '<span class="cn-sig-text">' + esc(text) + "</span>";
@@ -67,7 +67,7 @@
       if (window.CW_ASCII && window.CW_ASCII.formatBody) return window.CW_ASCII.formatBody(chunk);
       return esc(chunk);
     };
-    if (window.CW_STREAM && typeof window.CW_STREAM.slabHtml === "function" &&
+    if (window.CW_STREAM && globalThis.CW_VALUE.isFunction(window.CW_STREAM.slabHtml) &&
         window.CW_STREAM.role && window.CW_STREAM.role() === "spectator") {
       return window.CW_STREAM.slabHtml(text, format);
     }
@@ -230,7 +230,7 @@
 
   /** Stable fixture score when a post has no explicit score. */
   function baseScore(p) {
-    if (typeof p.score === "number") return p.score;
+    if (globalThis.CW_VALUE.isNumber(p.score)) return p.score;
     var h = 0;
     var s = String(p.id || "");
     for (var i = 0; i < s.length; i++) h = ((h << 5) - h + s.charCodeAt(i)) | 0;
@@ -325,7 +325,7 @@
 
   /** Sticky new-posts queue — only when a channel/space feed is open in detail. */
   function feedNoticeHtml(state) {
-    var open = window.CW_APP && typeof window.CW_APP.feedNoticeOpen === "function"
+    var open = window.CW_APP && globalThis.CW_VALUE.isFunction(window.CW_APP.feedNoticeOpen)
       ? window.CW_APP.feedNoticeOpen()
       : false;
     var n = state && state.pending ? state.pending.length : 0;
@@ -1648,7 +1648,7 @@
       : null;
     var compose = null;
     try {
-      if (window.CW_APP && typeof window.CW_APP.composeContext === "function") {
+      if (window.CW_APP && globalThis.CW_VALUE.isFunction(window.CW_APP.composeContext)) {
         compose = window.CW_APP.composeContext();
       }
     } catch { /* fine */ }
@@ -1977,8 +1977,8 @@
   }
 
   function helpRowDesc(row, ctx) {
-    var d = typeof row.desc === "function" ? row.desc(ctx) : row.desc;
-    var note = row.note ? (typeof row.note === "function" ? row.note(ctx) : row.note) : "";
+    var d = globalThis.CW_VALUE.isFunction(row.desc) ? row.desc(ctx) : row.desc;
+    var note = row.note ? (globalThis.CW_VALUE.isFunction(row.note) ? row.note(ctx) : row.note) : "";
     return note ? d + " · " + note : d;
   }
 
@@ -2591,7 +2591,7 @@
         subMark +
         (e.unread
           ? '<span class="cn-badge" title="Unread">' +
-            (typeof e.unread === "number" ? e.unread : "new") + "</span>"
+            (globalThis.CW_VALUE.isNumber(e.unread) ? e.unread : "new") + "</span>"
           : '<span class="cn-hint">' + (spark ? '<span class="cn-spark" aria-hidden="true">' + spark + "</span> " : "") +
           esc(e.hint || "") + "</span>") +
         "</button></div>";
@@ -4409,7 +4409,7 @@
       // Single source of truth: app.menuShouldOpen (requires typed `/` for slash,
       // markers/CLI tokens for other kinds, intelOpen for Ctrl+Space). Never open
       // the AI slash catalogue from an empty prompt after mouse nav / reload.
-      var menuOpen = !!(window.CW_APP && typeof window.CW_APP.menuShouldOpen === "function"
+      var menuOpen = !!(window.CW_APP && globalThis.CW_VALUE.isFunction(window.CW_APP.menuShouldOpen)
         ? window.CW_APP.menuShouldOpen()
         : (intel && cand.candidates && cand.candidates.length));
       var menuLabel = cand.kind === "mention" ? "Mentions"

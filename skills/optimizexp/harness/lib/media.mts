@@ -27,7 +27,7 @@ export function clearPrimaryArtifacts(dir: string): boolean {
 	return had;
 }
 
-export function writeJson(filePath: string, data: unknown): void {
+export function writeJson<T>(filePath: string, data: T): void {
 	writeFileSync(filePath, `${JSON.stringify(data, null, 2)}\n`, "utf8");
 }
 

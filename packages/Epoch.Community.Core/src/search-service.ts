@@ -83,14 +83,16 @@ export class SearchService {
 
   async search(input: SearchRequest): Promise<SearchPage> {
     if (input.signal?.aborted === true) throw new DOMException("Search was cancelled", "AbortError");
-    const plan = await this.plan({
+    const planInput = {
       expression: input.expression,
       order: input.order,
       authorization: input.authorization,
       limit: input.first,
-      ...(input.snapshot === undefined ? {} : { snapshot: input.snapshot }),
-    });
-    const page: PageRequest = { first: input.first, ...(input.after === undefined ? {} : { after: input.after }) };
+    };
+    const plan = input.snapshot === undefined
+      ? await this.plan(planInput)
+      : await this.plan({ ...planInput, snapshot: input.snapshot });
+    const page: PageRequest = input.after === undefined ? { first: input.first } : { first: input.first, after: input.after };
     return this.#backend.search(plan, page, input.signal);
   }
 }
@@ -203,11 +205,11 @@ async function scanSource(input: {
     let after: string | undefined;
     for (let pageNumber = 0; pageNumber < input.maxPages; pageNumber += 1) {
       if (input.signal !== undefined) abortSource(input.signal);
-      const page = await input.source.scan({
-        ...(after === undefined ? {} : { after }),
+      const scanInput = {
         limit: boundedSourcePageSize(input.pageSize, input.capabilities),
         authorization: input.authorization,
-      });
+      };
+      const page = await input.source.scan(after === undefined ? scanInput : { ...scanInput, after });
       if (page.checkpoint.sourceId !== input.source.sourceId) throw new Error("page checkpoint source mismatch");
       const pageObservedAt = validObservedAt(page.checkpoint.observedAt);
       if (page.checkpoint.status === "current" && pageObservedAt < observedAt) throw new Error("source checkpoint regressed");

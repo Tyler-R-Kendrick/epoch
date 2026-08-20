@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createCommunityApiFetchHandler, createInMemoryCommunityApi } from "@epoch/community-api";
 import type { CommunityMessage } from "@epoch/community-core";
+import { isFunction } from "../helpers/type-guards";
 
 export async function runCommunityApiProjectionTests(): Promise<void> {
   await test("NAV-MIGRATE-001 API schema migration preserves data", apiMigrationPreservesDataAndAssignsIdsOnce);
@@ -142,7 +143,7 @@ function flatProjectionFacadeIsAbsent(): void {
 
 function changeVocabularyIsCanonical(): void {
   const api = createInMemoryCommunityApi();
-  assert.equal(typeof api.createChange, "function");
+  assert.equal(isFunction(api.createChange), true);
   assert.equal("proposeChange" in api, false);
 }
 

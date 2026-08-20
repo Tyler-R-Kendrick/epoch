@@ -75,7 +75,10 @@ export interface NormalizedCommunityQuery {
   readonly error?: string;
 }
 
-export function semanticExpression(expression: SearchExpression | null): unknown {
+export type SemanticValue = string | number | boolean | null | SemanticObject | readonly SemanticValue[];
+export interface SemanticObject { readonly [key: string]: SemanticValue }
+
+export function semanticExpression(expression: SearchExpression | null): SemanticValue {
   if (expression === null) return null;
   switch (expression.kind) {
     case "all": return { kind: expression.kind };
@@ -83,22 +86,33 @@ export function semanticExpression(expression: SearchExpression | null): unknown
     case "not": return { kind: expression.kind, term: semanticExpression(expression.term) };
     case "text": return { kind: expression.kind, fields: expression.fields, value: expression.value, mode: expression.mode };
     case "compare": return { kind: expression.kind, field: expression.field, operator: expression.operator, value: expression.value };
-    case "range": return {
-      kind: expression.kind,
-      field: expression.field,
-      ...(expression.lower === undefined ? {} : { lower: expression.lower }),
-      ...(expression.upper === undefined ? {} : { upper: expression.upper }),
-      includeLower: expression.includeLower,
-      includeUpper: expression.includeUpper,
-    };
+    case "range": {
+      const semantic: SemanticObject = {
+        kind: expression.kind,
+        field: expression.field,
+        includeLower: expression.includeLower,
+        includeUpper: expression.includeUpper,
+      };
+      if (expression.lower !== undefined) Object.assign(semantic, { lower: expression.lower });
+      if (expression.upper !== undefined) Object.assign(semantic, { upper: expression.upper });
+      return semantic;
+    }
     case "exists": return { kind: expression.kind, field: expression.field };
-    case "related": return {
-      kind: expression.kind,
-      relation: expression.relation,
-      target: expression.target,
-      direction: expression.direction,
-      maxDepth: expression.maxDepth,
-    };
+    case "related": {
+      const target: SemanticObject = {
+        objectId: expression.target.objectId,
+        kind: expression.target.kind,
+      };
+      if (expression.target.atUri !== undefined) Object.assign(target, { atUri: expression.target.atUri });
+      if (expression.target.revision !== undefined) Object.assign(target, { revision: expression.target.revision });
+      return {
+        kind: expression.kind,
+        relation: expression.relation,
+        target,
+        direction: expression.direction,
+        maxDepth: expression.maxDepth,
+      };
+    }
   }
 }
 

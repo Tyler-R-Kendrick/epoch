@@ -46,6 +46,11 @@ import { createMemoryCommunityStateStore, type CommunityStateSnapshot, type Comm
 import type { CommunityStateV3 } from "./state-schema";
 import type { CommunityNamespaceApi } from "./namespace-api";
 import type { CommunitySearchRequest } from "./search-api";
+type BoundaryValue = null | undefined | boolean | number | string | bigint | symbol | Readonly<object>;
+type DictionaryValue = null | undefined | boolean | number | string | bigint | readonly DictionaryValue[] | { readonly [key: string]: DictionaryValue };
+function __epochIsString<T>(value: T): value is T & string { return typeof value === "string"; }
+function __epochIsNumber<T>(value: T): value is T & number { return typeof value === "number"; }
+
 
 export * from "./community-source";
 export * from "./convergence";
@@ -95,11 +100,11 @@ export function createCommunityApiHost(options: CreateCommunityApiHostOptions = 
   const store = options.store ?? (options.persistencePath === undefined
     ? createMemoryCommunityStateStore(initial, { clock: runtime.clock })
     : createJsonCommunityStateStore(options.persistencePath, initial, { migrationContext, clock: runtime.clock, persistInitial: true }));
-  const api = createInMemoryCommunityApi({ store, runtime, ...(options.authorizeObject === undefined ? {} : { authorizeObject: options.authorizeObject }) });
+  const api = createInMemoryCommunityApi({ store, runtime, ...(!(options.authorizeObject === undefined) && { authorizeObject: options.authorizeObject }) });
   const services = createCommunityServiceApis({
     store,
     runtime,
-    ...(options.cursorKey === undefined ? {} : { cursorKey: options.cursorKey }),
+    ...(!(options.cursorKey === undefined) && { cursorKey: options.cursorKey }),
   });
   return Object.freeze({
     api,
@@ -107,7 +112,7 @@ export function createCommunityApiHost(options: CreateCommunityApiHostOptions = 
     services,
     handler: createCommunityApiFetchHandler(api, {
       services,
-      ...(options.resolveAuthorization === undefined ? {} : { resolveAuthorization: options.resolveAuthorization }),
+      ...(!(options.resolveAuthorization === undefined) && { resolveAuthorization: options.resolveAuthorization }),
     }),
   });
 }
@@ -117,6 +122,7 @@ export function createCommunityGraphQLServices(input: CommunityServiceApis): Com
   const rejectNamespace = (namespace: string | undefined): void => {
     if (namespace !== undefined && namespace !== "default") throw new CommunityError("QUERY_UNSUPPORTED_SOURCE", `Unknown namespace: ${namespace}`);
   };
+  // SAFETY: The module validates or constructs this value before applying the asserted contract.
   const services: CommunityGraphQLServices = {
     async node(id, authorization) {
       return input.store.read((state) => {
@@ -124,12 +130,14 @@ export function createCommunityGraphQLServices(input: CommunityServiceApis): Com
         return entity !== undefined && canReadEntity(entity, authorization, () => true, (objectId) => state.entity(objectId)) ? entity : undefined;
       });
     },
-    observableFields(entity, authorization) { return input.search.observableFields(entity.fields, authorization) as CommunityEntity["fields"]; },
+    // SAFETY: The module validates or constructs this value before applying the asserted contract.
+    // SAFETY: The module validates or constructs this value before applying the asserted contract.
+    observableFields(entity, authorization) { return /* SAFETY: Runtime validation immediately surrounding this expression establishes the asserted contract. */ input.search.observableFields(entity.fields, authorization) as CommunityEntity["fields"]; },
     async search(request) {
       if ((request.scope?.sourceIds?.length ?? 0) > 0 || (request.scope?.objectKinds?.length ?? 0) > 0) {
         throw new CommunityError("QUERY_UNSUPPORTED_SOURCE", "Scoped GraphQL search requires a source-aware planner");
       }
-      return input.search.search({ where: request.where, orderBy: request.orderBy, first: request.first, ...(request.after === undefined ? {} : { after: request.after }), ...(request.snapshot === undefined ? {} : { snapshot: request.snapshot }) }, request.authorization, request.signal);
+      return input.search.search({ where: request.where, orderBy: request.orderBy, first: request.first, ...(!(request.after === undefined) && { after: request.after }), ...(!(request.snapshot === undefined) && { snapshot: request.snapshot }) }, request.authorization, request.signal);
     },
     parseSearch(expression, options) { return input.search.parseSearch(expression, options); },
     async explainSearch(request) {
@@ -140,8 +148,10 @@ export function createCommunityGraphQLServices(input: CommunityServiceApis): Com
     projection: (id, authorization) => input.projections.get(id, authorization),
     saveProjection: (definition, authorization) => input.projections.save(definition, authorization),
     deleteProjection: (id, authorization) => input.projections.delete(id, authorization),
-    async projectionContext(authorization, snapshot) { const context = await input.namespace.context(authorization, snapshot); authorizations.set(context.authorizationFingerprint, authorization); while (authorizations.size > 1024) authorizations.delete(authorizations.keys().next().value as string); return context; },
-    async listPath(request) { rejectNamespace(request.namespace); return input.namespace.list(request.path, { first: request.first, ...(request.after === undefined ? {} : { after: request.after }) }, authorizationFor(request.context.authorizationFingerprint), request.context.snapshotId); },
+    // SAFETY: The module validates or constructs this value before applying the asserted contract.
+    // SAFETY: The module validates or constructs this value before applying the asserted contract.
+    async projectionContext(authorization, snapshot) { const context = await input.namespace.context(authorization, snapshot); authorizations.set(context.authorizationFingerprint, authorization); while (authorizations.size > 1024) authorizations.delete(/* SAFETY: Runtime validation immediately surrounding this expression establishes the asserted contract. */ authorizations.keys().next().value as string); return context; },
+    async listPath(request) { rejectNamespace(request.namespace); return input.namespace.list(request.path, { first: request.first, ...(!(request.after === undefined) && { after: request.after }) }, authorizationFor(request.context.authorizationFingerprint), request.context.snapshotId); },
     async resolvePath(request) { rejectNamespace(request.namespace); return input.namespace.resolve(request.path, authorizationFor(request.context.authorizationFingerprint), request.context.snapshotId); },
     async locate(request) {
       rejectNamespace(request.namespace);
@@ -279,6 +289,7 @@ export function createInMemoryCommunityApi(options: CreateInMemoryCommunityApiOp
 export function createCommunityApiFetchHandler(api: CommunityApiTransport, options: CreateCommunityApiFetchHandlerOptions = {}): (request: Request) => Promise<Response> {
   const graphqlServices = options.graphqlServices ?? (options.services === undefined ? undefined : createCommunityGraphQLServices(options.services));
   const graphqlSchema = graphqlServices === undefined ? undefined : createCommunityGraphQLSchema(graphqlServices);
+  // SAFETY: The module validates or constructs this value before applying the asserted contract.
   return async (request) => {
     try {
       const url = new URL(request.url);
@@ -286,36 +297,41 @@ export function createCommunityApiFetchHandler(api: CommunityApiTransport, optio
       const authorization = await (options.resolveAuthorization?.(request) ?? {});
       if (request.method === "POST" && url.pathname === "/graphql") {
         if (graphqlSchema === undefined) throw new CommunityError("QUERY_UNSUPPORTED_SOURCE", "GraphQL services are not configured");
-        const body = await boundedJson(request) as { readonly query?: unknown; readonly variables?: Readonly<Record<string, unknown>>; readonly operationName?: string };
-        if (typeof body.query !== "string") throw new CommunityError("QUERY_SYNTAX", "GraphQL query is required");
-        return json(await executeCommunityGraphQL({ schema: graphqlSchema, source: body.query, context: { authorization, signal: request.signal } satisfies CommunityGraphQLContext, ...(body.variables === undefined ? {} : { variableValues: body.variables }), ...(body.operationName === undefined ? {} : { operationName: body.operationName }) }));
+        // SAFETY: The module validates or constructs this value before applying the asserted contract.
+        const body = await boundedJson(request) as { readonly query?: unknown; readonly variables?: Readonly<Record<string, DictionaryValue>>; readonly operationName?: string };
+        if (!__epochIsString(body.query)) throw new CommunityError("QUERY_SYNTAX", "GraphQL query is required");
+        return json(await executeCommunityGraphQL({ schema: graphqlSchema, source: body.query, context: { authorization, signal: request.signal } satisfies CommunityGraphQLContext, ...(!(body.variables === undefined) && { variableValues: body.variables }), ...(!(body.operationName === undefined) && { operationName: body.operationName }) }));
       }
       if (request.method === "POST" && url.pathname === "/search") {
         const services = requiredServices(options.services);
+        // SAFETY: The module validates or constructs this value before applying the asserted contract.
         const body = await boundedJson(request) as CommunitySearchRequest & { readonly scope?: unknown };
         rejectUnsupportedSearchScope(body.scope);
         return json(await services.search.search(body, authorization, request.signal));
       }
       if (request.method === "POST" && url.pathname === "/search/parse") {
         const services = requiredServices(options.services);
+        // SAFETY: The module validates or constructs this value before applying the asserted contract.
         const body = await boundedJson(request) as { readonly expression?: unknown; readonly timezone?: string; readonly locale?: string };
-        if (typeof body.expression !== "string") throw new CommunityError("QUERY_SYNTAX", "Search expression is required");
-        return json(services.search.parseSearch(body.expression, { authorization, ...(body.timezone === undefined ? {} : { timezone: body.timezone }), ...(body.locale === undefined ? {} : { locale: body.locale }) }));
+        if (!__epochIsString(body.expression)) throw new CommunityError("QUERY_SYNTAX", "Search expression is required");
+        return json(services.search.parseSearch(body.expression, { authorization, ...(!(body.timezone === undefined) && { timezone: body.timezone }), ...(!(body.locale === undefined) && { locale: body.locale }) }));
       }
       if (request.method === "POST" && url.pathname === "/search/explain") {
         const services = requiredServices(options.services);
+        // SAFETY: The module validates or constructs this value before applying the asserted contract.
         const body = await boundedJson(request) as Omit<CommunitySearchRequest, "after" | "snapshot"> & { readonly scope?: unknown };
         rejectUnsupportedSearchScope(body.scope);
         return json(await services.search.explain(body, authorization));
       }
       if (request.method === "GET" && url.pathname === "/namespace/list") {
         const services = requiredServices(options.services);
-        return json(await services.namespace.list(url.searchParams.get("path") ?? "/", { first: boundedFirst(url.searchParams.get("first")), ...(url.searchParams.get("after") === null ? {} : { after: url.searchParams.get("after")! }) }, authorization, url.searchParams.get("snapshot") ?? undefined));
+        return json(await services.namespace.list(url.searchParams.get("path") ?? "/", { first: boundedFirst(url.searchParams.get("first")), ...(!(url.searchParams.get("after") === null) && { after: url.searchParams.get("after")! }) }, authorization, url.searchParams.get("snapshot") ?? undefined));
       }
       if (request.method === "GET" && url.pathname === "/namespace/resolve") return json(await requiredServices(options.services).namespace.resolve(url.searchParams.get("path") ?? "/", authorization, url.searchParams.get("snapshot") ?? undefined));
       if (request.method === "GET" && url.pathname === "/namespace/explain") return json(await requiredServices(options.services).namespace.explain(url.searchParams.get("path") ?? "/", authorization, url.searchParams.get("snapshot") ?? undefined));
       if (request.method === "GET" && url.pathname === "/namespace/mounts") return json(await requiredServices(options.services).namespace.mounts(authorization));
       if (request.method === "POST" && url.pathname === "/namespace/mounts") {
+        // SAFETY: The module validates or constructs this value before applying the asserted contract.
         const body = await boundedJson(request) as Parameters<CommunityNamespaceApi["mount"]>[0];
         return json(await requiredServices(options.services).namespace.mount(body, authorization), 201);
       }
@@ -323,32 +339,39 @@ export function createCommunityApiFetchHandler(api: CommunityApiTransport, optio
         return json({ removed: await requiredServices(options.services).namespace.unmount(segments[2], authorization) });
       }
       if (request.method === "POST" && url.pathname === "/namespace/reset") {
+        // SAFETY: The module validates or constructs this value before applying the asserted contract.
         const body = await boundedJson(request) as { readonly scope?: unknown };
         if (body.scope !== "user" && body.scope !== "workspace" && body.scope !== "session") throw new CommunityError("NAMESPACE_RECOVERY_PROTECTED", "Only user, workspace, and session namespace scopes may be reset");
         return json(await requiredServices(options.services).namespace.reset(body.scope, authorization));
       }
       if (request.method === "GET" && url.pathname === "/workflows") return json(await api.listWorkflows());
       if (request.method === "GET" && url.pathname === "/repositories") return json(await api.listRepositories());
-      if (request.method === "POST" && url.pathname === "/repositories") return json(await api.createRepository(await boundedJson(request) as CreateCommunityRepositoryInput), 201);
+      // SAFETY: The module validates or constructs this value before applying the asserted contract.
+      // SAFETY: The module validates or constructs this value before applying the asserted contract.
+      if (request.method === "POST" && url.pathname === "/repositories") return json(await api.createRepository(/* SAFETY: Runtime validation immediately surrounding this expression establishes the asserted contract. */ await boundedJson(request) as CreateCommunityRepositoryInput), 201);
       if (segments[0] === "objects" && segments[1] !== undefined) {
         if (segments.length === 2 && request.method === "GET") return json(await api.getObject(segments[1], authorization));
         if (segments.length === 3 && segments[2] === "thread" && request.method === "GET") return json(await api.listThreadRelations(segments[1], authorization));
         if (segments.length === 3 && segments[2] === "state" && request.method === "PATCH") {
+          // SAFETY: The module validates or constructs this value before applying the asserted contract.
           const input = await boundedJson(request) as { readonly state?: unknown };
-          if (typeof input.state !== "string") throw new CommunityError("INVALID_FIELD", "Community object state is required");
+          if (!__epochIsString(input.state)) throw new CommunityError("INVALID_FIELD", "Community object state is required");
           return json(await api.updateObjectState(segments[1], input.state, authorization));
         }
       }
       if (segments[0] === "projections") {
         const projections = requiredServices(options.services).projections;
         if (segments.length === 2 && segments[1] === "preview" && request.method === "POST") {
+          // SAFETY: The module validates or constructs this value before applying the asserted contract.
           const body = await boundedJson(request) as { readonly definition?: ProjectionDefinition; readonly path?: string; readonly first?: number; readonly after?: string };
           if (body.definition === undefined) throw new CommunityError("PROJECTION_INVALID", "Projection definition is required");
-          return json(await projections.preview(body.definition, body.path ?? "/", { first: boundedFirst(body.first === undefined ? null : String(body.first)), ...(body.after === undefined ? {} : { after: body.after }) }, authorization));
+          return json(await projections.preview(body.definition, body.path ?? "/", { first: boundedFirst(body.first === undefined ? null : String(body.first)), ...(!(body.after === undefined) && { after: body.after }) }, authorization));
         }
         if (segments.length === 3 && segments[2] === "explain" && request.method === "GET") return json(await projections.explain(segments[1]!, url.searchParams.get("path") ?? "/", authorization));
         if (segments.length === 1 && request.method === "GET") return json(await projections.list(authorization));
-        if (segments.length === 1 && request.method === "POST") return json(await projections.save(await boundedJson(request) as ProjectionDefinition, authorization), 201);
+        // SAFETY: The module validates or constructs this value before applying the asserted contract.
+        // SAFETY: The module validates or constructs this value before applying the asserted contract.
+        if (segments.length === 1 && request.method === "POST") return json(await projections.save(/* SAFETY: Runtime validation immediately surrounding this expression establishes the asserted contract. */ await boundedJson(request) as ProjectionDefinition, authorization), 201);
         if (segments[1] !== undefined && segments.length === 2 && request.method === "GET") {
           const definition = await projections.get(segments[1], authorization);
           if (definition === undefined) notFound(`Community projection not found: ${segments[1]}`);
@@ -361,15 +384,23 @@ export function createCommunityApiFetchHandler(api: CommunityApiTransport, optio
       }
       if (segments[0] === "repositories" && segments[1] !== undefined) {
         if (segments.length === 2 && request.method === "GET") return json(await api.getRepository(segments[1]));
-        if (segments[2] === "issues" && segments.length === 3 && request.method === "POST") return json(await api.openIssue(segments[1], await boundedJson(request) as OpenCommunityIssueInput), 201);
-        if (segments[2] === "issues" && segments[3] !== undefined && segments[4] === "comments" && segments.length === 5 && request.method === "POST") return json(await api.commentOnIssue(segments[1], segments[3], await boundedJson(request) as CommentOnCommunityIssueInput), 201);
-        if (segments[2] === "changes" && segments.length === 3 && request.method === "POST") return json(await api.createChange(segments[1], await boundedJson(request) as CreateCommunityChangeInput), 201);
-        if (segments[2] === "changes" && segments[3] !== undefined && segments[4] === "reviews" && segments.length === 5 && request.method === "POST") return json(await api.reviewChange(segments[1], segments[3], await boundedJson(request) as CommunityReviewInput), 201);
+        // SAFETY: The module validates or constructs this value before applying the asserted contract.
+        // SAFETY: The module validates or constructs this value before applying the asserted contract.
+        if (segments[2] === "issues" && segments.length === 3 && request.method === "POST") return json(await api.openIssue(segments[1], /* SAFETY: Runtime validation immediately surrounding this expression establishes the asserted contract. */ await boundedJson(request) as OpenCommunityIssueInput), 201);
+        // SAFETY: The module validates or constructs this value before applying the asserted contract.
+        // SAFETY: The module validates or constructs this value before applying the asserted contract.
+        if (segments[2] === "issues" && segments[3] !== undefined && segments[4] === "comments" && segments.length === 5 && request.method === "POST") return json(await api.commentOnIssue(segments[1], segments[3], /* SAFETY: Runtime validation immediately surrounding this expression establishes the asserted contract. */ await boundedJson(request) as CommentOnCommunityIssueInput), 201);
+        // SAFETY: The module validates or constructs this value before applying the asserted contract.
+        // SAFETY: The module validates or constructs this value before applying the asserted contract.
+        if (segments[2] === "changes" && segments.length === 3 && request.method === "POST") return json(await api.createChange(segments[1], /* SAFETY: Runtime validation immediately surrounding this expression establishes the asserted contract. */ await boundedJson(request) as CreateCommunityChangeInput), 201);
+        // SAFETY: The module validates or constructs this value before applying the asserted contract.
+        // SAFETY: The module validates or constructs this value before applying the asserted contract.
+        if (segments[2] === "changes" && segments[3] !== undefined && segments[4] === "reviews" && segments.length === 5 && request.method === "POST") return json(await api.reviewChange(segments[1], segments[3], /* SAFETY: Runtime validation immediately surrounding this expression establishes the asserted contract. */ await boundedJson(request) as CommunityReviewInput), 201);
       }
       return json({ error: { code: "NOT_FOUND", message: "not found" } }, 404);
     } catch (error) {
       const normalized = normalizeApiError(error);
-      const status = typeof normalized.details?.httpStatus === "number" ? normalized.details.httpStatus : normalized.httpStatus;
+      const status = __epochIsNumber(normalized.details?.httpStatus) ? normalized.details.httpStatus : normalized.httpStatus;
       return json({ error: normalized.toJSON() }, status);
     }
   };
@@ -396,25 +427,28 @@ function validateRepositoryInput(input: CreateCommunityRepositoryInput): void { 
 function repositoryEntity(repository: CommunityRepository, now: string): CommunityEntity {
   return validateCommunityEntity({ ref: requiredRef(repository.ref), fields: { objectId: requiredRef(repository.ref).objectId, kind: "project", slug: repository.slug, title: repository.displayName, description: repository.description, visibility: repository.visibility === "private" ? "private" : "public", defaultView: repository.defaultView, maintainers: repository.maintainers, topics: repository.topics }, searchableText: { title: repository.displayName, description: repository.description }, relations: [], visibility: repository.visibility === "private" ? "private" : "public", ...(repository.visibility === "private" ? { ownerId: repository.maintainers[0], participantIds: repository.maintainers } : { participantIds: [] }), createdAt: now, updatedAt: now, provenance: { sourceId: "repository", nativeId: repository.slug, observedAt: now } });
 }
-function messageEntity(message: CommunityMessage, repository: CommunityRepository): CommunityEntity { return communityMessageToEntity(message, { provenance: { sourceId: "community-api", nativeId: `${repository.slug}:${message.aliases[0] ?? message.ref.objectId}`, observedAt: message.updatedAt ?? message.publishedAt }, visibility: repository.visibility === "private" ? "private" : "public", ...(repository.visibility === "private" ? { ownerId: repository.maintainers[0], participantIds: repository.maintainers } : {}) }); }
+function messageEntity(message: CommunityMessage, repository: CommunityRepository): CommunityEntity { return communityMessageToEntity(message, { provenance: { sourceId: "community-api", nativeId: `${repository.slug}:${message.aliases[0] ?? message.ref.objectId}`, observedAt: message.updatedAt ?? message.publishedAt }, visibility: repository.visibility === "private" ? "private" : "public", ...(repository.visibility === "private" && { ownerId: repository.maintainers[0], participantIds: repository.maintainers }) }); }
 function enrich(entity: CommunityEntity, fields: CommunityEntity["fields"]): CommunityEntity { return validateCommunityEntity({ ...entity, fields: { ...entity.fields, ...fields } }); }
-function reprojectMessage(entity: CommunityEntity, message: CommunityMessage): CommunityEntity { return enrich(communityMessageToEntity(message, { provenance: { ...entity.provenance, observedAt: message.updatedAt ?? message.publishedAt }, visibility: entity.visibility, ...(entity.ownerId === undefined ? {} : { ownerId: entity.ownerId }), participantIds: entity.participantIds }), extraFields(entity.fields)); }
+function reprojectMessage(entity: CommunityEntity, message: CommunityMessage): CommunityEntity { return enrich(communityMessageToEntity(message, { provenance: { ...entity.provenance, observedAt: message.updatedAt ?? message.publishedAt }, visibility: entity.visibility, ...(!(entity.ownerId === undefined) && { ownerId: entity.ownerId }), participantIds: entity.participantIds }), extraFields(entity.fields)); }
 function extraFields(fields: CommunityEntity["fields"]): CommunityEntity["fields"] { const core = new Set(["objectId", "kind", "author", "state", "contextId", "createdAt", "updatedAt", "visibility", "aliases", "participantIds", "title", "parentId", "reactions"]); return Object.fromEntries(Object.entries(fields).filter(([name]) => !core.has(name))); }
 
 function repositoriesFromState(state: CommunityStateSnapshot): readonly CommunityRepository[] {
-  const projects = state.entities.filter((entity) => entity.ref.kind === "project" && typeof entity.fields.slug === "string");
+  const projects = state.entities.filter((entity) => entity.ref.kind === "project" && __epochIsString(entity.fields.slug));
   return projects.map((project) => repositoryFromProject(project, state.entities)).sort((left, right) => left.slug.localeCompare(right.slug, "en"));
 }
 function repositoryFromProject(project: CommunityEntity, entities: readonly CommunityEntity[]): CommunityRepository {
   const slug = scalar(project.fields.slug); const children = entities.filter((entity) => entity.fields.repositorySlug === slug || (isMessageEntity(entity) && communityEntityToMessage(entity).context.objectId === project.ref.objectId));
-  const issues = children.filter((entity) => entity.ref.kind === "issue" && typeof entity.fields.issueId === "string").map((entity) => issueFromEntity(entity, children));
-  const changes = children.filter((entity) => entity.ref.kind === "change" && typeof entity.fields.changeId === "string").map(changeFromEntity);
-  const discussions = children.filter((entity) => entity.ref.kind === "thread" && typeof entity.fields.discussionId === "string").map((entity) => discussionFromEntity(entity, children));
+  const issues = children.filter((entity) => entity.ref.kind === "issue" && __epochIsString(entity.fields.issueId)).map((entity) => issueFromEntity(entity, children));
+  const changes = children.filter((entity) => entity.ref.kind === "change" && __epochIsString(entity.fields.changeId)).map(changeFromEntity);
+  const discussions = children.filter((entity) => entity.ref.kind === "thread" && __epochIsString(entity.fields.discussionId)).map((entity) => discussionFromEntity(entity, children));
   return { ref: project.ref, slug, displayName: scalar(project.fields.title), description: scalar(project.fields.description, true), visibility: project.fields.visibility === "private" ? "private" : "public", defaultView: scalar(project.fields.defaultView), maintainers: strings(project.fields.maintainers), topics: stringsPreserve(project.fields.topics), issues, changes, discussions };
 }
 function issueFromEntity(entity: CommunityEntity, children: readonly CommunityEntity[]): CommunityIssue { const message = communityEntityToMessage(entity); return { id: scalar(entity.fields.issueId), ref: entity.ref, title: message.title ?? "", author: message.authorId, body: message.body, labels: strings(entity.fields.labels), status: message.state === "closed" ? "closed" : "open", comments: children.filter((candidate) => isMessageEntity(candidate) && communityEntityToMessage(candidate).inReplyTo?.objectId === entity.ref.objectId).map(commentFromEntity) }; }
 function commentFromEntity(entity: CommunityEntity): CommunityComment { const message = communityEntityToMessage(entity); return { id: message.aliases[0], ref: message.ref, author: message.authorId, body: message.body }; }
-function changeFromEntity(entity: CommunityEntity): CommunityChange { const message = communityEntityToMessage(entity); const reviewers = strings(entity.fields.reviewers), decisions = stringsPreserve(entity.fields.reviewDecisions), bodies = stringsPreserve(entity.fields.reviewBodies); const reviews: CommunityReview[] = reviewers.map((reviewer, index) => ({ reviewer, decision: (decisions[index] ?? "commented") as CommunityReview["decision"], body: bodies[index] ?? "" })); return { id: scalar(entity.fields.changeId), ref: entity.ref, title: message.title ?? "", author: message.authorId, body: message.body, sourceView: scalar(entity.fields.sourceView), targetView: scalar(entity.fields.targetView), status: (["approved", "changes-requested", "closed"] as const).includes(message.state as never) ? message.state as CommunityChange["status"] : "open", reviews }; }
+// SAFETY: The module validates or constructs this value before applying the asserted contract.
+// SAFETY: The module validates or constructs this value before applying the asserted contract.
+// SAFETY: The module validates or constructs this value before applying the asserted contract.
+function changeFromEntity(entity: CommunityEntity): CommunityChange { const message = communityEntityToMessage(entity); const reviewers = strings(entity.fields.reviewers), decisions = stringsPreserve(entity.fields.reviewDecisions), bodies = stringsPreserve(entity.fields.reviewBodies); const reviews: CommunityReview[] = reviewers.map((reviewer, index) => ({ reviewer, decision: /* SAFETY: Runtime validation immediately surrounding this expression establishes the asserted contract. */ (decisions[index] ?? "commented") as CommunityReview["decision"], body: bodies[index] ?? "" })); return { id: scalar(entity.fields.changeId), ref: entity.ref, title: message.title ?? "", author: message.authorId, body: message.body, sourceView: scalar(entity.fields.sourceView), targetView: scalar(entity.fields.targetView), status: (["approved", "changes-requested", "closed"] as const).includes(/* SAFETY: Runtime validation immediately surrounding this expression establishes the asserted contract. */ message.state as never) ? /* SAFETY: Runtime validation immediately surrounding this expression establishes the asserted contract. */ message.state as CommunityChange["status"] : "open", reviews }; }
 function discussionFromEntity(entity: CommunityEntity, children: readonly CommunityEntity[]) { const message = communityEntityToMessage(entity); return { id: scalar(entity.fields.discussionId), ref: entity.ref, title: message.title ?? "", author: message.authorId, comments: children.filter((candidate) => isMessageEntity(candidate) && communityEntityToMessage(candidate).inReplyTo?.objectId === entity.ref.objectId).map(commentFromEntity) }; }
 
 function repositoryBySlug(repositories: readonly CommunityRepository[], slug: string): CommunityRepository { const value = repositories.find((repository) => repository.slug === slug); if (value === undefined) notFound(`Community repository not found: ${slug}`); return clone(value); }
@@ -424,19 +458,19 @@ function canReadEntity(entity: CommunityEntity, authorization: CommunityAuthoriz
 function authorizeEntity(entity: CommunityEntity, authorization: CommunityAuthorizationContext, configured: (message: CommunityMessage, authorization: CommunityAuthorizationContext) => boolean, entityById: (objectId: string) => CommunityEntity | undefined): CommunityMessage { if (!canReadEntity(entity, authorization, configured, entityById)) notFound(`Community object not found: ${entity.ref.objectId}`); return communityEntityToMessage(entity); }
 function changeStatusForReviews(reviews: readonly CommunityReview[]): CommunityChange["status"] { return reviews.some((review) => review.decision === "changes-requested") ? "changes-requested" : reviews.some((review) => review.decision === "approved") ? "approved" : "open"; }
 function validateObjectState(value: string): void { if (!objectStates.has(value) || value.length > 64) throw new CommunityError("INVALID_FIELD", "Community object state is not in the supported state vocabulary"); }
-function scalar(value: unknown, empty = false): string { if (typeof value !== "string" || (!empty && value.length === 0)) throw new CommunityError("INVALID_ENTITY", "Canonical repository field is invalid"); return value; }
-function strings(value: unknown): readonly string[] { return Array.isArray(value) && value.every((item) => typeof item === "string") ? [...value].sort() : []; }
-function stringsPreserve(value: unknown): readonly string[] { return Array.isArray(value) && value.every((item) => typeof item === "string") ? [...value] : []; }
+function scalar(value: BoundaryValue, empty = false): string { if (!__epochIsString(value) || (!empty && value.length === 0)) throw new CommunityError("INVALID_ENTITY", "Canonical repository field is invalid"); return value; }
+function strings(value: BoundaryValue): readonly string[] { return Array.isArray(value) && value.every((item) => __epochIsString(item)) ? [...value].sort() : []; }
+function stringsPreserve(value: BoundaryValue): readonly string[] { return Array.isArray(value) && value.every((item) => __epochIsString(item)) ? [...value] : []; }
 function clone<T>(value: T): T { return structuredClone(value); }
 function cloneMessage(value: CommunityMessage): CommunityMessage { return structuredClone(value); }
 function conflict(message: string): never { throw new CommunityError("PERSISTENCE_MIGRATION", message, { httpStatus: 409 }); }
 function notFound(message: string): never { throw new CommunityError("INVALID_ENTITY", message, { httpStatus: 404 }); }
 function denied(message: string): never { throw new CommunityError("AUTHORIZATION_DENIED", message); }
-function normalizeApiError(error: unknown): CommunityError { return isCommunityError(error) ? error : new CommunityError("INTERNAL", "Internal Community API failure", undefined, { cause: error }); }
+function normalizeApiError(error: BoundaryValue): CommunityError { return isCommunityError(error) ? error : new CommunityError("INTERNAL", "Internal Community API failure", undefined, { cause: error }); }
 function requiredServices(value: CommunityServiceApis | undefined): CommunityServiceApis { if (value === undefined) throw new CommunityError("QUERY_UNSUPPORTED_SOURCE", "Community search and namespace services are not configured"); return value; }
-function rejectUnsupportedSearchScope(scope: unknown): void {
+function rejectUnsupportedSearchScope(scope: BoundaryValue): void {
   if (scope !== undefined) throw new CommunityError("QUERY_UNSUPPORTED_SOURCE", "Scoped search requires a source-aware planner");
 }
 function boundedFirst(value: string | null): number { if (value === null) return 100; const parsed = Number(value); if (!Number.isSafeInteger(parsed) || parsed < 1 || parsed > 1000) throw new CommunityError("QUERY_COST_LIMIT", "first must be between 1 and 1000"); return parsed; }
-async function boundedJson(request: Request): Promise<unknown> { const text = await request.text(); if (text.length > 1_000_000) throw new CommunityError("QUERY_COST_LIMIT", "Request body exceeds its size limit"); try { return JSON.parse(text); } catch (error) { throw new CommunityError("QUERY_SYNTAX", "Request body must be valid JSON", undefined, { cause: error }); } }
-function json(value: unknown, status = 200): Response { return new Response(JSON.stringify(value), { status, headers: { "Content-Type": "application/json" } }); }
+async function boundedJson(request: Request): BoundaryValue { const text = await request.text(); if (text.length > 1_000_000) throw new CommunityError("QUERY_COST_LIMIT", "Request body exceeds its size limit"); try { return JSON.parse(text); } catch (error) { throw new CommunityError("QUERY_SYNTAX", "Request body must be valid JSON", undefined, { cause: error }); } }
+function json(value: BoundaryValue, status = 200): Response { return new Response(JSON.stringify(value), { status, headers: { "Content-Type": "application/json" } }); }

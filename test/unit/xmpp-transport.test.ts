@@ -47,8 +47,8 @@ function defaultOff(): void {
 
 function privatePublishDenied(): void {
   const transport = createXmppTransport({ enabled: true });
-  assert.throws(() => transport.assertPublic("private"), (error: unknown) => error instanceof PrivatePublishError);
-  assert.throws(() => transport.assertPublic("shared"), (error: unknown) => error instanceof PrivatePublishError);
+  assert.throws(() => transport.assertPublic("private"), (error) => error instanceof PrivatePublishError);
+  assert.throws(() => transport.assertPublic("shared"), (error) => error instanceof PrivatePublishError);
 }
 
 async function unknownServerDenied(): Promise<void> {
@@ -101,7 +101,7 @@ async function privateChannelFanoutDenied(): Promise<void> {
   };
   await assert.rejects(
     () => federatePublicChannelEvent(transport, privateEvent, "a.example"),
-    (error: unknown) => error instanceof PrivatePublishError,
+    (error) => error instanceof PrivatePublishError,
   );
 }
 
@@ -143,7 +143,9 @@ async function liveComposerFanoutLockstep(): Promise<void> {
   );
 
   const transport = new InMemoryXmppTransport({ enabled: true, allowlist: ["a.example"] });
+  // SAFETY: Runtime checks or construction above establish { epochXmppFanout?: unknown }).epochXmppFanout.
   const previous = (globalThis as { epochXmppFanout?: unknown }).epochXmppFanout;
+  // SAFETY: Runtime checks or construction above establish { epochXmppFanout?: unknown }).epochXmppFanout = {.
   (globalThis as { epochXmppFanout?: unknown }).epochXmppFanout = {
     destServer: "a.example",
     send: (bytes: Uint8Array, dest: string) => transport.send(bytes, dest),
@@ -155,6 +157,7 @@ async function liveComposerFanoutLockstep(): Promise<void> {
     assert.equal(received.length, 1);
     assert.equal(received[0]?.eventId, signed.eventId);
   } finally {
+    // SAFETY: Runtime checks or construction above establish { epochXmppFanout?: unknown }).epochXmppFanout = previous.
     (globalThis as { epochXmppFanout?: unknown }).epochXmppFanout = previous;
   }
 }

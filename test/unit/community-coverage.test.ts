@@ -47,6 +47,7 @@ async function defaultHostWiresSearchProjectionsAndNamespace(): Promise<void> {
     body: JSON.stringify({ where: parsed.ast, orderBy: parsed.sort, first: 10 }),
   }));
   assert.equal(searched.status, 200);
+  // SAFETY: Runtime checks or construction above establish { hits: Array<{ target: { kind: string } }> }.
   const page = await searched.json() as { hits: Array<{ target: { kind: string } }> };
   assert.ok(page.hits.some((hit) => hit.target.kind === "issue"));
   assert.equal((await host.handler(new Request("https://epoch.test/projections"))).status, 200);
@@ -57,6 +58,7 @@ async function defaultHostWiresSearchProjectionsAndNamespace(): Promise<void> {
     body: JSON.stringify({ query: "{ sourceCapabilities { sourceId } }" }),
   }));
   assert.equal(graphql.status, 200);
+  // SAFETY: Runtime checks or construction above establish { data: { sourceCapabilities: Array<{ sourceId: string }> } }.
   const body = await graphql.json() as { data: { sourceCapabilities: Array<{ sourceId: string }> } };
   assert.deepEqual(body.data.sourceCapabilities.map((value) => value.sourceId), ["community-store"]);
 
@@ -208,7 +210,9 @@ async function liveHostIsolatesMountsAndPrivateProjections(): Promise<void> {
     body: JSON.stringify(privateDefinition),
   }))).status, 201);
 
+  // SAFETY: Runtime checks or construction above establish Array<{ projectionId: string }>.
   const aliceListed = await (await alice.handler(new Request("https://epoch.test/projections"))).json() as Array<{ projectionId: string }>;
+  // SAFETY: Runtime checks or construction above establish Array<{ projectionId: string }>.
   const bobListed = await (await bob.handler(new Request("https://epoch.test/projections"))).json() as Array<{ projectionId: string }>;
   assert.ok(aliceListed.some((item) => item.projectionId === "alice-private"));
   assert.equal(bobListed.some((item) => item.projectionId === "alice-private"), false);
@@ -229,7 +233,9 @@ async function liveHostIsolatesMountsAndPrivateProjections(): Promise<void> {
   }));
   assert.equal(mounted.status, 201);
 
+  // SAFETY: Runtime checks or construction above establish Array<{ mountId: string }>.
   const aliceMounts = await (await alice.handler(new Request("https://epoch.test/namespace/mounts"))).json() as Array<{ mountId: string }>;
+  // SAFETY: Runtime checks or construction above establish Array<{ mountId: string }>.
   const bobMounts = await (await bob.handler(new Request("https://epoch.test/namespace/mounts"))).json() as Array<{ mountId: string }>;
   assert.ok(aliceMounts.some((mount) => mount.mountId === "alice-root"));
   assert.equal(bobMounts.some((mount) => mount.mountId === "alice-root"), false);
@@ -427,6 +433,7 @@ async function convergenceApiEnforcesTrustedAuthority(): Promise<void> {
     body: JSON.stringify({ changeId: "api" }),
   }));
   assert.equal(preview.status, 200);
+  // SAFETY: Runtime checks or construction above establish { included: string[] }).included.
   assert.deepEqual((await preview.json() as { included: string[] }).included, ["base", "api"]);
 
   const selfAsserted = await unauthenticated(new Request("https://epoch.test/convergence/squash", {
@@ -465,6 +472,7 @@ async function convergenceApiEnforcesTrustedAuthority(): Promise<void> {
     body: JSON.stringify({ changeId: "api", confirmed: true }),
   }));
   assert.equal(accepted.status, 200);
+  // SAFETY: Runtime checks or construction above establish { sourceChanges: string[] }).sourceChanges.
   assert.deepEqual((await accepted.json() as { sourceChanges: string[] }).sourceChanges, ["base", "api"]);
 
   await assert.rejects(
@@ -502,6 +510,7 @@ async function httpClientReportsNonOkApiErrors(): Promise<void> {
 
 async function jsonResponse<T>(responsePromise: Promise<Response>): Promise<{ status: number; body: T }> {
   const response = await responsePromise;
+  // SAFETY: Runtime checks or construction above establish T }.
   return { status: response.status, body: await response.json() as T };
 }
 

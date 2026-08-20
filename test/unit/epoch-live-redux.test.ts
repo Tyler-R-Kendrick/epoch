@@ -12,11 +12,16 @@ import {
   type CompatibleStore,
 } from "@epoch/live-redux";
 
+type TestJsonValue = boolean | null | number | string | TestJsonObject | readonly TestJsonValue[] | undefined;
+interface TestJsonObject {
+  readonly [key: string]: TestJsonValue;
+}
+
 interface DocState {
   readonly title?: string;
   readonly count?: number;
   readonly value?: unknown;
-  readonly [key: string]: unknown;
+  readonly [key: string]: TestJsonValue;
 }
 
 export function runEpochLiveReduxTests(): void {

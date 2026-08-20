@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import { existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -134,7 +135,7 @@ async function publicArtifactsOnAtPrivateNeverTouchesAt(): Promise<void> {
           ownerDid: "did:plc:alice",
           visibility: "private",
         }),
-      (error: unknown) => error instanceof PrivatePublishError,
+      (error) => error instanceof PrivatePublishError,
     );
     assert.equal(pds.allRecords().length, before);
     assert.equal(pds.blobCount(), blobBefore);
@@ -234,7 +235,7 @@ async function federationModesGossipVsAtPublish(): Promise<void> {
             ownerDid: "did:plc:alice",
             visibility: "public",
           }),
-        (error: unknown) =>
+        (error) =>
           error instanceof FeatureDisabledError
           || (error instanceof Error && error.message.includes("federated")),
       );
@@ -278,7 +279,5 @@ async function federationModesGossipVsAtPublish(): Promise<void> {
 }
 
 function shaOf(text: string): string {
-  // eslint-disable-next-line @typescript-eslint/no-require-imports -- keep lazy crypto load for test helper
-  const { createHash } = require("node:crypto") as typeof import("node:crypto");
   return createHash("sha256").update(text).digest("hex");
 }

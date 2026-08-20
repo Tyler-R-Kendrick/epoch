@@ -5,6 +5,7 @@
  */
 import assert from "node:assert/strict";
 import fc from "fast-check";
+import { isString } from "../../helpers/type-guards";
 import {
   createAuthCalloutHandler,
   createPlatformAuthValidator,
@@ -120,7 +121,7 @@ async function main(): Promise<void> {
       );
       const decision = await handler({ authToken: token });
       assert.equal(decision.type, "deny");
-      assert.equal(typeof decision.reason, "string");
+      assert.equal(isString(decision.reason), true);
     }),
     params,
   );
@@ -128,7 +129,7 @@ async function main(): Promise<void> {
   console.log("fabric-auth fast-check properties passed");
 }
 
-main().catch((error: unknown) => {
+main().catch((error) => {
   console.error(error);
   process.exitCode = 1;
 });

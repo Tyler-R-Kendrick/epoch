@@ -323,7 +323,7 @@
 
   function spaceCandidates(fragment) {
     var spaces = [];
-    if (window.CW_SESSION && typeof window.CW_SESSION.listSpaces === "function") {
+    if (window.CW_SESSION && globalThis.CW_VALUE.isFunction(window.CW_SESSION.listSpaces)) {
       spaces = window.CW_SESSION.listSpaces();
     } else if (window.CW_DATA && window.CW_DATA.spaces) {
       spaces = window.CW_DATA.spaces;
@@ -485,7 +485,7 @@
         value: "#" + tag,
         hint: t.label || t.hint || "topic",
         kind: "topic",
-        rank: typeof t.heat === "number" ? t.heat : 0,
+        rank: globalThis.CW_VALUE.isNumber(t.heat) ? t.heat : 0,
       };
     });
     // Channels ride `#` as well — short names people already know from chat.
@@ -494,7 +494,7 @@
         value: "#" + (c.id || c.label),
         hint: "channel · " + (c.kind || "room"),
         kind: "channel",
-        rank: typeof c.count === "number" ? c.count : 0,
+        rank: globalThis.CW_VALUE.isNumber(c.count) ? c.count : 0,
       };
     });
     return topics.concat(channels);
@@ -692,7 +692,7 @@
           var nested = analyse(actVoiceLine.replace(/\s+$/, trailingSpace ? " " : ""), ctx);
           if (nested && nested.kind) {
             nested.kind = "slash-arg";
-            if (typeof nested.replaceFrom === "number") {
+            if (globalThis.CW_VALUE.isNumber(nested.replaceFrom)) {
               nested.replaceFrom += text.length - actVoiceLine.length;
             }
             return nested;

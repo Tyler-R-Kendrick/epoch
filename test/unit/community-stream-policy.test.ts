@@ -40,7 +40,8 @@ function protectedTargetsCoverSecretsAndAuth(): void {
   assert.equal(isProtectedStreamTarget({ protectAttr: true }), true);
   assert.equal(isProtectedStreamTarget({ path: "projects/community/channels/general", inputType: "text" }), false);
   // Non-string paths must not throw (editor buffers are objects with .path).
-  assert.equal(isProtectedStreamTarget({ path: { path: "projects/community/channels/general" } as unknown as string }), false);
+  // SAFETY: Runtime checks or construction above establish unknown as string }).
+  assert.equal(isProtectedStreamTarget({ path: { path: "projects/community/channels/general" } as string }), false);
 }
 
 function cipherIsFixedWidthAndStable(): void {

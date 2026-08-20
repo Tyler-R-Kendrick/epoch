@@ -1,5 +1,8 @@
 import { createHash } from "node:crypto";
 import { parseSwhid as parseProtocolSwhid } from "@epoch/protocol";
+type DictionaryValue = null | undefined | boolean | number | string | bigint | readonly DictionaryValue[] | { readonly [key: string]: DictionaryValue };
+function __epochIsObject<T>(value: T): value is T & object { return typeof value === "object"; }
+
 
 export type SwhObjectKind = "cnt" | "dir" | "rev" | "rel" | "snp";
 export interface Swhid {
@@ -61,7 +64,8 @@ export class SaveCodeNowClient {
     if (url.protocol !== "https:" || url.hostname === "localhost" || url.hostname.endsWith(".local") || /^(127\.|10\.|192\.168\.|169\.254\.)/u.test(url.hostname)) throw new Error("local or non-HTTPS archive origin denied");
     for (let attempt = 1; attempt <= this.#maxAttempts; attempt += 1) {
       const response = await this.#transport({ origin: url.href, attempt });
-      const body = response.body && typeof response.body === "object" ? response.body as Record<string, unknown> : {};
+      // SAFETY: The module validates or constructs this value before applying the asserted contract.
+      const body = response.body && __epochIsObject(response.body) ? response.body as Record<string, DictionaryValue> : {};
       if (response.status >= 200 && response.status < 300 && body.save_task_status === "succeeded" && body.visit_status === "full") {
         if (body.origin_url !== undefined && body.origin_url !== input.origin) return { confirmed: false, state: "failed", attempts: attempt };
         return { confirmed: true, state: "succeeded", attempts: attempt, origin: input.origin };

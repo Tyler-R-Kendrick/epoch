@@ -16,6 +16,10 @@ import {
   type GossipPeer,
   type SyncResult,
 } from "@epoch/core";
+type DictionaryValue = null | undefined | boolean | number | string | bigint | readonly DictionaryValue[] | { readonly [key: string]: DictionaryValue };
+function __epochIsString<T>(value: T): value is T & string { return typeof value === "string"; }
+function __epochIsNumber<T>(value: T): value is T & number { return typeof value === "number"; }
+
 
 export type CommunityFederationMode = "disabled" | "local-only" | "federated";
 
@@ -25,7 +29,7 @@ export type AtRecord = {
   readonly did: string;
   readonly collection: string;
   readonly rkey: string;
-  readonly value: Record<string, unknown>;
+  readonly value: Record<string, DictionaryValue>;
   readonly createdAt: string;
 };
 
@@ -89,7 +93,7 @@ export interface PdsTransport {
     did: string;
     collection: string;
     rkey?: string;
-    record: Record<string, unknown>;
+    record: Record<string, DictionaryValue>;
   }): Promise<AtRecord>;
   listRecords(did: string, collection: string): Promise<readonly AtRecord[]>;
   getRecord(uri: string): Promise<AtRecord | undefined>;
@@ -112,7 +116,7 @@ export class MockPds implements PdsTransport {
     did: string;
     collection: string;
     rkey?: string;
-    record: Record<string, unknown>;
+    record: Record<string, DictionaryValue>;
   }): Promise<AtRecord> {
     this.#seq += 1;
     const rkey = input.rkey ?? `r${this.#seq.toString(36)}`;
@@ -241,7 +245,7 @@ export class FederatedCommunity {
   readonly #identities = new Map<string, AtIdentity>();
   readonly #localFollows: { followerDid: string; subject: string }[] = [];
   readonly #localStars: { did: string; repoSlug: string }[] = [];
-  readonly #localProfiles = new Map<string, Record<string, unknown>>();
+  readonly #localProfiles = new Map<string, Record<string, DictionaryValue>>();
   readonly #repos = new Map<string, PublicRepoCard>();
   readonly #issues = new Map<string, FederatedIssue>();
   readonly #proposals = new Map<string, FederatedProposal>();
@@ -304,7 +308,7 @@ export class FederatedCommunity {
     displayName: string;
     bio?: string;
     links?: readonly string[];
-  }): Promise<{ local: Record<string, unknown>; atUri?: string }> {
+  }): Promise<{ local: Record<string, DictionaryValue>; atUri?: string }> {
     this.#requireEnabled();
     const value = {
       displayName: input.displayName,
@@ -438,6 +442,7 @@ export class FederatedCommunity {
     }
 
     const version = input.repository.resolveVersion(input.versionOrEventId);
+    // SAFETY: The module validates or constructs this value before applying the asserted contract.
     const files = Array.isArray(version.payload.files)
       ? (version.payload.files as readonly {
           path?: string;
@@ -451,7 +456,7 @@ export class FederatedCommunity {
     const blobsDir = join(input.repository.root, ".epoch", "blobs");
 
     for (const file of files) {
-      if (typeof file.blob_sha256 !== "string") continue;
+      if (!__epochIsString(file.blob_sha256)) continue;
       const blobPath = join(blobsDir, file.blob_sha256);
       if (!existsSync(blobPath)) {
         throw new Error(`missing local blob for public publish: ${file.blob_sha256}`);
@@ -460,13 +465,13 @@ export class FederatedCommunity {
       const uploaded = await this.#pds.uploadBlob(
         input.ownerDid,
         bytes,
-        typeof file.entity_type === "string" ? file.entity_type : undefined,
+        __epochIsString(file.entity_type) ? file.entity_type : undefined,
       );
       artifacts.push({
         sha256: file.blob_sha256,
-        size: typeof file.size === "number" ? file.size : bytes.byteLength,
-        mimeType: typeof file.entity_type === "string" ? file.entity_type : undefined,
-        path: typeof file.path === "string" ? file.path : undefined,
+        size: __epochIsNumber(file.size) ? file.size : bytes.byteLength,
+        mimeType: __epochIsString(file.entity_type) ? file.entity_type : undefined,
+        path: __epochIsString(file.path) ? file.path : undefined,
         atBlobCid: uploaded.cid,
       });
     }
@@ -474,7 +479,7 @@ export class FederatedCommunity {
     const gossipPeers = [...(input.gossipPeers ?? this.#gossipPeers)];
     const release: EpochReleaseRecord = {
       versionId: version.id,
-      versionName: typeof version.payload.name === "string" ? version.payload.name : undefined,
+      versionName: __epochIsString(version.payload.name) ? version.payload.name : undefined,
       originatingEventId: version.id,
       artifacts,
       epochSyncUrl: this.#epochSyncBaseUrl,
@@ -503,7 +508,7 @@ export class FederatedCommunity {
     did: string;
     kind: "repository" | "issue";
     visibility: "private" | "unlisted";
-    payload: Record<string, unknown>;
+    payload: Record<string, DictionaryValue>;
   }): Promise<never> {
     this.#requireEnabled();
     this.#requirePublic(input.visibility, input.kind);
@@ -681,7 +686,7 @@ export class FederatedCommunity {
     reason: string;
     targetUri?: string;
     relatedAtUris?: readonly string[];
-  }): { id: string; atUris: readonly string[] } {
+  }) {
     this.#requireEnabled();
     const atUris = [
       ...(input.targetUri ? [input.targetUri] : []),

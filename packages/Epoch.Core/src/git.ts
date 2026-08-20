@@ -138,7 +138,7 @@ export class EpochCoreGit {
     }
   }
 
-  private currentRef(): { ref?: string; commit?: string } {
+  private currentRef(): CurrentGitRef {
     try {
       const ref = execFileSync("git", ["-C", this.gitRoot, "rev-parse", "--abbrev-ref", "HEAD"], { encoding: "utf8" }).trim();
       const commit = execFileSync("git", ["-C", this.gitRoot, "rev-parse", "HEAD"], { encoding: "utf8" }).trim();
@@ -161,6 +161,11 @@ export class EpochCoreGit {
   private remotePath(): string {
     return join(this.repository.epochDir, "git.json");
   }
+}
+
+interface CurrentGitRef {
+  readonly ref?: string;
+  readonly commit?: string;
 }
 
 export class EpochCLIGit {

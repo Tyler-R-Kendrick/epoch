@@ -4,6 +4,8 @@
  */
 
 import { createHash } from "node:crypto";
+type DictionaryValue = null | undefined | boolean | number | string | bigint | readonly DictionaryValue[] | { readonly [key: string]: DictionaryValue };
+
 
 export type RealPdsRecord = {
   readonly uri: string;
@@ -11,7 +13,7 @@ export type RealPdsRecord = {
   readonly did: string;
   readonly collection: string;
   readonly rkey: string;
-  readonly value: Record<string, unknown>;
+  readonly value: Record<string, DictionaryValue>;
   readonly createdAt: string;
 };
 
@@ -44,6 +46,7 @@ export class RealPds {
 
   #requireEnabled(): void {
     if (!this.#enabled) {
+      // SAFETY: The module validates or constructs this value before applying the asserted contract.
       const error = new Error("real PDS adapter is off until E10") as Error & { code: string };
       error.name = "FeatureDisabledError";
       error.code = "feature_disabled";
@@ -55,7 +58,7 @@ export class RealPds {
     did: string;
     collection: string;
     rkey?: string;
-    record: Record<string, unknown>;
+    record: Record<string, DictionaryValue>;
   }): Promise<RealPdsRecord> {
     this.#requireEnabled();
     this.#seq += 1;

@@ -6,7 +6,7 @@ export interface ProjectionWorkbenchServices {
   compile(definition: ProjectionDefinition): Promise<CompiledProjection>;
   preview(definition: ProjectionDefinition, path: string, signal: AbortSignal): Promise<VfsPage>;
   diff(definition: ProjectionDefinition, signal: AbortSignal): Promise<readonly string[]>;
-  explain(definition: ProjectionDefinition, path: string, signal: AbortSignal): Promise<unknown>;
+  explain(definition: ProjectionDefinition, path: string, signal: AbortSignal): Promise<object>;
   save(definition: ProjectionDefinition): Promise<ProjectionDefinition>;
 }
 
@@ -19,7 +19,7 @@ export interface ProjectionWorkbenchState {
   readonly diagnostics: readonly ProjectionDiagnostic[];
   readonly preview?: VfsPage;
   readonly diff?: readonly string[];
-  readonly explanation?: unknown;
+  readonly explanation?: object;
   readonly error?: string;
   readonly running: boolean;
 }
@@ -28,9 +28,11 @@ export function createProjectionWorkbench(services: ProjectionWorkbenchServices)
   let controller: AbortController | undefined;
   let current: ProjectionWorkbenchState = Object.freeze({ open: false, tab: "definition", source: "", path: "/", diagnostics: [], running: false });
   const update = (next: Partial<ProjectionWorkbenchState>): ProjectionWorkbenchState => (current = Object.freeze({ ...current, ...next }));
+  // SAFETY: The workbench source is produced from a ProjectionDefinition on open
+  // and compile performs the authoritative schema validation before use.
   const definition = (): ProjectionDefinition => JSON.parse(current.source) as ProjectionDefinition;
   const begin = (): AbortSignal => { controller?.abort(); controller = new AbortController(); update({ running: true, error: undefined }); return controller.signal; };
-  const fail = (error: unknown): ProjectionWorkbenchState => update({ running: false, error: error instanceof Error ? error.message : String(error) });
+  const fail = <ErrorValue>(error: ErrorValue): ProjectionWorkbenchState => update({ running: false, error: error instanceof Error ? error.message : String(error) });
   return Object.freeze({
     state: () => current,
     open(input: ProjectionDefinition) { return update({ open: true, tab: "definition", source: `${JSON.stringify(input, null, 2)}\n` }); },

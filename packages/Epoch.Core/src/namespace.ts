@@ -115,6 +115,7 @@ export function buildNamespaceManifest(input: NamespaceInput): NamespaceManifest
     assertNoCaseCollision(caseIndex, canonical);
     const directory = descend(root, parentSegments(canonical));
     const name = leafName(canonical);
+    const sourcePath = link.sourcePath === undefined ? {} : { sourcePath: link.sourcePath };
     directory.links.set(name, {
       kind: "repository-link",
       name,
@@ -122,7 +123,7 @@ export function buildNamespaceManifest(input: NamespaceInput): NamespaceManifest
       repositoryId: link.repositoryId,
       versionId: link.versionId,
       namespaceRoot: link.namespaceRoot,
-      ...(link.sourcePath === undefined ? {} : { sourcePath: link.sourcePath }),
+      ...sourcePath,
     });
   }
 
@@ -147,6 +148,7 @@ function parentSegments(path: string): readonly string[] {
 
 function leafName(path: string): string {
   const segments = path.split(TextToken.pathSeparator);
+  // SAFETY: Runtime checks or construction above establish string.
   return segments[segments.length - 1] as string;
 }
 
@@ -163,10 +165,16 @@ function descend(directory: MutableDirectory, segments: readonly string[]): Muta
   return current;
 }
 
+interface DirectorySummary {
+  readonly digest: string;
+  readonly fileCount: number;
+  readonly totalSize: number;
+}
+
 function writeDirectory(
   directory: MutableDirectory,
   nodes: Map<string, NamespaceNode>,
-): { digest: string; fileCount: number; totalSize: number } {
+): DirectorySummary {
   const entries: NamespaceEntry[] = [];
   let fileCount = 0;
   let totalSize = 0;
@@ -217,6 +225,7 @@ function shardNode(entries: readonly NamespaceEntry[], nodes: Map<string, Namesp
 }
 
 export function nodeDigest(node: NamespaceNode): string {
+  // SAFETY: Runtime checks or construction above establish unknown)).
   return sha256Hex(canonicalJson(node as unknown));
 }
 

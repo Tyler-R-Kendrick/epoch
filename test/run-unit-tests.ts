@@ -186,7 +186,7 @@ async function main(): Promise<void> {
   console.log("unit and component tests passed");
 }
 
-main().catch((error: unknown) => {
+main().catch((error) => {
   console.error(error);
   process.exitCode = 1;
 });

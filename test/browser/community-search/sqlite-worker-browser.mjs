@@ -99,13 +99,14 @@ const assets = new Map([
   ["/", { type: "text/html; charset=utf-8", body: Buffer.from('<script type="module" src="/harness.js"></script>') }],
 ]);
 
-const browser = await chromium.launch({
+const launchOptions = {
   headless: true,
   args: ["--no-sandbox"],
-  ...(process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH
-    ? { executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH }
-    : {}),
-});
+};
+if (process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH) {
+  launchOptions.executablePath = process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH;
+}
+const browser = await chromium.launch(launchOptions);
 try {
   const context = await browser.newContext();
   await context.route("https://epoch.test/**", async (route) => {

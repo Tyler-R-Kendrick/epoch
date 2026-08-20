@@ -100,10 +100,12 @@ When("I open the board", function () {
 When("I create the same proposal from the terminal and from an agent tool", async function () {
   const agent = openWorkspace();
   const cli = await executeCommunityRuntimeCommand(runtime(), ["view", "create", PROPOSAL_VIEW, "--json"]);
+  // SAFETY: Runtime checks or construction above establish EpochCommandReceipt.
   world.cliReceipt = JSON.parse(cli.output) as EpochCommandReceipt;
 
   const create = createWebMcpTools(agent).find((tool) => tool.name === "epoch_view_create");
   assert.ok(create, "the agent is offered a view.create tool");
+  // SAFETY: Runtime checks or construction above establish UiWorld["toolReceipt"].
   world.toolReceipt = JSON.parse(await create.execute({ name: PROPOSAL_VIEW })) as UiWorld["toolReceipt"];
 });
 
@@ -168,6 +170,7 @@ Then("an agent without permission is refused even though the tool is offered", a
 
   const create = createWebMcpTools(reader).find((tool) => tool.name === "epoch_view_create");
   assert.ok(create, "the tool is still advertised — visibility is not authorization");
+  // SAFETY: Runtime checks or construction above establish { decision: string }.
   const result = JSON.parse(await create.execute({ name: PROPOSAL_VIEW })) as { decision: string };
   assert.equal(result.decision, "deny");
   assert.equal(reader.workspace.listViews().length, 1);

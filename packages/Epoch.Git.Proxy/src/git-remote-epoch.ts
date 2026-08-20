@@ -9,10 +9,12 @@ import {
   parseRemoteHelperCommand,
   REMOTE_HELPER_CAPABILITIES,
 } from "./remote-helper";
+type BoundaryValue = null | undefined | boolean | number | string | bigint | symbol | Readonly<object>;
+
 
 export interface RemoteHelperIO {
   readonly input: NodeJS.ReadableStream;
-  readonly output: { write(chunk: string): unknown };
+  readonly output: { write(chunk: string): BoundaryValue };
   readonly remoteUrl?: string;
   readonly env?: NodeJS.ProcessEnv;
 }

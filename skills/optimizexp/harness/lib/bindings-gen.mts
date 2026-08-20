@@ -397,14 +397,7 @@ node --import tsx node_modules/@cucumber/cucumber/bin/cucumber.js \\
 export function buildImplementationsFromDiscovery(input: {
 	featureId: string;
 	report: DiscoveryReport;
-}): {
-	implementations: string;
-	bindings: string;
-	world: string;
-	vitest: string;
-	stepsReadme: string;
-	primary: DiscoveredBinding | null;
-} {
+}) {
 	const primary = pickPrimaryCommand(input.report);
 	return {
 		primary,

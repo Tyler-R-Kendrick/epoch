@@ -8,6 +8,7 @@ import type {
   ReviewBundle,
   SplitPlan,
 } from "@epoch/protocol";
+import { canonicalJson, type JsonValue } from "./json";
 
 export class ChangeGraph {
   readonly #revisions = new Map<string, ChangeRevisionBody>();
@@ -138,6 +139,7 @@ export function buildReviewBundle(input: {
   readonly priorBundle?: ReviewBundle;
 }): ReviewBundle {
   const bundle: ReviewBundle = deepFreeze({
+    // SAFETY: Runtime checks or construction above establish ReviewBundle["reviewBundleId"].
     reviewBundleId: input.reviewBundleId as ReviewBundle["reviewBundleId"], selectedRevisionIds: input.selectedRevisionIds.map(assertRevisionId), baseFrontier: input.baseFrontier.map(assertRevisionId),
     baseTreeDigest: input.baseTreeDigest, combinedTreeDigest: input.combinedTreeDigest, overlaps: structuredClone(input.overlaps),
     conflictIds: [...input.conflicts], gateDefinitionDigest: input.gateDefinitionDigest,
@@ -192,7 +194,7 @@ function sameValues(left: readonly string[], right: readonly string[]): boolean 
 }
 
 export interface ConflictResolutionProvider {
-  propose(conflict: DurableConflict): { readonly content: unknown; readonly confidence?: number };
+  propose(conflict: DurableConflict): { readonly content: JsonValue; readonly confidence?: number };
 }
 
 export class ConflictLedger {
@@ -226,17 +228,13 @@ export class ConflictLedger {
   private required(conflictId: string): DurableConflict { const conflict = this.#conflicts.get(conflictId); if (conflict === undefined) throw fail("missing-object", `Missing conflict: ${conflictId}`); return conflict; }
 }
 
-function canonical(value: unknown): string { return JSON.stringify(sortValue(value)); }
-function sortValue(value: unknown): unknown {
-  if (Array.isArray(value)) return value.map(sortValue);
-  if (value !== null && typeof value === "object") return Object.fromEntries(Object.entries(value).filter(([, item]) => item !== undefined).sort(([left], [right]) => left.localeCompare(right)).map(([key, item]) => [key, sortValue(item)]));
-  return value;
-}
+function canonical<Value>(value: Value): string { return canonicalJson(value); }
 function deepFreeze<T>(value: T): T {
-  if (value !== null && typeof value === "object") {
+  if (isObject(value)) {
     for (const child of Object.values(value)) deepFreeze(child);
     Object.freeze(value);
   }
   return value;
 }
+function isObject<Value>(value: Value): value is Value & object { return typeof value === "object" && value !== null; }
 function fail(code: ConstructorParameters<typeof ProtocolError>[0], message: string): ProtocolError { return new ProtocolError(code, `${code}: ${message}`); }

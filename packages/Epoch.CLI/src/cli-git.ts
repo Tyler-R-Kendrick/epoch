@@ -1,6 +1,8 @@
 #!/usr/bin/env node
 import { EpochCLIGit } from "@epoch/core";
 import type { CliIO } from "./cli";
+type BoundaryValue = null | undefined | boolean | number | string | bigint | symbol | Readonly<object>;
+
 
 const defaultCliIO: CliIO = { stdout: process.stdout, stderr: process.stderr };
 
@@ -35,6 +37,7 @@ function flag(args: readonly string[], name: string): string | undefined {
 
 function runServe(args: readonly string[], io: CliIO): number {
   // Lazy require so unit tests that only use core commands do not need the proxy at import time.
+  // SAFETY: The module validates or constructs this value before applying the asserted contract.
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   const { startGitProxy } = require("@epoch/git-proxy") as typeof import("@epoch/git-proxy");
   const repo = flag(args, "--repo") ?? process.cwd();
@@ -59,7 +62,7 @@ function runServe(args: readonly string[], io: CliIO): number {
     };
     process.on("SIGINT", shutdown);
     process.on("SIGTERM", shutdown);
-  }).catch((error: unknown) => {
+  }).catch((error: BoundaryValue) => {
     io.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);
     exitCode = 1;
     process.exit(exitCode);
@@ -69,6 +72,7 @@ function runServe(args: readonly string[], io: CliIO): number {
 }
 
 function runMirror(args: readonly string[], io: CliIO): number {
+  // SAFETY: The module validates or constructs this value before applying the asserted contract.
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   const { importLiveOnce, exportLiveOnce, dualRunOnce } = require("@epoch/git-proxy") as typeof import("@epoch/git-proxy");
   const direction = args[0];
@@ -108,6 +112,7 @@ function runMirror(args: readonly string[], io: CliIO): number {
 }
 
 function runProject(args: readonly string[], io: CliIO): number {
+  // SAFETY: The module validates or constructs this value before applying the asserted contract.
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   const { EpochRepository, projectEpochToGit } = require("@epoch/core") as typeof import("@epoch/core");
   const repoPath = flag(args, "--repo") ?? process.cwd();

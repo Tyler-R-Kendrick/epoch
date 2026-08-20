@@ -17,6 +17,9 @@ import {
   normalizeCanvasDocument,
   readCanvas,
 } from "./domain.js";
+type BoundaryValue = null | undefined | boolean | number | string | bigint | symbol | Readonly<object>;
+type DictionaryValue = null | undefined | boolean | number | string | bigint | readonly DictionaryValue[] | { readonly [key: string]: DictionaryValue };
+
 
 export interface CanvasClusterNodeOptions {
   readonly dataDir: string;
@@ -146,12 +149,12 @@ function resolveVfsPath(root: string, path: string): string {
   return absolute;
 }
 
-function stableJson(value: unknown): string {
+function stableJson(value: BoundaryValue): string {
   if (Array.isArray(value)) return `[${value.map((item) => stableJson(item)).join(",")}]`;
   if (isRecord(value)) return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${stableJson(value[key])}`).join(",")}}`;
   return JSON.stringify(value);
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
+function isRecord(value: BoundaryValue): value is Record<string, DictionaryValue> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }

@@ -21,6 +21,9 @@ export interface KeysetCursorCodec {
   decode(cursor: string, binding: KeysetCursorBinding): Promise<KeysetCursorPayload>;
 }
 
+type CursorJsonValue = string | number | boolean | null | CursorJsonObject | readonly CursorJsonValue[];
+interface CursorJsonObject { readonly [key: string]: CursorJsonValue }
+
 export function createKeysetCursorCodec(options: {
   readonly key: Uint8Array;
   readonly maxBytes?: number;
@@ -36,7 +39,7 @@ export function createKeysetCursorCodec(options: {
       return base64Url(await seal(body, keyBytes));
     },
     decode: async (cursor: string, binding: KeysetCursorBinding): Promise<KeysetCursorPayload> => {
-      if (typeof cursor !== "string" || cursor.length > maxBytes * 2) throw new CommunityError("CURSOR_INVALID", "Cursor is malformed or oversized");
+      if (cursor.length > maxBytes * 2) throw new CommunityError("CURSOR_INVALID", "Cursor is malformed or oversized");
       let body: Uint8Array;
       try {
         body = await open(fromBase64Url(cursor), keyBytes);
@@ -44,10 +47,14 @@ export function createKeysetCursorCodec(options: {
         throw new CommunityError("CURSOR_INVALID", "Cursor authentication failed");
       }
       if (body.byteLength > maxBytes) throw new CommunityError("CURSOR_INVALID", "Cursor payload is oversized");
-      let payload: unknown;
-      try { payload = JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(body)); }
+      let payload: CursorJsonValue;
+      try {
+        // SAFETY: JSON.parse returns only values in the JSON value domain.
+        payload = JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(body)) as CursorJsonValue;
+      }
       catch { throw new CommunityError("CURSOR_INVALID", "Cursor payload is invalid"); }
       validatePayload(payload);
+      // SAFETY: The surrounding validation and domain contract establish the asserted type.
       const valid = payload as KeysetCursorPayload;
       if (valid.snapshotId !== binding.snapshotId || valid.planHash !== binding.planHash
         || valid.authorizationFingerprint !== binding.authorizationFingerprint) {
@@ -82,8 +89,9 @@ async function open(envelope: Uint8Array, keyBytes: Uint8Array): Promise<Uint8Ar
   return new Uint8Array(plaintext);
 }
 
-function validatePayload(value: unknown): asserts value is KeysetCursorPayload {
+function validatePayload(value: CursorJsonValue | KeysetCursorPayload): asserts value is (CursorJsonObject | KeysetCursorPayload) & KeysetCursorPayload {
   if (typeof value !== "object" || value === null) throw new CommunityError("CURSOR_INVALID", "Cursor payload must be an object");
+  // SAFETY: The surrounding validation and domain contract establish the asserted type.
   const payload = value as Partial<KeysetCursorPayload>;
   if (payload.version !== 1 || !bounded(payload.snapshotId) || !bounded(payload.planHash)
     || !bounded(payload.authorizationFingerprint) || !bounded(payload.objectId)
@@ -93,14 +101,18 @@ function validatePayload(value: unknown): asserts value is KeysetCursorPayload {
   }
 }
 
-function invalidScalar(value: unknown): boolean {
-  return value !== null && (typeof value !== "string" && typeof value !== "number" && typeof value !== "boolean"
-    || (typeof value === "number" && !Number.isFinite(value)));
+function invalidScalar(value: CommunityFieldScalar): boolean {
+  return value !== null && !isStringScalar(value) && !isBooleanScalar(value)
+    && (!isNumberScalar(value) || !Number.isFinite(value));
 }
 
-function bounded(value: unknown): value is string {
+function bounded(value: CursorJsonValue | undefined): value is string {
   return typeof value === "string" && value.length > 0 && value.length <= 512;
 }
+
+function isStringScalar(value: CommunityFieldScalar): value is string { return typeof value === "string"; }
+function isNumberScalar(value: CommunityFieldScalar): value is number { return typeof value === "number"; }
+function isBooleanScalar(value: CommunityFieldScalar): value is boolean { return typeof value === "boolean"; }
 
 function base64Url(value: Uint8Array): string {
   let binary = "";

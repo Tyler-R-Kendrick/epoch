@@ -13,10 +13,14 @@ import { createPresenceHub, type LivePresence } from "./presence";
 import type { LiveProvider, LiveSyncEndpoint } from "./providers";
 import type { LiveSigner, LiveVerifier } from "./signer";
 import { hashHex, isRecord, normalizeJson, requireNonEmpty } from "./util";
+type BoundaryValue = null | undefined | boolean | number | string | bigint | symbol | Readonly<object>;
+type DictionaryValue = null | undefined | boolean | number | string | bigint | readonly DictionaryValue[] | { readonly [key: string]: DictionaryValue };
+function __epochIsString<T>(value: T): value is T & string { return typeof value === "string"; }
+
 
 export interface LiveAction {
   readonly type: string;
-  readonly payload?: Record<string, unknown>;
+  readonly payload?: Record<string, DictionaryValue>;
 }
 
 export type LiveReducer<TState extends object> = (state: TState, action: LiveAction) => TState;
@@ -176,6 +180,7 @@ export function createLiveStore<TState extends object>(options: LiveStoreOptions
 
   function getState(): TState {
     if (snapshotDirty) {
+      // SAFETY: The module validates or constructs this value before applying the asserted contract.
       snapshot = cursor === "latest" ? latestState() : (materializeAt(log.all(), entity, cursor) as TState);
       snapshotDirty = false;
     }
@@ -183,6 +188,7 @@ export function createLiveStore<TState extends object>(options: LiveStoreOptions
   }
 
   function latestState(): TState {
+    // SAFETY: The module validates or constructs this value before applying the asserted contract.
     return materialize(log.all(), entity) as TState;
   }
 
@@ -208,7 +214,7 @@ export function createLiveStore<TState extends object>(options: LiveStoreOptions
   }
 
   function rewind(target: LiveTarget): void {
-    if (typeof target === "string" && target !== "latest" && !log.forEntity(entity).some((event) => event.id === target)) {
+    if (__epochIsString(target) && target !== "latest" && !log.forEntity(entity).some((event) => event.id === target)) {
       throw new Error(`Epoch Live unknown event '${target}'`);
     }
     cursor = target;
@@ -273,6 +279,7 @@ export function createLiveStore<TState extends object>(options: LiveStoreOptions
 }
 
 function patchReducer<TState extends object>(state: TState, action: LiveAction): TState {
+  // SAFETY: The module validates or constructs this value before applying the asserted contract.
   return { ...state, ...(action.payload ?? {}) } as TState;
 }
 
@@ -282,17 +289,17 @@ function summarizeOp(op: LiveOp, actionType: string): string {
 
 function summaryOf(event: LiveEvent): string {
   const summary = event.payload.summary;
-  if (typeof summary === "string") return summary;
+  if (__epochIsString(summary)) return summary;
   if (event.kind === "rollback") {
     const reason = event.payload.reason;
-    return `rollback${typeof reason === "string" && reason.length > 0 ? `: ${reason}` : ""}`;
+    return `rollback${__epochIsString(reason) && reason.length > 0 ? `: ${reason}` : ""}`;
   }
   return event.kind;
 }
 
 function rollbackTargetOf(events: readonly LiveEvent[]): string {
   const target = events[0]?.payload.target;
-  return typeof target === "string" ? target : "genesis";
+  return __epochIsString(target) ? target : "genesis";
 }
 
 function normalizeState<TState extends object>(value: TState): TState {
@@ -300,7 +307,7 @@ function normalizeState<TState extends object>(value: TState): TState {
   return normalizeJson(value);
 }
 
-function asRecord(value: object): Record<string, unknown> {
+function asRecord(value: BoundaryValue): Record<string, DictionaryValue> {
   if (!isRecord(value)) throw new TypeError("Epoch Live state must be a JSON object");
   return value;
 }

@@ -19,6 +19,11 @@ interface ReduxAction {
   readonly payload?: unknown;
 }
 
+interface CounterMachineTypes {
+  readonly context: { count: number };
+  readonly events: { type: "increment" } | { type: "ignored" };
+}
+
 interface ReduxStore<State> {
   dispatch(action: ReduxAction): ReduxAction;
   getState(): State;
@@ -208,7 +213,8 @@ function tracksXStateTransitionsExplicitly(): void {
     storage: createMemoryEpochIntegrationStorage(),
   });
   const machine = createMachine({
-    types: {} as { context: { count: number }; events: { type: "increment" } | { type: "ignored" } },
+    // SAFETY: Runtime checks or construction above establish { context: { count: number }.
+    types: {} as CounterMachineTypes,
     id: "counter",
     context: { count: 0 },
     initial: "idle",
@@ -378,6 +384,7 @@ function text(dom: JSDOM, selector: string): string {
 
 function restoreGlobal(key: string, descriptor: PropertyDescriptor | undefined): void {
   if (descriptor === undefined) {
+    // SAFETY: Runtime checks or construction above establish keyof typeof globalThis].
     delete globalThis[key as keyof typeof globalThis];
   } else {
     Object.defineProperty(globalThis, key, descriptor);

@@ -1,5 +1,5 @@
 import { createKeysetCursorCodec, type KeysetCursorCodec } from "./cursor";
-import type { CommunityEntity } from "./entity";
+import type { CommunityEntity, CommunityFieldValue } from "./entity";
 import { CommunityError } from "./errors";
 import { validateObjectRef, type CommunityObjectRef } from "./identity";
 import {
@@ -44,8 +44,11 @@ interface Frame {
   readonly branchId: string;
   readonly parentEntryId: string;
   readonly path: string;
-  readonly templateValues?: Readonly<Record<string, unknown>>;
+  readonly templateValues?: TemplateValues;
 }
+
+interface TemplateValues { readonly [key: string]: CommunityFieldValue }
+interface MutableTemplateValues { [key: string]: CommunityFieldValue }
 
 interface RawOccurrence {
   readonly target: CommunityObjectRef;
@@ -131,11 +134,9 @@ export class EntityProjectionRuntime implements ProjectionRuntime {
       sortKey: entry.sortKey,
       objectId: entry.entryId,
     })));
-    const pageInfo: KeysetPageInfo = Object.freeze({
-      hasNextPage: start + selected.length < records.length,
-      ...(cursors[0] === undefined ? {} : { startCursor: cursors[0] }),
-      ...(cursors.at(-1) === undefined ? {} : { endCursor: cursors.at(-1) }),
-    });
+    const pageInfo: KeysetPageInfo = { hasNextPage: start + selected.length < records.length };
+    if (cursors[0] !== undefined) Object.assign(pageInfo, { startCursor: cursors[0] });
+    if (cursors.at(-1) !== undefined) Object.assign(pageInfo, { endCursor: cursors.at(-1) });
     return Object.freeze({ entries: Object.freeze(selected.map(({ entry }) => entry)), pageInfo, freshness: this.#completeness });
   }
 
@@ -401,8 +402,8 @@ function scalarCompare(left: CommunityFieldScalar, right: CommunityFieldScalar, 
   if (left === right) return 0;
   if (left === null) return nulls === "first" ? -1 : 1;
   if (right === null) return nulls === "first" ? 1 : -1;
-  if (typeof left === "number" && typeof right === "number") return left - right;
-  if (typeof left === "boolean" && typeof right === "boolean") return Number(left) - Number(right);
+  if (isNumberScalar(left) && isNumberScalar(right)) return left - right;
+  if (isBooleanScalar(left) && isBooleanScalar(right)) return Number(left) - Number(right);
   return compareText(String(left), String(right));
 }
 
@@ -419,8 +420,8 @@ function groupCompare(
   return order === "key-descending" ? -key : key;
 }
 
-function templateValues(entity: CommunityEntity, inherited?: Readonly<Record<string, unknown>>): Readonly<Record<string, unknown>> {
-  const output: Record<string, unknown> = {
+function templateValues(entity: CommunityEntity, inherited?: TemplateValues): TemplateValues {
+  const output: MutableTemplateValues = {
     ...(inherited ?? {}),
     ...entity.searchableText,
     ...entity.fields,
@@ -457,7 +458,7 @@ function validateRequest(path: string, page: PageRequest | undefined, context: P
 }
 
 function freezeCompleteness(value: SearchCompleteness): SearchCompleteness {
-  if (typeof value !== "object" || value === null || !(["complete", "partial", "stale", "approximate"] as const).includes(value.status)
+  if (!(["complete", "partial", "stale", "approximate"] as const).includes(value.status)
     || value.sources.length > 4096 || value.omittedSources.length > 4096 || value.unsupportedPredicates.length > 4096) {
     throw new CommunityError("PROJECTION_INVALID", "Projection completeness metadata is invalid");
   }
@@ -468,6 +469,9 @@ function freezeCompleteness(value: SearchCompleteness): SearchCompleteness {
     unsupportedPredicates: Object.freeze([...value.unsupportedPredicates]),
   });
 }
+
+function isNumberScalar(value: CommunityFieldScalar): value is number { return typeof value === "number"; }
+function isBooleanScalar(value: CommunityFieldScalar): value is boolean { return typeof value === "boolean"; }
 
 function emptyPage(freshness: SearchCompleteness): VfsPage {
   return Object.freeze({ entries: [], pageInfo: Object.freeze({ hasNextPage: false }), freshness });

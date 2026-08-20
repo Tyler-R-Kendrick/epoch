@@ -24,6 +24,7 @@ import {
 	scopeForProject,
 	} from "./lib/paths.mts";
 import { findPersona } from "./lib/persona-resolve.mts";
+import type { ExperienceType } from "./lib/experience-types.mts";
 import {
 	discoverProduct,
 	filterDiscovery,
@@ -49,7 +50,8 @@ import {
 } from "./lib/gitignore.mts";
 
 function parseArgs(argv: string[]) {
-	const out: Record<string, string> = { mode: "init" };
+	const out: Record<string, string> = {};
+	out.mode = "init";
 	const projectTokens: string[] = [];
 	for (let i = 0; i < argv.length; i++) {
 		const a = argv[i]!;
@@ -119,7 +121,7 @@ function runNodeScript(
 	root: string,
 	scriptRel: string,
 	args: string[],
-): { status: number | null; stdout: string; stderr: string } {
+) {
 	const script = skillHarness(root, scriptRel);
 	const r = spawnSync(
 		process.execPath,
@@ -320,7 +322,7 @@ function main() {
 	discovery.personaPlans = discovery.personaPlans.slice(0, maxPersonas);
 	discovery.featurePlans = discovery.featurePlans.slice(0, maxFeatures);
 
-	const report: {
+	interface InitReport {
 		ok: boolean;
 		dryRun: boolean;
 		productName: string;
@@ -332,7 +334,8 @@ function main() {
 		createdFeatures: string[];
 		skippedFeatures: string[];
 		errors: string[];
-	} = {
+	}
+	const report: InitReport = {
 		ok: true,
 		dryRun: dry,
 		productName: discovery.productName,
@@ -400,9 +403,9 @@ function main() {
 		mkdirSync(path.join(s.optimizexpDir, "features"), { recursive: true });
 		const experiences =
 			p.kind === "site" || p.id === "site"
-				? (["ux"] as ("ux" | "dx" | "ax")[])
+				? (["ux"] satisfies ExperienceType[])
 				: p.id === "cli" || p.id === "epoch" || p.id === "Epoch.CLI" || p.id === "mcp"
-					? (["dx", "ax"] as ("ux" | "dx" | "ax")[])
+					? (["dx", "ax"] satisfies ExperienceType[])
 					: undefined;
 		ensureProjectConfig(p, root, {
 			experiences,

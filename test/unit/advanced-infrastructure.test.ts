@@ -33,6 +33,7 @@ function bundleTransportRoundTripsThroughSignedPacket(): void {
 
   assert.equal(result.eventsCopied, 1);
   assert.deepEqual(target.verify(), []);
+  // SAFETY: Runtime checks or construction above establish string).
   assert.equal(readFileSync(join(target.blobsDir, source.events()[0].payload.blob_sha256 as string), "utf8"), "hello\n");
 }
 
@@ -60,6 +61,7 @@ function redactionPlanListsAffectedEventsAndBlobs(): void {
   repository.init("alice");
   writeFileSync(join(root, "secret.txt"), "token\n", "utf8");
   const event = repository.recordFile("secret.txt", "text/plain");
+  // SAFETY: Runtime checks or construction above establish string.
   const blob = event.payload.blob_sha256 as string;
 
   const plan = repository.planRedaction(blob);

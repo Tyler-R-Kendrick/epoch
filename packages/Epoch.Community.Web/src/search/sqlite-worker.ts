@@ -1,3 +1,4 @@
+import { isBoolean, isNumber, isObject, isString } from "../value-kind";
 import {
   CommunityError,
   type CommunityEntity,
@@ -9,6 +10,7 @@ import {
   initializeSqliteIndex,
   translateSearchExpressionToSql,
   type SqliteIndexPort,
+  type SqliteIndexHealth,
   type SqliteStatementDatabase,
 } from "./sqlite-wasm-backend";
 import { mapSqlitePersistenceError, type SqliteStorageMode } from "./persistence-coordinator";
@@ -24,16 +26,24 @@ type WorkerOperation =
 
 interface WorkerRequest { readonly requestId: number; readonly operation: WorkerOperation }
 interface WorkerCancel { readonly type: "cancel"; readonly requestId: number }
+type WorkerResult = SqliteIndexHealth | readonly string[] | Uint8Array | undefined;
+interface WorkerError { readonly code: string; readonly message: string }
 interface WorkerResponse {
   readonly requestId: number;
   readonly ok: boolean;
-  readonly value?: unknown;
-  readonly error?: { readonly code: string; readonly message: string };
+  readonly value?: WorkerResult;
+  readonly error?: WorkerError;
+}
+interface WorkerWireRecord {
+  readonly requestId?: number;
+  readonly ok?: boolean;
+  readonly value?: WorkerResult;
+  readonly error?: WorkerError;
 }
 
 export interface SqliteWorkerLike {
-  onmessage: ((event: MessageEvent<Record<string, unknown>>) => void) | null;
-  postMessage(message: Readonly<Record<string, unknown>>): void;
+  onmessage: ((event: MessageEvent<WorkerWireRecord>) => void) | null;
+  postMessage(message: WorkerRequest | WorkerCancel): void;
   terminate(): void;
 }
 
@@ -44,7 +54,11 @@ export interface SqliteWorkerScope {
 
 export class SqliteWorkerClient implements SqliteIndexPort {
   readonly #worker: SqliteWorkerLike;
-  readonly #pending = new Map<number, { resolve(value: unknown): void; reject(error: unknown): void; cleanup(): void }>();
+  readonly #pending = new Map<number, {
+    resolve(value: WorkerResult): void;
+    reject<ErrorValue>(error: ErrorValue): void;
+    cleanup(): void;
+  }>();
   #nextRequestId = 1;
 
   constructor(worker: SqliteWorkerLike) {
@@ -52,7 +66,7 @@ export class SqliteWorkerClient implements SqliteIndexPort {
     worker.onmessage = (event) => this.#receive(parseWorkerResponse(event.data));
   }
 
-  request<T = unknown>(operation: WorkerOperation, signal?: AbortSignal): Promise<T> {
+  request<T extends WorkerResult = undefined>(operation: WorkerOperation, signal?: AbortSignal): Promise<T> {
     if (signal?.aborted === true) return Promise.reject(abortError());
     const requestId = this.#nextRequestId++;
     return new Promise<T>((resolve, reject) => {
@@ -63,7 +77,9 @@ export class SqliteWorkerClient implements SqliteIndexPort {
       };
       signal?.addEventListener("abort", onAbort, { once: true });
       this.#pending.set(requestId, {
-        resolve: resolve as (value: unknown) => void,
+        // SAFETY: WorkerOperation defines the matching WorkerResult variant
+        // produced by execute before this resolver is called.
+        resolve: resolve as (value: WorkerResult) => void,
         reject,
         cleanup: () => signal?.removeEventListener("abort", onAbort),
       });
@@ -98,7 +114,9 @@ export async function startSqliteWorker(
 ): Promise<void> {
   const { default: initSqlite3 } = await import("@sqlite.org/sqlite-wasm");
   const sqlite3 = await initSqlite3();
-  const raw = await openDatabase(sqlite3 as unknown as SqliteRuntime, options.storageMode, options.filename);
+  // SAFETY: The sqlite-wasm initializer is the sole constructor of this runtime,
+  // whose members are checked when each selected storage mode is opened.
+  const raw = await openDatabase(sqlite3 as SqliteRuntime, options.storageMode, options.filename);
   const database = createSqliteStatementDatabase(raw);
   let health = await initializeSqliteIndex(database, { storageMode: options.storageMode });
   const cancelled = new Set<number>();
@@ -110,14 +128,14 @@ export async function startSqliteWorker(
     }
     void execute(message.requestId, message.operation).then(
       (value) => respond(scope, { requestId: message.requestId, ok: true, value }),
-      (error: unknown) => {
+      <ErrorValue>(error: ErrorValue) => {
         const typed = mapSqlitePersistenceError(error);
         respond(scope, { requestId: message.requestId, ok: false, error: { code: typed.code, message: typed.message } });
       },
     ).finally(() => cancelled.delete(message.requestId));
   };
 
-  async function execute(requestId: number, operation: WorkerOperation): Promise<unknown> {
+  async function execute(requestId: number, operation: WorkerOperation): Promise<WorkerResult> {
     assertNotCancelled(requestId, cancelled);
     switch (operation.type) {
       case "health": return health;
@@ -152,7 +170,7 @@ interface SqliteRuntime {
     readonly OpfsWlDb?: new (filename: string, flags?: string) => SqliteRawDatabase;
     readonly OpfsSAHPoolDb?: new (filename: string, flags?: string) => SqliteRawDatabase;
   };
-  installOpfsSAHPoolVfs?(options?: Readonly<Record<string, unknown>>): Promise<unknown>;
+  installOpfsSAHPoolVfs?(options?: { readonly name: string }): Promise<object>;
   readonly capi?: { sqlite3_js_db_export?(database: SqliteRawDatabase): Uint8Array };
 }
 
@@ -162,9 +180,12 @@ export interface SqliteRawDatabase {
     readonly bind?: readonly (CommunityFieldScalar | Uint8Array)[];
     readonly rowMode?: "object" | "$";
     readonly returnValue?: "resultRows";
-    readonly resultRows?: Readonly<Record<string, unknown>>[];
-  }): unknown;
-  selectValue?(sql: string, bind?: readonly (CommunityFieldScalar | Uint8Array)[]): unknown;
+    readonly resultRows?: Readonly<Record<string, CommunityFieldScalar | Uint8Array | undefined>>[];
+  }): void;
+  selectValue?(
+    sql: string,
+    bind?: readonly (CommunityFieldScalar | Uint8Array)[],
+  ): CommunityFieldScalar | Uint8Array | undefined;
   export?(): Uint8Array;
   close(): void;
 }
@@ -192,7 +213,7 @@ export function createSqliteStatementDatabase(raw: SqliteRawDatabase): SqliteSta
     },
     execute(sql, parameters = []) { raw.exec(parameters.length === 0 ? { sql } : { sql, bind: parameters }); },
     rows(sql, parameters = []) {
-      const rows: Readonly<Record<string, unknown>>[] = [];
+      const rows: Readonly<Record<string, CommunityFieldScalar | Uint8Array | undefined>>[] = [];
       raw.exec(parameters.length === 0
         ? { sql, rowMode: "object", returnValue: "resultRows", resultRows: rows }
         : { sql, bind: parameters, rowMode: "object", returnValue: "resultRows", resultRows: rows });
@@ -250,9 +271,9 @@ function writeEntity(database: SqliteStatementDatabase, entity: CommunityEntity)
         entity.ref.objectId,
         field,
         ordinal,
-        typeof value === "string" ? value : null,
-        typeof value === "number" ? value : null,
-        typeof value === "boolean" ? Number(value) : null,
+        isString(value) ? value : null,
+        isNumber(value) ? value : null,
+        isBoolean(value) ? Number(value) : null,
         value === null ? 1 : null,
       ]);
     });
@@ -297,26 +318,30 @@ function abortError(): DOMException { return new DOMException("The SQLite search
 
 function asErrorCode(code: string | undefined): CommunityError["code"] {
   const allowed: readonly CommunityError["code"][] = ["QUERY_UNSUPPORTED_SOURCE", "QUERY_COST_LIMIT", "INDEX_STALE", "INDEX_LOCKED", "INDEX_QUOTA", "PERSISTENCE_MIGRATION", "INTERNAL"];
-  return allowed.includes(code as CommunityError["code"]) ? code as CommunityError["code"] : "INTERNAL";
+  if (code === undefined) return "INTERNAL";
+  return allowed.find((candidate) => candidate === code) ?? "INTERNAL";
 }
 
-function parseWorkerResponse(value: Readonly<Record<string, unknown>>): WorkerResponse {
+function parseWorkerResponse(value: WorkerWireRecord): WorkerResponse {
   const requestId = value.requestId;
   const ok = value.ok;
-  if (!Number.isSafeInteger(requestId) || typeof ok !== "boolean") {
+  if (!Number.isSafeInteger(requestId) || !isBoolean(ok)) {
     throw new CommunityError("INTERNAL", "SQLite Worker returned a malformed response");
   }
   const error = value.error;
   return {
+    // SAFETY: Number.isSafeInteger above proves requestId is a protocol integer.
     requestId: requestId as number,
     ok,
-    ...(value.value === undefined ? {} : { value: value.value }),
-    ...(isErrorEnvelope(error) ? { error } : {}),
+    ...(value.value === undefined ? undefined : { value: value.value }),
+    ...(isErrorEnvelope(error) ? { error } : undefined),
   };
 }
 
-function isErrorEnvelope(value: unknown): value is { readonly code: string; readonly message: string } {
-  return typeof value === "object" && value !== null
-    && typeof (value as { code?: unknown }).code === "string"
-    && typeof (value as { message?: unknown }).message === "string";
+function isErrorEnvelope<Value>(value: Value): value is Value & WorkerError {
+  return isObject(value)
+    && "code" in value
+    && isString(value.code)
+    && "message" in value
+    && isString(value.message);
 }

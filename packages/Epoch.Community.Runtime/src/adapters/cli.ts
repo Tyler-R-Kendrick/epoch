@@ -1,6 +1,9 @@
 import { EpochCommandError, type EpochCommandReceipt } from "../receipts";
 import type { CommunityRuntime } from "../runtime";
 import { isDynamicUiManifest } from "../ui";
+type BoundaryValue = null | undefined | boolean | number | string | bigint | symbol | Readonly<object>;
+type DictionaryValue = null | undefined | boolean | number | string | bigint | readonly DictionaryValue[] | { readonly [key: string]: DictionaryValue };
+
 
 /**
  * CLI adapter.
@@ -73,7 +76,7 @@ export function isCommunityRuntimeInvocation(argv: readonly string[]): boolean {
 
 interface ParsedRequest {
   readonly kind: string;
-  readonly input: Readonly<Record<string, unknown>>;
+  readonly input: Readonly<Record<string, DictionaryValue>>;
 }
 
 function parse(args: readonly string[], runtime: CommunityRuntime): ParsedRequest {
@@ -160,6 +163,7 @@ function parseViewGroup(command: string | undefined, rest: readonly string[]): P
 
 function parsePropose(rest: readonly string[], runtime: CommunityRuntime): ParsedRequest {
   const view = requirePositional(rest, 0, "VIEW");
+  // SAFETY: The module validates or constructs this value before applying the asserted contract.
   const manifest = JSON.parse(requireOption(rest, "manifest")) as unknown;
   if (!isDynamicUiManifest(manifest)) {
     throw new EpochCommandError("invalid-input", "--manifest must be a dynamic UI manifest for harness ABI "
@@ -173,7 +177,7 @@ function parsePropose(rest: readonly string[], runtime: CommunityRuntime): Parse
       manifest,
       ...optionValue(rest, "prompt", "prompt"),
       ...optionValue(rest, "model", "model"),
-      ...(rest.includes("--retain-prompt") ? { retainPrompt: true } : {}),
+      ...(rest.includes("--retain-prompt") && { retainPrompt: true }),
     },
   };
 }
@@ -184,13 +188,13 @@ function parsePropose(rest: readonly string[], runtime: CommunityRuntime): Parse
  * Injected rather than imported so the adapter stays browser-safe: the CLI host
  * supplies the reader, and nothing in this package reaches for `node:fs`.
  */
-let bundleReader: ((path: string) => unknown) | undefined;
+let bundleReader: ((path: string) => BoundaryValue) | undefined;
 
-export function setCliBundleReader(reader: (path: string) => unknown): void {
+export function setCliBundleReader(reader: (path: string) => BoundaryValue): void {
   bundleReader = reader;
 }
 
-function readBundle(path: string): unknown {
+function readBundle(path: string): BoundaryValue {
   if (bundleReader === undefined) {
     throw new EpochCommandError("invalid-input", "This host cannot read bundle files.");
   }
@@ -226,7 +230,7 @@ function requirePositional(args: readonly string[], index: number, label: string
   return value;
 }
 
-function positionalString(args: readonly string[], index: number, key: string): Readonly<Record<string, unknown>> {
+function positionalString(args: readonly string[], index: number, key: string): Readonly<Record<string, DictionaryValue>> {
   const value = args.filter((argument) => !argument.startsWith("--"))[index];
   return value === undefined ? {} : { [key]: value };
 }
@@ -237,7 +241,7 @@ function requireOption(args: readonly string[], name: string): string {
   return value;
 }
 
-function optionValue(args: readonly string[], name: string, key: string): Readonly<Record<string, unknown>> {
+function optionValue(args: readonly string[], name: string, key: string): Readonly<Record<string, DictionaryValue>> {
   const value = readOption(args, name);
   return value === undefined ? {} : { [key]: value };
 }

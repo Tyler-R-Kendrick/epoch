@@ -6,22 +6,24 @@ Thank you for improving Epoch. This repository values small, well-tested changes
 
 ```bash
 npm ci
-npm run prepare   # wires .githooks → core.hooksPath
-npm run gate:fast # local commit/push pre-flight
-npm run verify    # full bar (typecheck, build, tests, coverage, pact) — also what CI runs
+npm run prepare    # wires .githooks → core.hooksPath
+npm run gate:commit # local commit/push hook gate (also runs via hooks)
+npm run gate:push   # mid-tier: + typecheck, build, unit (prefer before PR)
+npm run verify      # full bar (coverage, pact, e2e, …) — also what CI runs
 ```
 
 ## Required quality gates
 
-**GitHub Actions Quality Gates run on every pull request and push to `main`** (`.github/workflows/quality.yml`) and are the authoritative bar. Local hooks are a fast pre-flight, not a substitute:
+**GitHub Actions Quality Gates run on every pull request and push to `main`** (`.github/workflows/quality.yml`) and are the authoritative bar. Local hooks catch CI Lint-job checks early:
 
 | When | Command | Enforced by |
 |---|---|---|
-| Before commit | `npm run gate:fast` | `.githooks/pre-commit` (local pre-flight) |
-| Before push | `npm run gate:fast` | `.githooks/pre-push` (local pre-flight) |
+| Before commit | `npm run gate:commit` | `.githooks/pre-commit` (parallel static + a11y lint) |
+| Before push | `npm run gate:commit` | `.githooks/pre-push` (same) |
+| Before PR (preferred) | `npm run gate:push` | Manual mid-tier (+ typecheck, build, unit) |
 | Every PR / push to `main` | `npm run verify`, job-by-job | GitHub Actions (authoritative) |
 
-Every source change must pass `gate:fast` locally; prefer running `verify` for behavior changes so CI doesn't surface the failure first.
+Every source change must pass `gate:commit` locally; run `gate:push` / `verify` for behavior changes so CI doesn't surface typecheck/coverage/Pact/e2e failures first.
 
 Emergency bypass only: `SKIP_GIT_HOOKS=1` (document why). CI still runs regardless of a local bypass.
 

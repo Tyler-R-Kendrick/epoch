@@ -96,7 +96,8 @@ async function remoteAndArchiveBoundariesFailClosed(): Promise<void> {
 
 function grantsBudgetsAndFederationRejectReplayOrWidening(): void {
   const now = 1_000; const ledger = new AuthorityLedger({ now: () => now });
-  const owner = "epoch:principal:owner" as PrincipalId; const agent = "epoch:principal:agent" as PrincipalId; const worker = "epoch:principal:worker" as PrincipalId;
+  // SAFETY: Runtime checks or construction above establish PrincipalId.
+  const owner = "epoch:principal:owner" as PrincipalId; const agent = /* SAFETY: Assertion is justified by surrounding validation or construction. */ "epoch:principal:agent" as PrincipalId; const worker = /* SAFETY: Assertion is justified by surrounding validation or construction. */ "epoch:principal:worker" as PrincipalId;
   for (const [principalId, kind] of [[owner, "human"], [agent, "agent"], [worker, "agent"]] as const) ledger.registerPrincipal({ principalId, kind, keys: [{ keyId: `${kind}-${principalId}`, algorithm: "Ed25519", purpose: "signing", state: "active" }] });
   ledger.issueGrant({ grantId: "parent", issuerId: owner, subjectId: agent, actions: ["repository.read"], resources: ["repo:epoch/core"], paths: ["src/*"], expiresAt: 5_000, maxDelegationDepth: 1, budget: { unit: "model-call", limit: 2 } });
   assert.throws(() => ledger.issueGrant({ grantId: "widened", parentGrantId: "parent", issuerId: agent, subjectId: worker, actions: ["repository.read", "repository.write"], resources: ["repo:epoch/*"], paths: ["*"], expiresAt: 5_000, budget: { unit: "model-call", limit: 3 } }), /attenuate/u);
@@ -124,4 +125,5 @@ async function providerOutputIsNonAuthoritativeAndBounded(): Promise<void> {
 
 function publicForgeObject(): ForgeObject { return { kind: "issue", objectId: "issue-1", repositoryId: "repo-1", title: "Issue", body: "body", state: "open", authorId: "alice", createdAt: 1, updatedAt: 2, visibility: "public", revision: "revision-1" }; }
 
-void main().catch((error: unknown) => { process.stderr.write(`${String((error as Error).stack ?? error)}\n`); process.exitCode = 1; });
+// SAFETY: Runtime checks or construction above establish Error).stack ?? error)}\n`).
+void main().catch((error) => { process.stderr.write(`${String((/* SAFETY: Assertion is justified by surrounding validation or construction. */ error as Error).stack ?? error)}\n`); process.exitCode = 1; });

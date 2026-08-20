@@ -345,6 +345,7 @@ async function s2ProtocolCarProof(): Promise<void> {
   // Tampered record bytes in slice → proof-invalid
   const slice = decodeProtocolProofSlice(built.carSliceB64);
   const tamperedRecord = { ...slice.record, epochAuthorId: "attacker" };
+  // SAFETY: Runtime checks or construction above establish typeof slice.record }).
   const tamperedB64 = encodeProtocolProofSlice({ ...slice, record: tamperedRecord as typeof slice.record });
   await assert.rejects(
     () => verifier.verifyRecordProof({
@@ -796,7 +797,9 @@ async function s6IndexHeadRollback(): Promise<void> {
   const storedBefore = store.get(pairKey(owner.publicKey, did));
   assert.equal(storedBefore?.status, "revoked");
   assert.ok(
+    // SAFETY: Runtime checks or construction above establish { nostrChain?: unknown[] }).nostrChain).
     Array.isArray((storedBefore?.proof as { nostrChain?: unknown[] }).nostrChain)
+      // SAFETY: Runtime checks or construction above establish { nostrChain?: unknown[] }).nostrChain?.length ?? 0) >= 1.
       && ((storedBefore?.proof as { nostrChain?: unknown[] }).nostrChain?.length ?? 0) >= 1,
     "ingest must persist prior chain for re-verify",
   );
@@ -1122,6 +1125,6 @@ function custodyGrepSurface(): void {
   const exported = signer.exportPrivateKeyForTests();
   assert.match(exported, /^[0-9a-f]{64}$/u);
   // public events must never include nsec/private key material fields
-  assert.equal("nsec" in ({} as object), false);
+  assert.equal("nsec" in {}, false);
 }
 

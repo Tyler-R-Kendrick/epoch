@@ -1,5 +1,8 @@
 import { isRecord, type BrowserEpoch } from "@epoch/integration-core";
 import { digestOf } from "./digest";
+type BoundaryValue = null | undefined | boolean | number | string | bigint | symbol | Readonly<object>;
+type DictionaryValue = null | undefined | boolean | number | string | bigint | readonly DictionaryValue[] | { readonly [key: string]: DictionaryValue };
+
 
 /**
  * Moving a workspace between participants.
@@ -30,7 +33,7 @@ export interface BundledEvent {
   readonly entity: string;
   readonly author: string;
   readonly lamport: number;
-  readonly payload: Record<string, unknown>;
+  readonly payload: Record<string, DictionaryValue>;
 }
 
 export interface ImportReport {
@@ -63,7 +66,7 @@ export function exportWorkspaceBundle(
   };
 }
 
-export function importWorkspaceBundle(epoch: BrowserEpoch, bundle: unknown): ImportReport {
+export function importWorkspaceBundle(epoch: BrowserEpoch, bundle: BoundaryValue): ImportReport {
   if (!isBundle(bundle)) throw new Error("That is not an Epoch workspace bundle.");
   if (digestOf(bundle.events) !== bundle.digest) {
     throw new Error("Bundle digest does not match its events; refusing to import.");
@@ -81,6 +84,7 @@ export function importWorkspaceBundle(epoch: BrowserEpoch, bundle: unknown): Imp
     }
 
     if (!isBundledEvent(event)) {
+      // SAFETY: The module validates or constructs this value before applying the asserted contract.
       rejected.push(`${String((event as { id?: unknown }).id ?? "unknown")}: not an event`);
       continue;
     }
@@ -95,7 +99,7 @@ export function importWorkspaceBundle(epoch: BrowserEpoch, bundle: unknown): Imp
   return { applied, skipped, rejected, events: epoch.repository.history().length };
 }
 
-function isBundle(value: unknown): value is WorkspaceBundle {
+function isBundle(value: BoundaryValue): value is WorkspaceBundle {
   return isRecord(value)
     && value.kind === "epoch-workspace-bundle"
     && value.version === 1
@@ -103,7 +107,7 @@ function isBundle(value: unknown): value is WorkspaceBundle {
     && Array.isArray(value.events);
 }
 
-function isBundledEvent(value: unknown): value is BundledEvent {
+function isBundledEvent(value: BoundaryValue): value is BundledEvent {
   return isRecord(value)
     && typeof value.id === "string"
     && typeof value.entity === "string"

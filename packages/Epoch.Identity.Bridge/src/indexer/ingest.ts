@@ -55,8 +55,10 @@ export async function ingestBindingCandidate(input: {
     }
   }
   if (existing?.proof?.nostrEvent !== undefined) {
+    // SAFETY: The module validates or constructs this value before applying the asserted contract.
     pushPrior(existing.proof.nostrEvent as NostrEvent);
   }
+  // SAFETY: The module validates or constructs this value before applying the asserted contract.
   const existingPriors = (existing?.proof as { readonly nostrChain?: readonly NostrEvent[] } | undefined)
     ?.nostrChain;
   if (existingPriors !== undefined) {

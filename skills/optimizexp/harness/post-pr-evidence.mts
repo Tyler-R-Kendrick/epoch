@@ -71,6 +71,7 @@ function loadScenarios(featureId: string, root: string) {
 			const eDir = loc
 				? evidenceDirInScope(featureId, slug, loc.scope)
 				: evidenceDir(featureId, slug, root);
+			// SAFETY: The surrounding parser or local invariant establishes this domain type at the boundary.
 			const man = JSON.parse(
 				readFileSync(path.join(eDir, "manifest.json"), "utf8"),
 			) as { primaryPath: string; kind: string; updatedAt?: string };

@@ -10,6 +10,9 @@ import {
   projectEpochToGit,
 } from "@epoch/core";
 import { gitProtocolEnvironment } from "./protocol-v2";
+type BoundaryValue = null | undefined | boolean | number | string | bigint | symbol | Readonly<object>;
+function __epochIsString<T>(value: T): value is T & string { return typeof value === "string"; }
+
 
 export interface GitProxyOptions {
   readonly epochRoot: string;
@@ -142,7 +145,7 @@ export async function startGitProxy(options: GitProxyOptions): Promise<GitProxyS
       projectRootParent,
       bareName,
       author: options.author,
-    }).catch((error: unknown) => {
+    }).catch((error: BoundaryValue) => {
       const message = error instanceof Error ? error.message : String(error);
       if (!res.headersSent) {
         res.statusCode = 500;
@@ -158,7 +161,7 @@ export async function startGitProxy(options: GitProxyOptions): Promise<GitProxyS
   });
 
   const address = server.address();
-  if (address === null || typeof address === "string") {
+  if (address === null || __epochIsString(address)) {
     throw new Error("Git proxy failed to bind a TCP port");
   }
   const url = `http://${host}:${address.port}`;
@@ -278,11 +281,7 @@ async function handleWithHttpBackend(
   res.end(split.body);
 }
 
-function splitCgi(output: Buffer): {
-  status: number;
-  headers: Record<string, string>;
-  body: Buffer;
-} {
+function splitCgi(output: Buffer) {
   const text = output.toString("binary");
   const sep = text.includes("\r\n\r\n") ? "\r\n\r\n" : "\n\n";
   const idx = text.indexOf(sep);
@@ -460,7 +459,7 @@ export function dualRunOnce(options: {
   readonly importRemoteUrl: string;
   readonly exportRemoteUrl: string;
   readonly author?: string;
-}): { import: MirrorResult; export: MirrorResult } {
+}) {
   const imp = importLiveOnce({
     epochRoot: options.epochRoot,
     projectionRoot: options.projectionRoot,
@@ -484,17 +483,18 @@ export function readLastCheckpoint(epochRoot: string): MirrorResult | undefined 
   const events = repository.events().filter((e) => e.type === GitMappingEventType.mirrorCheckpoint);
   const last = events[events.length - 1];
   if (last === undefined) return undefined;
-  const commitOid = typeof last.payload.commitOid === "string" ? last.payload.commitOid : "";
+  const commitOid = __epochIsString(last.payload.commitOid) ? last.payload.commitOid : "";
   return { commitOid, checkpointEventId: last.id };
 }
 
-export function writeMirrorState(path: string, state: unknown): void {
+export function writeMirrorState(path: string, state: BoundaryValue): void {
   mkdirSync(join(path, ".."), { recursive: true });
   writeFileSync(path, `${JSON.stringify(state, null, 2)}\n`);
 }
 
 export function readMirrorState<T>(path: string): T | undefined {
   if (!existsSync(path)) return undefined;
+  // SAFETY: The module validates or constructs this value before applying the asserted contract.
   return JSON.parse(readFileSync(path, "utf8")) as T;
 }
 

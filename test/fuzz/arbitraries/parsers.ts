@@ -125,13 +125,19 @@ export const arbUnknownEventType = fc.constantFrom(
 );
 
 /** PR-time short budget. Campaigns override via env. */
-export function shortFcParams(): { numRuns: number; seed: number; endOnFailure: boolean } {
+export interface FuzzRunParameters {
+  readonly numRuns: number;
+  readonly seed: number;
+  readonly endOnFailure: boolean;
+}
+
+export function shortFcParams(): FuzzRunParameters {
   const numRuns = Number(process.env.EPOCH_FUZZ_RUNS ?? "96");
   const seed = Number(process.env.EPOCH_FUZZ_SEED ?? "0x46415354");
   return { numRuns: Number.isFinite(numRuns) && numRuns > 0 ? numRuns : 96, seed: seed >>> 0, endOnFailure: true };
 }
 
-export function longFcParams(): { numRuns: number; seed: number; endOnFailure: boolean } {
+export function longFcParams(): FuzzRunParameters {
   const numRuns = Number(process.env.EPOCH_FUZZ_RUNS ?? "400");
   const seed = Number(process.env.EPOCH_FUZZ_SEED ?? Date.now());
   return { numRuns: Number.isFinite(numRuns) && numRuns > 0 ? numRuns : 400, seed: seed >>> 0, endOnFailure: true };

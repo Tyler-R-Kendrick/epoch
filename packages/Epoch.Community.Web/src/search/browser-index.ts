@@ -47,8 +47,10 @@ export type SearchWorkerRequestInput =
   | { readonly type: "close" }
   | { readonly type: "cancel"; readonly targetRequestId: string };
 
+export type SearchWorkerResult = BrowserIndexHealth | readonly OramaLexicalHit[] | undefined;
+
 export type SearchWorkerResponse =
-  | { readonly requestId: string; readonly ok: true; readonly result?: unknown }
+  | { readonly requestId: string; readonly ok: true; readonly result?: SearchWorkerResult }
   | { readonly requestId: string; readonly ok: false; readonly error: { readonly code: string; readonly message: string } };
 
 export interface SearchWorkerPort {
@@ -61,7 +63,10 @@ export interface SearchWorkerPort {
 export function createWorkerBrowserIndex(worker: SearchWorkerPort): BrowserLexicalIndex {
   let sequence = 0;
   let closed = false;
-  const pending = new Map<string, { readonly resolve: (value: unknown) => void; readonly reject: (error: unknown) => void }>();
+  const pending = new Map<string, {
+    readonly resolve: (value: SearchWorkerResult) => void;
+    readonly reject: (error: Error | DOMException) => void;
+  }>();
   const listener = (event: MessageEvent<SearchWorkerResponse>): void => {
     const request = pending.get(event.data.requestId);
     if (request === undefined) return;
@@ -70,7 +75,10 @@ export function createWorkerBrowserIndex(worker: SearchWorkerPort): BrowserLexic
     else request.reject(Object.assign(new Error(event.data.error.message), { code: event.data.error.code }));
   };
   worker.addEventListener("message", listener);
-  const request = <T>(message: SearchWorkerRequestInput, signal?: AbortSignal): Promise<T> => {
+  const request = <T extends SearchWorkerResult = undefined>(
+    message: SearchWorkerRequestInput,
+    signal?: AbortSignal,
+  ): Promise<T> => {
     if (closed) return Promise.reject(new Error("Browser search index is closed"));
     const requestId = `browser-index-${++sequence}`;
     return new Promise<T>((resolve, reject) => {
@@ -81,10 +89,17 @@ export function createWorkerBrowserIndex(worker: SearchWorkerPort): BrowserLexic
       };
       if (signal?.aborted === true) { abort(); return; }
       signal?.addEventListener("abort", abort, { once: true });
+      const resolveResult = (value: SearchWorkerResult): void => {
+        signal?.removeEventListener("abort", abort);
+        // SAFETY: The request kind fixes T, and the worker protocol returns the
+        // corresponding SearchWorkerResult variant for that request.
+        resolve(value as T);
+      };
       pending.set(requestId, {
-        resolve: (value) => { signal?.removeEventListener("abort", abort); resolve(value as T); },
+        resolve: resolveResult,
         reject: (error) => { signal?.removeEventListener("abort", abort); reject(error); },
       });
+      // SAFETY: requestId completes one member of the request-input union.
       worker.postMessage({ requestId, ...message } as SearchWorkerRequest);
     });
   };

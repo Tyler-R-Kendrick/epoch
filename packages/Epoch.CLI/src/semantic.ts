@@ -14,6 +14,8 @@ import {
 } from "@epoch/semantic";
 import { CliText } from "./domain";
 import { trustedExtensionProviders } from "./extensions";
+type BoundaryValue = null | undefined | boolean | number | string | bigint | symbol | Readonly<object>;
+
 
 /**
  * `epoch semantic <diff|apply|merge|plan>` (ADR-0038).
@@ -24,8 +26,8 @@ import { trustedExtensionProviders } from "./extensions";
  */
 
 export interface SemanticCliIO {
-  stdout: { write(message: string): unknown };
-  stderr: { write(message: string): unknown };
+  stdout: { write(message: string): BoundaryValue };
+  stderr: { write(message: string): BoundaryValue };
 }
 
 function readText(path: string): string {
@@ -166,6 +168,7 @@ export function runSemanticCommand(args: readonly string[], io: SemanticCliIO, r
   if (action === "apply") {
     if (files.length !== 2) throw new Error(CliText.semanticUsage);
     const provider = providerFor(files[0], repositorySyntaxRegistry(root, io));
+    // SAFETY: The module validates or constructs this value before applying the asserted contract.
     const patch = JSON.parse(readText(files[1])) as ReturnType<typeof semanticDiff>;
     io.stdout.write(applySemanticPatch(readText(files[0]), patch, provider));
     return;

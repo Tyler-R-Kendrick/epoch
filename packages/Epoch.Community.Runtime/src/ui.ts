@@ -1,5 +1,8 @@
 import { isRecord } from "@epoch/integration-core";
 import { findComponent, findSlot, type StaticHarnessRelease } from "./harness";
+type BoundaryValue = null | undefined | boolean | number | string | bigint | symbol | Readonly<object>;
+function __epochIsString<T>(value: T): value is T & string { return typeof value === "string"; }
+
 
 /**
  * The dynamic layer.
@@ -156,20 +159,20 @@ export function diffDynamicUiManifests(base: DynamicUiManifest, next: DynamicUiM
   };
 }
 
-export function isDynamicUiManifest(value: unknown): value is DynamicUiManifest {
+export function isDynamicUiManifest(value: BoundaryValue): value is DynamicUiManifest {
   return isRecord(value)
     && typeof value.abiVersion === "number"
     && isDynamicUiScope(value.scope)
     && Array.isArray(value.placements)
     && value.placements.every(isDynamicUiPlacement)
     && isRecord(value.theme)
-    && Object.values(value.theme).every((token) => typeof token === "string");
+    && Object.values(value.theme).every((token) => __epochIsString(token));
 }
 
-function isDynamicUiScope(value: unknown): value is DynamicUiScope {
+function isDynamicUiScope(value: BoundaryValue): value is DynamicUiScope {
   return value === "personal" || value === "project" || value === "session";
 }
 
-function isDynamicUiPlacement(value: unknown): value is DynamicUiPlacement {
+function isDynamicUiPlacement(value: BoundaryValue): value is DynamicUiPlacement {
   return isRecord(value) && typeof value.slot === "string" && typeof value.component === "string";
 }

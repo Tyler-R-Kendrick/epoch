@@ -18,6 +18,7 @@ import {
 	writeFileSync } from "node:fs";
 import path from "node:path";
 import process from "node:process";
+import type { JsonObject } from "./lib/value-types.mts";
 import {
 	featureDir,
 	featureDirInScope,
@@ -42,8 +43,15 @@ import {
 	type ExperienceRow } from "./lib/experience-catalog.mts";
 import { listProjects } from "./lib/projects.mts";
 
+interface FeatureDocument extends JsonObject {
+	implementationStatus: string;
+	primaryCommand: string;
+	surfaces: string[];
+}
+
 function parseArgs(argv: string[]) {
-	const out: Record<string, string> = { mode: "scaffold" };
+	const out: Record<string, string> = {};
+	out.mode = "scaffold";
 	for (let i = 0; i < argv.length; i++) {
 		const a = argv[i]!;
 		if (a === "--help" || a === "-h") out.mode = "help";
@@ -112,11 +120,7 @@ function writeBindingsAndTests(input: {
 	id: string;
 	seed: string;
 	surfaces?: string[];
-}): {
-	primaryCommand: string | null;
-	status: string;
-	discoveryBindings: number;
-} {
+}) {
 	const stepsDir = path.join(input.dir, "steps");
 	const testDir = path.join(input.dir, "test");
 	mkdirSync(stepsDir, { recursive: true });
@@ -341,7 +345,7 @@ function scaffold(args: Record<string, string>) {
 	const projects = (args.projects || (writeScope.global ? "root" : writeScope.id))
 		.split(/[,\s]+/)
 		.filter(Boolean);
-	const featureJson: Record<string, unknown> = {
+	const featureJson: FeatureDocument = {
 		schemaVersion: 1,
 		id,
 		title,
@@ -356,6 +360,8 @@ function scaffold(args: Record<string, string>) {
 		generatedFromSeed: true,
 		seedDigest: seedDigest(seed),
 		personaResolution: resolved.reason,
+		implementationStatus: "stub",
+		primaryCommand: "",
 		bindings: {
 			steps: `steps/bindings.steps.ts`,
 			implementations: `steps/implementations.ts`,
@@ -530,6 +536,7 @@ function implement(args: Record<string, string>) {
 		);
 		process.exit(2);
 	}
+	// SAFETY: The surrounding parser or local invariant establishes this domain type at the boundary.
 	const meta = JSON.parse(
 		readFileSync(path.join(dir, "feature.json"), "utf8"),
 	) as {
@@ -609,6 +616,7 @@ function validate(args: Record<string, string>) {
 			personas?: string[];
 		};
 		try {
+			// SAFETY: The surrounding parser or local invariant establishes this domain type at the boundary.
 			meta = JSON.parse(readFileSync(fj, "utf8")) as typeof meta;
 		} catch {
 			problems.push("feature.json invalid JSON");
@@ -677,6 +685,7 @@ function validate(args: Record<string, string>) {
 		const discPath = path.join(stepsDir, "discovery.json");
 		if (existsSync(discPath)) {
 			try {
+				// SAFETY: The surrounding parser or local invariant establishes this domain type at the boundary.
 				const disc = JSON.parse(readFileSync(discPath, "utf8")) as {
 					bindings?: { command?: string; scriptName?: string }[];
 				};

@@ -1,19 +1,20 @@
 import { CRuntime, CText, CValueMap, SendEvent } from "@collabs/collabs";
-import { canonicalJson, isRecord } from "./json";
+import { canonicalJson, isRecord, type JsonObject, type JsonValue } from "./json";
 import { EntityType, MergeText, TextToken } from "./domain";
+import type { EventPayload } from "./domain";
 import { parseCanonicalId, parseChangeId } from "@epoch/protocol";
 import type { CanonicalId } from "@epoch/protocol";
 
 export interface CRDTDefinition {
   readonly entityType: string;
-  merge(base: unknown, left: unknown, right: unknown): unknown;
+  merge(base: JsonValue, left: JsonValue, right: JsonValue): JsonValue;
 }
 
 export interface EntityAdapter extends CRDTDefinition {
-  validate?(value: unknown): readonly string[];
-  diff?(left: unknown, right: unknown): readonly string[];
-  redact?(value: unknown, fields: readonly string[]): unknown;
-  display?(value: unknown): string;
+  validate?(value: JsonValue): readonly string[];
+  diff?(left: JsonValue, right: JsonValue): readonly string[];
+  redact?(value: JsonValue, fields: readonly string[]): JsonValue;
+  display?(value: JsonValue): string;
 }
 
 export interface CodeOperationContext {
@@ -30,7 +31,7 @@ interface CodeOperationBase {
 }
 
 export type CodeOperation = CodeOperationBase & (
-  | { readonly kind: "map-set"; readonly key: string; readonly value: unknown }
+  | { readonly kind: "map-set"; readonly key: string; readonly value: JsonValue }
   | { readonly kind: "map-delete"; readonly key: string }
   | { readonly kind: "text-insert"; readonly value: string; readonly index?: number }
   | { readonly kind: "text-delete"; readonly index: number; readonly count?: number }
@@ -49,10 +50,10 @@ export interface CRDTEvent {
   readonly type: string;
   readonly author: string;
   readonly lamport: number;
-  readonly payload: Record<string, unknown>;
+  readonly payload: EventPayload;
 }
 
-interface CollabsPayload extends Record<string, unknown> {
+interface CollabsPayload extends EventPayload {
   readonly backend: "collabs";
   readonly entity: string;
   readonly entity_kind: "map" | "text";
@@ -62,7 +63,7 @@ interface CollabsPayload extends Record<string, unknown> {
 
 interface CollabsDocument {
   readonly runtime: CRuntime;
-  readonly map: CValueMap<string, unknown>;
+  readonly map: CValueMap<string, JsonValue>;
   readonly text: CText;
 }
 
@@ -88,7 +89,7 @@ export class CRDTRegistry {
     this.definitions.set(definition.entityType, definition);
   }
 
-  merge(entityType: string, base: unknown, left: unknown, right: unknown): unknown {
+  merge(entityType: string, base: JsonValue, left: JsonValue, right: JsonValue): JsonValue {
     return (this.definitions.get(entityType) ?? { merge: threeWayMerge }).merge(base, left, right);
   }
 }
@@ -115,11 +116,12 @@ export class CRDTEventLog {
     };
   }
 
-  materialize(events: readonly CRDTEvent[], entity: string): unknown {
+  materialize(events: readonly CRDTEvent[], entity: string): JsonValue {
     const payloads = this.payloadsFor(events, entity);
     const document = this.documentFor(events, "materializer", entity);
     if (payloads[0]?.entity_kind === "text") return document.text.toString();
-    return JSON.parse(JSON.stringify(Object.fromEntries(document.map.entries()))) as Record<string, unknown>;
+    // SAFETY: Collabs map values are constrained to JsonValue and JSON round-tripping produces a JsonObject.
+    return JSON.parse(JSON.stringify(Object.fromEntries(document.map.entries()))) as JsonObject;
   }
 
   operations(events: readonly CRDTEvent[], filter: CodeOperationFilter = {}): CodeOperationRecord[] {
@@ -163,7 +165,7 @@ export class CRDTEventLog {
 export class TextWeaveCRDT implements CRDTDefinition {
   readonly entityType = EntityType.plainText;
 
-  merge(base: unknown, left: unknown, right: unknown): string {
+  merge(base: JsonValue, left: JsonValue, right: JsonValue): string {
     if (!isString(base) || !isString(left) || !isString(right)) {
       throw new TypeError(MergeText.textTypeError);
     }
@@ -182,11 +184,11 @@ export class TextWeaveCRDT implements CRDTDefinition {
 export class JsonMapCRDT implements CRDTDefinition {
   readonly entityType = EntityType.json;
 
-  merge(base: unknown, left: unknown, right: unknown): unknown {
+  merge(base: JsonValue, left: JsonValue, right: JsonValue): JsonValue {
     return this.mergeValue(base, left, right, MergeText.jsonPathRoot);
   }
 
-  private mergeValue(base: unknown, left: unknown, right: unknown, path: string): unknown {
+  private mergeValue(base: JsonValue, left: JsonValue, right: JsonValue, path: string): JsonValue {
     if (same(left, right)) return left;
     if (same(left, base)) return right;
     if (same(right, base)) return left;
@@ -202,12 +204,12 @@ export class JsonMapCRDT implements CRDTDefinition {
   }
 
   private mergeMap(
-    base: Record<string, unknown>,
-    left: Record<string, unknown>,
-    right: Record<string, unknown>,
+    base: JsonObject,
+    left: JsonObject,
+    right: JsonObject,
     path: string,
-  ): Record<string, unknown> {
-    const merged: Record<string, unknown> = {};
+  ): JsonObject {
+    const merged: JsonObject = {};
     for (const key of [...new Set([...Object.keys(base), ...Object.keys(left), ...Object.keys(right)])].sort()) {
       const baseHas = Object.hasOwn(base, key);
       const leftHas = Object.hasOwn(left, key);
@@ -248,7 +250,7 @@ export class EntityRegistry {
     return adapter;
   }
 
-  merge(entityType: string, base: unknown, left: unknown, right: unknown): unknown {
+  merge(entityType: string, base: JsonValue, left: JsonValue, right: JsonValue): JsonValue {
     return (this.adapters.get(entityType) ?? { merge: threeWayMerge }).merge(base, left, right);
   }
 }
@@ -256,7 +258,7 @@ export class EntityRegistry {
 export class CsvTableCRDT implements CRDTDefinition {
   readonly entityType = EntityType.csv;
 
-  merge(base: unknown, left: unknown, right: unknown): string {
+  merge(base: JsonValue, left: JsonValue, right: JsonValue): string {
     if (!isString(base) || !isString(left) || !isString(right)) {
       throw new TypeError("text/csv merges require string values");
     }
@@ -279,7 +281,7 @@ export class CsvTableCRDT implements CRDTDefinition {
     return [header, ...rows.values()].map((row) => row.join(TextToken.comma)).join(TextToken.newline) + TextToken.newline;
   }
 
-  diff(left: unknown, right: unknown): readonly string[] {
+  diff(left: JsonValue, right: JsonValue): readonly string[] {
     if (!isString(left) || !isString(right)) return ["non-string CSV value"];
     const leftRows = parseCsvTable(left).rows;
     const rightRows = parseCsvTable(right).rows;
@@ -290,7 +292,7 @@ export class CsvTableCRDT implements CRDTDefinition {
     return changes;
   }
 
-  redact(value: unknown, fields: readonly string[]): string {
+  redact(value: JsonValue, fields: readonly string[]): string {
     if (!isString(value)) throw new TypeError("text/csv redaction requires string values");
     const table = parseCsvTable(value);
     const redactedIndexes = fields.map((field) => table.header.indexOf(field)).filter((index) => index >= 0);
@@ -299,18 +301,18 @@ export class CsvTableCRDT implements CRDTDefinition {
   }
 }
 
-export function threeWayMerge(base: unknown, left: unknown, right: unknown): unknown {
+export function threeWayMerge(base: JsonValue, left: JsonValue, right: JsonValue): JsonValue {
   if (same(left, right)) return left;
   if (same(left, base)) return right;
   if (same(right, base)) return left;
   throw new MergeConflictError(MergeText.jsonPathRoot);
 }
 
-export function loadEntity(entityType: string, text: string): unknown {
+export function loadEntity(entityType: string, text: string): JsonValue {
   return entityType === EntityType.json ? JSON.parse(text) : text;
 }
 
-export function dumpEntity(entityType: string, value: unknown): string {
+export function dumpEntity(entityType: string, value: JsonValue): string {
   return entityType === EntityType.json ? `${JSON.stringify(value, null, 2)}\n` : String(value);
 }
 
@@ -453,11 +455,11 @@ function formatLineRange(start: number, end: number): string {
   return firstLine === end ? `line ${firstLine}` : `lines ${firstLine}-${end}`;
 }
 
-function same(left: unknown, right: unknown): boolean {
+function same<Value>(left: Value, right: Value): boolean {
   return canonicalJson(left) === canonicalJson(right);
 }
 
-function isString(value: unknown): value is string {
+function isString<Value>(value: Value): value is Value & string {
   return typeof value === "string";
 }
 
@@ -465,7 +467,7 @@ function createCollabsDocument(replicaID: string): CollabsDocument {
   const runtime = new CRuntime({ debugReplicaID: replicaID, autoTransactions: "error" });
   return {
     runtime,
-    map: runtime.registerCollab("map", (init) => new CValueMap<string, unknown>(init)),
+    map: runtime.registerCollab("map", (init) => new CValueMap<string, JsonValue>(init)),
     text: runtime.registerCollab("text", (init) => new CText(init)),
   };
 }
@@ -512,15 +514,16 @@ function matchesOperationFilter(context: CodeOperationContext | undefined, filte
     && (filter.conversationDigest === undefined || context?.conversationDigest === filter.conversationDigest);
 }
 
-function collabsPayload(payload: Record<string, unknown>): CollabsPayload | undefined {
+function collabsPayload(payload: EventPayload): CollabsPayload | undefined {
   if (
     payload.backend === "collabs"
-    && typeof payload.entity === "string"
+    && isString(payload.entity)
     && (payload.entity_kind === "map" || payload.entity_kind === "text")
     && Array.isArray(payload.messages_base64)
-    && payload.messages_base64.every((message) => typeof message === "string")
+    && payload.messages_base64.every(isString)
   ) {
-    return payload as unknown as CollabsPayload;
+    // SAFETY: The checks above validate every required Collabs payload field.
+    return payload as CollabsPayload;
   }
   return undefined;
 }

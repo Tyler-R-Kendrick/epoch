@@ -1,3 +1,4 @@
+import { isObject, isString } from "./value-kind";
 import { copyFileSync, mkdirSync, readdirSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { EntityType, EpochRepository, type Event } from "@epoch/core";
@@ -199,17 +200,16 @@ function versionSummary(version: Event): CommunitySiteEpochVersionSummary {
 
   return {
     id: version.id,
-    name: typeof version.payload.name === "string" ? version.payload.name : version.id,
-    view: typeof version.payload.view === "string" ? version.payload.view : "main",
+    name: isString(version.payload.name) ? version.payload.name : version.id,
+    view: isString(version.payload.view) ? version.payload.view : "main",
     files,
   };
 }
 
-function isVersionFile(value: unknown): value is { readonly path: string } {
-  return typeof value === "object"
-    && value !== null
+function isVersionFile<Value>(value: Value): value is Value & { readonly path: string } {
+  return isObject(value)
     && "path" in value
-    && typeof (value as { readonly path?: unknown }).path === "string";
+    && isString(value.path);
 }
 
 function withPlannedRelease(

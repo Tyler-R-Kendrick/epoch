@@ -2,10 +2,11 @@ import { createActor, fromCallback } from "xstate";
 import { EpochRepository, EpochRepositoryOptions, Event, EventPayload, SyncResult } from "./core";
 import { CodeOperation } from "./crdt";
 import { DefaultAuthor, EntityType } from "./domain";
+import type { JsonValue } from "./json";
 
 interface Reply<T> {
   resolve(value: T): void;
-  reject(error: unknown): void;
+  reject(cause: unknown): void;
 }
 
 type RepositoryCommand =
@@ -13,7 +14,7 @@ type RepositoryCommand =
   | { type: "append"; eventType: string; payload: EventPayload; author?: string; reply: Reply<Event> }
   | { type: "recordCodeOperation"; operation: CodeOperation; author?: string; reply: Reply<Event> }
   | { type: "recordFile"; path: string; entityType: string; author?: string; reply: Reply<Event> }
-  | { type: "materialize"; entity: string; reply: Reply<unknown> }
+  | { type: "materialize"; entity: string; reply: Reply<JsonValue> }
   | { type: "read"; eventId: string; reply: Reply<Event> }
   | { type: "events"; reply: Reply<Event[]> }
   | { type: "heads"; reply: Reply<string[]> }
@@ -116,7 +117,7 @@ export class EpochActorSystem {
     return this.request({ type: "recordFile", path, entityType, author });
   }
 
-  materialize(entity: string): Promise<unknown> {
+  materialize(entity: string): Promise<JsonValue> {
     return this.request({ type: "materialize", entity });
   }
 
@@ -163,6 +164,7 @@ export class EpochActorSystem {
 
   private request<T>(event: CommandWithoutReply<RepositoryCommand>): Promise<T> {
     return new Promise<T>((resolve, reject) => {
+      // SAFETY: Runtime checks or construction above establish RepositoryCommand).
       this.actor.send({ ...event, reply: { resolve, reject } } as RepositoryCommand);
     });
   }
@@ -210,6 +212,7 @@ export class EpochUserActor {
 
   private request<T>(event: CommandWithoutReply<UserCommand>): Promise<T> {
     return new Promise<T>((resolve, reject) => {
+      // SAFETY: Runtime checks or construction above establish UserCommand).
       this.actor.send({ ...event, reply: { resolve, reject } } as UserCommand);
     });
   }

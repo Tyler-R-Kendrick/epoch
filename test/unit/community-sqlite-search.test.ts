@@ -30,6 +30,11 @@ import {
   type SqliteWorkerLike,
 } from "../../packages/Epoch.Community.Web/src/search/sqlite-worker";
 
+type TestJsonValue = boolean | null | number | string | TestJsonObject | readonly TestJsonValue[] | undefined;
+interface TestJsonObject {
+  readonly [key: string]: TestJsonValue;
+}
+
 const NOW = "2026-08-12T20:00:00.000Z";
 const REGISTRY = createCommunityFieldRegistry();
 
@@ -96,7 +101,7 @@ async function schemaInitializationChecksFtsAndMigrates(): Promise<void> {
 
   const unsupported = new RecordingDatabase(0);
   await assert.rejects(() => initializeSqliteIndex(unsupported, { storageMode: "memory" }),
-    (error: unknown) => error instanceof CommunityError && error.code === "QUERY_UNSUPPORTED_SOURCE");
+    (error) => error instanceof CommunityError && error.code === "QUERY_UNSUPPORTED_SOURCE");
 }
 
 async function persistenceCoordinatorRejectsSecondWriter(): Promise<void> {
@@ -105,7 +110,7 @@ async function persistenceCoordinatorRejectsSecondWriter(): Promise<void> {
   const second = new BrowserPersistenceCoordinator({ lockManager: locks, lockName: "epoch-index" });
   const lease = await first.acquireWriter();
   await assert.rejects(() => second.acquireWriter(),
-    (error: unknown) => error instanceof CommunityError && error.code === "INDEX_LOCKED");
+    (error) => error instanceof CommunityError && error.code === "INDEX_LOCKED");
   await lease.release();
   const next = await second.acquireWriter();
   await next.release();
@@ -118,7 +123,7 @@ function workerCancellationRejectsAndCleansPendingRequest(): void {
   const pending = client.request({ type: "health" }, controller.signal);
   controller.abort();
   assert.equal(worker.messages.at(-1)?.type, "cancel");
-  void assert.rejects(() => pending, (error: unknown) => error instanceof DOMException && error.name === "AbortError");
+  void assert.rejects(() => pending, (error) => error instanceof DOMException && error.name === "AbortError");
 }
 
 function workerResponsesCompleteRequests(): void {
@@ -153,6 +158,7 @@ async function sqliteBackendMatchesReferenceForSupportedQueries(): Promise<void>
   const incremental: CommunitySearchChangeSet = {
     sourceId: "test",
     checkpoint: { sourceId: "test", token: "2", observedAt: NOW, status: "current" },
+    // SAFETY: Runtime checks or construction above establish CommunityEntity].
     upserts: [entities[0] as CommunityEntity],
     deletes: [],
     observedAt: NOW,
@@ -192,7 +198,7 @@ class RecordingDatabase implements SqliteStatementDatabase {
   readonly sql: string[] = [];
   #userVersion = 0;
   constructor(private readonly fts5: number) {}
-  value(sql: string): unknown {
+  value(sql: string): ReturnType<SqliteStatementDatabase["value"]> {
     this.sql.push(sql);
     if (/sqlite_compileoption_used/u.test(sql)) return this.fts5;
     if (/user_version/u.test(sql)) return this.#userVersion;
@@ -203,7 +209,7 @@ class RecordingDatabase implements SqliteStatementDatabase {
     const version = /PRAGMA user_version = (\d+)/u.exec(sql)?.[1];
     if (version !== undefined) this.#userVersion = Number(version);
   }
-  rows(): readonly Readonly<Record<string, unknown>>[] { return []; }
+  rows(): readonly Readonly<TestJsonObject>[] { return []; }
   close(): void {}
 }
 
@@ -217,10 +223,11 @@ class FakeLockManager implements ExclusiveLockManager {
 }
 
 class FakeWorker implements SqliteWorkerLike {
-  readonly messages: Record<string, unknown>[] = [];
+  readonly messages: TestJsonObject[] = [];
   onmessage: ((event: MessageEvent) => void) | null = null;
-  postMessage(message: Record<string, unknown>): void { this.messages.push(message); }
-  respond(message: Record<string, unknown>): void { this.onmessage?.({ data: message } as MessageEvent); }
+  postMessage(message: TestJsonObject): void { this.messages.push(message); }
+  // SAFETY: Runtime checks or construction above establish MessageEvent).
+  respond(message: TestJsonObject): void { this.onmessage?.(/* SAFETY: Assertion is justified by surrounding validation or construction. */ { data: message } as MessageEvent); }
   terminate(): void {}
 }
 
@@ -305,7 +312,7 @@ function searchPlan(expression: SearchPlan["expression"]): SearchPlan {
 if (require.main === module) {
   runCommunitySqliteSearchTests().then(
     () => console.log("community SQLite search tests passed"),
-    (error: unknown) => {
+    (error) => {
       console.error(error);
       process.exitCode = 1;
     },

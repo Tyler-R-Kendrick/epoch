@@ -52,6 +52,7 @@ const LAUNCH_SUFFIX = /\.(exe|com|cmd|bat)$/iu;
 function suffixRank(entry: string): number {
   const suffix = LAUNCH_SUFFIX.exec(entry)?.[0].toLowerCase();
   if (suffix === undefined) return WINDOWS_EXECUTABLE_EXTENSIONS.length;
+  // SAFETY: The module validates or constructs this value before applying the asserted contract.
   return WINDOWS_EXECUTABLE_EXTENSIONS.indexOf(suffix as (typeof WINDOWS_EXECUTABLE_EXTENSIONS)[number]);
 }
 
@@ -85,6 +86,7 @@ export const nodeExtensionFileSystem: ExtensionFileSystem = {
       if (process.platform === "win32") {
         // Windows does not carry POSIX execute bits; launchability comes from
         // the file extension, so mode checking would reject every real .exe.
+        // SAFETY: The module validates or constructs this value before applying the asserted contract.
         return (WINDOWS_EXECUTABLE_EXTENSIONS as readonly string[]).includes(extname(path).toLowerCase());
       }
       // Any execute bit is enough; Epoch does not run it without trust anyway.

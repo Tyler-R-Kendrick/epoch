@@ -22,5 +22,6 @@ export const HIGH_STAKES_SCOPES = Object.freeze([
 ] as const);
 
 export function requiresBinding(scopes: readonly string[]): boolean {
+  // SAFETY: The module validates or constructs this value before applying the asserted contract.
   return scopes.some((scope) => (HIGH_STAKES_SCOPES as readonly string[]).includes(scope));
 }

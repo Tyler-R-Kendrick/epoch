@@ -1,3 +1,5 @@
+
+type DictionaryValue = null | undefined | boolean | number | string | bigint | readonly DictionaryValue[] | { readonly [key: string]: DictionaryValue };
 /**
  * Epoch-owned NATS auth callout (ADR-0054).
  *
@@ -16,7 +18,7 @@ export interface EpochNatsPermissions {
 export interface AuthCalloutRequest {
   readonly serverId?: string;
   readonly userNkey?: string;
-  readonly clientInfo?: Readonly<Record<string, unknown>>;
+  readonly clientInfo?: Readonly<Record<string, DictionaryValue>>;
   /** Bearer / API token / session id presented by the client. */
   readonly authToken?: string;
   readonly username?: string;

@@ -30,6 +30,7 @@ function readPackageScripts(root: string): Record<string, string> {
 	const pkgPath = path.join(root, "package.json");
 	if (!existsSync(pkgPath)) return {};
 	try {
+		// SAFETY: The surrounding parser or local invariant establishes this domain type at the boundary.
 		const pkg = JSON.parse(readFileSync(pkgPath, "utf8")) as {
 			scripts?: Record<string, string>;
 		};

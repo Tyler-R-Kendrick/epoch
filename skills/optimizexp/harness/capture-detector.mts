@@ -103,6 +103,7 @@ function main(): void {
 		// Treating any non-zero exit with output as findings meant a real command
 		// failure wrote `findings: []`, which the gate reads as clean — the same
 		// always-passes hole as reading only stdout. Only 2 is a report.
+		// SAFETY: The surrounding parser or local invariant establishes this domain type at the boundary.
 		const e = error as { status?: number; stdout?: string; stderr?: string };
 		if (e.status !== 2) throw error;
 		// On that path it reports on stderr, so reading only stdout silently

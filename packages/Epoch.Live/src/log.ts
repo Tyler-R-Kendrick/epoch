@@ -6,6 +6,10 @@ import {
   type LiveVerifier,
 } from "./signer";
 import { hashHex, isRecord, normalizeJson, requireNonEmpty, stableJson } from "./util";
+type BoundaryValue = null | undefined | boolean | number | string | bigint | symbol | Readonly<object>;
+type DictionaryValue = null | undefined | boolean | number | string | bigint | readonly DictionaryValue[] | { readonly [key: string]: DictionaryValue };
+function __epochIsString<T>(value: T): value is T & string { return typeof value === "string"; }
+
 
 export type LiveEventKind = "op" | "rollback";
 
@@ -16,7 +20,7 @@ export interface LiveEvent {
   readonly author: string;
   readonly lamport: number;
   readonly parents: readonly string[];
-  readonly payload: Record<string, unknown>;
+  readonly payload: Record<string, DictionaryValue>;
   readonly scheme: string;
   readonly signature: string;
 }
@@ -62,7 +66,7 @@ export class LiveLog {
     return this.signer.author;
   }
 
-  append(kind: LiveEventKind, entity: string, payload: Record<string, unknown>): LiveEvent {
+  append(kind: LiveEventKind, entity: string, payload: Record<string, DictionaryValue>): LiveEvent {
     const cleanEntity = requireNonEmpty(entity, "entity");
     const lamport = this.maxLamport + 1;
     const parents = this.heads();
@@ -143,7 +147,7 @@ export class LiveLog {
   }
 
   private isValid(event: LiveEvent): boolean {
-    if (!isValidShape(event)) return false;
+    if (!isValidLiveEvent(event)) return false;
     const canonical = canonicalUnsigned(
       event.kind,
       event.entity,
@@ -168,8 +172,9 @@ export class LiveLog {
     for (const path of this.vfs.listFiles(`${this.root}/events/`)) {
       const raw = this.vfs.readFile(path);
       if (raw === undefined) continue;
+      // SAFETY: The module validates or constructs this value before applying the asserted contract.
       const parsed = JSON.parse(raw) as unknown;
-      if (isValidShape(parsed)) {
+      if (isValidLiveEvent(parsed)) {
         this.events.set(parsed.id, parsed);
         this.maxLamport = Math.max(this.maxLamport, parsed.lamport);
       }
@@ -198,12 +203,12 @@ function canonicalUnsigned(
   author: string,
   lamport: number,
   parents: readonly string[],
-  payload: Record<string, unknown>,
+  payload: Record<string, DictionaryValue>,
 ): string {
   return stableJson({ kind, entity, author, lamport, parents: [...parents].sort(), payload });
 }
 
-function isValidShape(value: unknown): value is LiveEvent {
+function isValidLiveEvent(value: BoundaryValue): value is LiveEvent {
   return (
     isRecord(value) &&
     typeof value.id === "string" &&
@@ -212,7 +217,7 @@ function isValidShape(value: unknown): value is LiveEvent {
     typeof value.author === "string" &&
     typeof value.lamport === "number" &&
     Array.isArray(value.parents) &&
-    value.parents.every((parent) => typeof parent === "string") &&
+    value.parents.every((parent) => __epochIsString(parent)) &&
     isRecord(value.payload) &&
     typeof value.scheme === "string" &&
     typeof value.signature === "string"

@@ -149,7 +149,7 @@ function entity(objectId: string, title: string, state: string, relations?: () =
 }
 
 if (process.argv[1]?.endsWith("community-projection-execution.test.js")) {
-  runCommunityProjectionExecutionTests().then(() => console.log("community projection execution tests passed"), (error: unknown) => {
+  runCommunityProjectionExecutionTests().then(() => console.log("community projection execution tests passed"), (error) => {
     console.error(error);
     process.exitCode = 1;
   });

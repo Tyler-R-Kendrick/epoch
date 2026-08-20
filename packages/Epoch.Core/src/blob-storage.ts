@@ -23,8 +23,9 @@ export type BlobAvailability =
 
 export const EMPTY_BLOB_SHA256 = objectIdFor(Buffer.alloc(0));
 
-export function assertBlobReference(value: unknown): asserts value is BlobReferenceV2 {
+export function assertBlobReference<Value>(value: Value): asserts value is Value & BlobReferenceV2 {
   if (typeof value !== "object" || value === null) throw new Error("Blob reference must be an object");
+  // SAFETY: Runtime checks or construction above establish Partial<BlobReferenceV2>.
   const reference = value as Partial<BlobReferenceV2>;
   validateObjectId(reference.blobSha256 ?? "");
   if (!Number.isSafeInteger(reference.size) || reference.size! < 0 || !reference.entityType?.trim()) {
@@ -38,7 +39,7 @@ export async function verifyBlobAvailability(
   store: ObjectStore,
   promises: ReadonlyMap<string, ObjectPromiseV1> = new Map(),
 ): Promise<BlobAvailability> {
-  try { assertBlobReference(reference); } catch (error) { return { status: "invalid", reason: (error as Error).message }; }
+  try { assertBlobReference(reference); } catch (error) { return { status: "invalid", reason: error instanceof Error ? error.message : String(error) }; }
   const storage = reference.storage ?? { kind: "inline" as const };
   if (reference.size === 0) {
     return reference.blobSha256 === EMPTY_BLOB_SHA256
@@ -75,7 +76,8 @@ export async function verifyBlobAvailability(
     return verified.ok ? { status: "resident", bytesVerified: verified.bytesVerified }
       : { status: "invalid", reason: `${verified.code}: ${verified.objectId ?? "manifest"}` };
   } catch (error) {
-    return { status: "invalid", reason: (error as Error).message };
+    const reason = error instanceof Error ? error.message : String(error);
+    return { status: "invalid", reason };
   }
 }
 
@@ -91,7 +93,7 @@ export async function fetchVerifiedRange(
   end: number,
   policy: "allow-full" | "range-only" = "range-only",
 ): Promise<RangeFetchResult> {
-  try { assertBlobReference(reference); } catch (error) { return { status: "rejected", reason: (error as Error).message }; }
+  try { assertBlobReference(reference); } catch (error) { return { status: "rejected", reason: error instanceof Error ? error.message : String(error) }; }
   if (!Number.isSafeInteger(start) || !Number.isSafeInteger(end) || start < 0 || end < start || end > reference.size) {
     return { status: "rejected", reason: "invalid byte range" };
   }

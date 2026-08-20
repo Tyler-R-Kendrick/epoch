@@ -1,5 +1,7 @@
 import { isRecord, type BrowserEpoch } from "@epoch/integration-core";
 import { digestOf, identifier } from "./digest";
+type BoundaryValue = null | undefined | boolean | number | string | bigint | symbol | Readonly<object>;
+
 
 /**
  * Social records as change feeds.
@@ -80,9 +82,9 @@ export function appendSocialRevision(
     body,
     author,
     revision,
-    ...(input.subject === undefined ? {} : { subject: input.subject }),
-    ...(previous === undefined ? {} : { editOf: previous.revisionId }),
-    ...(input.links === undefined ? {} : { links: input.links }),
+    ...(!(input.subject === undefined) && { subject: input.subject }),
+    ...(!(previous === undefined) && { editOf: previous.revisionId }),
+    ...(!(input.links === undefined) && { links: input.links }),
   };
 
   const result = epoch.trackChange<SocialRevision>({
@@ -112,6 +114,7 @@ export function appendSocialRevision(
 
 /** Every revision in a feed, oldest first. */
 export function revisionsOf(epoch: BrowserEpoch, feed: string): readonly SocialRevision[] {
+  // SAFETY: The module validates or constructs this value before applying the asserted contract.
   return epoch.repository.history()
     .filter((event) => event.entity === feedEntity(feed))
     .map((event) => (event.payload as { payload?: unknown }).payload)
@@ -151,7 +154,7 @@ export function listFeeds(epoch: BrowserEpoch): readonly string[] {
   return [...feeds].sort();
 }
 
-function isSocialRevision(value: unknown): value is SocialRevision {
+function isSocialRevision(value: BoundaryValue): value is SocialRevision {
   return isRecord(value)
     && typeof value.changeId === "string"
     && typeof value.revisionId === "string"

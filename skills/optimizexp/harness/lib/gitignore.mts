@@ -265,7 +265,7 @@ export function ensureGitignoreForScope(
 	scope: OptimizexpScope,
 	gi: OptimizexpGitignoreConfig,
 	opts?: { force?: boolean },
-): { path: string; written: boolean; reason: string } {
+) {
 	const filePath = gitignorePathForScope(scope);
 	if (!gi.enabled) {
 		return { path: filePath, written: false, reason: "gitignore.enabled=false" };

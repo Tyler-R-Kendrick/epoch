@@ -1,3 +1,5 @@
+
+function __epochIsString<T>(value: T): value is T & string { return typeof value === "string"; }
 /**
  * In-memory JetStream stand-in for unit tests and local demos without nats-server.
  * Cursor is the 1-based stream sequence.
@@ -35,7 +37,7 @@ export class MemoryJetStream {
   }
 
   publish(subject: string, data: Uint8Array | string, headers?: Record<string, string>): JetStreamAppendResult {
-    const bytes = typeof data === "string" ? new TextEncoder().encode(data) : data;
+    const bytes = __epochIsString(data) ? new TextEncoder().encode(data) : data;
     const seq = this.#entries.length + 1;
     this.#entries.push({
       seq,

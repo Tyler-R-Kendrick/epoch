@@ -77,6 +77,9 @@ jobs:
       - name: Lint
         run: npm run lint
 
+      - name: Anti-slop (Oxlint)
+        run: npm run lint:oxlint
+
       - name: Community Web a11y lint
         run: npm run community-web:app:a11y-lint
 

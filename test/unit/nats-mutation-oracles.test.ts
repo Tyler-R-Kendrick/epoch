@@ -58,10 +58,10 @@ function emptyDirectoryMutantWouldAdvertiseWithoutName(): void {
   });
   assert.throws(
     () => directory.advertise({ name: "  ", endpoint: "epoch.live.civic.>" }),
-    (error: unknown) => error instanceof ServiceDiscoveryDeniedError,
+    (error) => error instanceof ServiceDiscoveryDeniedError,
   );
   assert.throws(
     () => directory.advertise({ name: "live", endpoint: "nats://relay" }),
-    (error: unknown) => error instanceof ServiceDiscoveryDeniedError,
+    (error) => error instanceof ServiceDiscoveryDeniedError,
   );
 }

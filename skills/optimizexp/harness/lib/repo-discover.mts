@@ -85,6 +85,7 @@ function packageScripts(root: string): Record<string, string> {
 	const p = path.join(root, "package.json");
 	if (!existsSync(p)) return {};
 	try {
+		// SAFETY: The surrounding parser or local invariant establishes this domain type at the boundary.
 		const j = JSON.parse(readFileSync(p, "utf8")) as {
 			name?: string;
 			scripts?: Record<string, string>;
@@ -95,7 +96,7 @@ function packageScripts(root: string): Record<string, string> {
 	}
 }
 
-function firstHeadingParagraph(md: string): { title: string; summary: string } {
+function firstHeadingParagraph(md: string) {
 	const lines = md.split(/\r?\n/);
 	let title = "";
 	const paras: string[] = [];
@@ -156,6 +157,7 @@ export function discoverProduct(
 
 	const readme = readText(path.join(root, "README.md"));
 	const { title, summary } = firstHeadingParagraph(readme);
+	// SAFETY: package.json is parsed only for its optional name and description fields.
 	const pkg = existsSync(path.join(root, "package.json"))
 		? (JSON.parse(readFileSync(path.join(root, "package.json"), "utf8")) as {
 				name?: string;

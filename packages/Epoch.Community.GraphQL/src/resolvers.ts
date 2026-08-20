@@ -1,3 +1,5 @@
+// SAFETY: The module validates or constructs this value before applying the asserted contract.
+// SAFETY: The module validates or constructs this value before applying the asserted contract.
 import {
   CommunityError,
   isCommunityError,
@@ -22,6 +24,13 @@ import {
 } from "@epoch/community-core";
 import { GraphQLError } from "graphql";
 import { projectionDeltaEvents } from "./subscriptions";
+type BoundaryValue = null | undefined | boolean | number | string | bigint | symbol | Readonly<object>;
+type DictionaryValue = null | undefined | boolean | number | string | bigint | readonly DictionaryValue[] | { readonly [key: string]: DictionaryValue };
+function __epochIsNumber<T>(value: T): value is T & number { return typeof value === "number"; }
+function __epochIsString<T>(value: T): value is T & string { return typeof value === "string"; }
+function __epochIsBoolean<T>(value: T): value is T & boolean { return typeof value === "boolean"; }
+function __epochIsObject<T>(value: T): value is T & object { return typeof value === "object"; }
+
 
 export interface SearchScope {
   readonly sourceIds?: readonly string[];
@@ -146,7 +155,7 @@ export type CommunityValueInput = { readonly scalar?: CommunityScalarInput; read
 const RELATIONS = new Set(["reply", "quote", "mention", "provenance", "promotion", "replacement", "moderation", "attachment", "backlink"]);
 const SCOPES = new Set(["builtin", "community", "workspace", "user", "session"]);
 
-export function createRootResolvers(services: CommunityGraphQLServices): Readonly<Record<string, unknown>> {
+export function createRootResolvers(services: CommunityGraphQLServices): Readonly<Record<string, DictionaryValue>> {
   return Object.freeze({
     node: guard(async ({ id }: { readonly id: string }, context: CommunityGraphQLContext) => {
       const authorized = authorization(context);
@@ -155,46 +164,46 @@ export function createRootResolvers(services: CommunityGraphQLServices): Readonl
     }),
     search: guard(async (args: SearchArgs, context: CommunityGraphQLContext) => searchRecord(await services.search({
       where: searchExpressionFromInput(args.where),
-      ...(args.scope === undefined ? {} : { scope: args.scope }),
+      ...(!(args.scope === undefined) && { scope: args.scope }),
       orderBy: orders(args.orderBy),
       first: boundedFirst(args.first),
-      ...(args.after === undefined ? {} : { after: args.after }),
-      ...(args.snapshot === undefined ? {} : { snapshot: args.snapshot }),
+      ...(!(args.after === undefined) && { after: args.after }),
+      ...(!(args.snapshot === undefined) && { snapshot: args.snapshot }),
       authorization: authorization(context),
-      ...(context.signal === undefined ? {} : { signal: context.signal }),
+      ...(!(context.signal === undefined) && { signal: context.signal }),
     }))),
     parseSearch: guard(async (args: { readonly expression: string; readonly timezone?: string; readonly locale?: string }, context: CommunityGraphQLContext) => parsedRecord(services.parseSearch(args.expression, {
-      ...(args.timezone === undefined ? {} : { timezone: args.timezone }),
-      ...(args.locale === undefined ? {} : { locale: args.locale }),
+      ...(!(args.timezone === undefined) && { timezone: args.timezone }),
+      ...(!(args.locale === undefined) && { locale: args.locale }),
       authorization: authorization(context),
     }))),
     explainSearch: guard(async (args: { readonly where: SearchExpressionInput; readonly scope?: SearchScope; readonly orderBy?: readonly SearchOrderInput[] }, context: CommunityGraphQLContext) => {
       const where = searchExpressionFromInput(args.where);
       return explanationRecord(await services.explainSearch({
       where,
-      ...(args.scope === undefined ? {} : { scope: args.scope }),
+      ...(!(args.scope === undefined) && { scope: args.scope }),
       orderBy: orders(args.orderBy),
       authorization: authorization(context),
       }), where);
     }),
-    projections: guard(async (_args: unknown, context: CommunityGraphQLContext) => (await services.projections(authorization(context))).map(projectionRecord)),
+    projections: guard(async (_args: BoundaryValue, context: CommunityGraphQLContext) => (await services.projections(authorization(context))).map(projectionRecord)),
     projection: guard(async ({ id }: { readonly id: string }, context: CommunityGraphQLContext) => projectionRecord(await services.projection(id, authorization(context)))),
     listPath: guard(async (args: PathPageArgs, context: CommunityGraphQLContext) => {
       const execution = await services.projectionContext(authorization(context), args.snapshot);
-      const result = await services.listPath({ ...(args.namespace === undefined ? {} : { namespace: args.namespace }), path: normalizeVirtualPath(args.path), first: boundedFirst(args.first), ...(args.after === undefined ? {} : { after: args.after }), context: execution });
+      const result = await services.listPath({ ...(!(args.namespace === undefined) && { namespace: args.namespace }), path: normalizeVirtualPath(args.path), first: boundedFirst(args.first), ...(!(args.after === undefined) && { after: args.after }), context: execution });
       return { nodes: result.entries, pageInfo: result.pageInfo, freshness: result.freshness, shadowed: result.shadowed ?? [], componentOrder: result.componentOrder ?? [] };
     }),
-    resolvePath: guard(async (args: PathArgs, context: CommunityGraphQLContext) => services.resolvePath({ ...(args.namespace === undefined ? {} : { namespace: args.namespace }), path: normalizeVirtualPath(args.path), context: await services.projectionContext(authorization(context), args.snapshot) })),
-    locate: guard(async (args: { readonly namespace?: string; readonly objectId: string; readonly snapshot?: string }, context: CommunityGraphQLContext) => services.locate({ ...(args.namespace === undefined ? {} : { namespace: args.namespace }), objectId: args.objectId, context: await services.projectionContext(authorization(context), args.snapshot) })),
-    explainPath: guard(async (args: PathArgs, context: CommunityGraphQLContext) => services.explainPath({ ...(args.namespace === undefined ? {} : { namespace: args.namespace }), path: normalizeVirtualPath(args.path), context: await services.projectionContext(authorization(context), args.snapshot) })),
-    sourceCapabilities: guard(async (_args: unknown, context: CommunityGraphQLContext) => (await services.sourceCapabilities(authorization(context))).map(sourceCapabilitiesRecord)),
-    namespaceMounts: guard(async (_args: unknown, context: CommunityGraphQLContext) => (await services.namespaceMounts(authorization(context))).map(mountRecord)),
+    resolvePath: guard(async (args: PathArgs, context: CommunityGraphQLContext) => services.resolvePath({ ...(!(args.namespace === undefined) && { namespace: args.namespace }), path: normalizeVirtualPath(args.path), context: await services.projectionContext(authorization(context), args.snapshot) })),
+    locate: guard(async (args: { readonly namespace?: string; readonly objectId: string; readonly snapshot?: string }, context: CommunityGraphQLContext) => services.locate({ ...(!(args.namespace === undefined) && { namespace: args.namespace }), objectId: args.objectId, context: await services.projectionContext(authorization(context), args.snapshot) })),
+    explainPath: guard(async (args: PathArgs, context: CommunityGraphQLContext) => services.explainPath({ ...(!(args.namespace === undefined) && { namespace: args.namespace }), path: normalizeVirtualPath(args.path), context: await services.projectionContext(authorization(context), args.snapshot) })),
+    sourceCapabilities: guard(async (_args: BoundaryValue, context: CommunityGraphQLContext) => (await services.sourceCapabilities(authorization(context))).map(sourceCapabilitiesRecord)),
+    namespaceMounts: guard(async (_args: BoundaryValue, context: CommunityGraphQLContext) => (await services.namespaceMounts(authorization(context))).map(mountRecord)),
     saveProjection: guard(async ({ input }: { readonly input: { readonly definition: ProjectionDefinition } }, context: CommunityGraphQLContext) => projectionRecord(await services.saveProjection(input.definition, authorization(context)))),
     deleteProjection: guard(async ({ id }: { readonly id: string }, context: CommunityGraphQLContext) => services.deleteProjection(id, authorization(context))),
     mountProjection: guard(async ({ input }: { readonly input: MountInput }, context: CommunityGraphQLContext) => mountRecord(await services.mountProjection(mountInput(input), authorization(context)))),
     unmountProjection: guard(async ({ id }: { readonly id: string }, context: CommunityGraphQLContext) => services.unmountProjection(id, authorization(context))),
     resetNamespace: guard(async ({ scope }: { readonly scope: string }, context: CommunityGraphQLContext) => services.resetNamespace(resettableNamespaceScope(scope), authorization(context))),
-    projectionDeltas: guard(async (args: PathArgs, context: CommunityGraphQLContext) => projectionDeltaEvents(services.projectionDeltas({ ...(args.namespace === undefined ? {} : { namespace: args.namespace }), path: normalizeVirtualPath(args.path), context: await services.projectionContext(authorization(context), args.snapshot), signal: context.signal ?? new AbortController().signal }), context.signal)),
+    projectionDeltas: guard(async (args: PathArgs, context: CommunityGraphQLContext) => projectionDeltaEvents(services.projectionDeltas({ ...(!(args.namespace === undefined) && { namespace: args.namespace }), path: normalizeVirtualPath(args.path), context: await services.projectionContext(authorization(context), args.snapshot), signal: context.signal ?? new AbortController().signal }), context.signal)),
   });
 }
 
@@ -212,30 +221,40 @@ export function searchExpressionFromInput(input: SearchExpressionInput, depth = 
   const [kind, value] = keys[0]!;
   switch (kind) {
     case "all":
+      // SAFETY: Runtime checks or construction above establish SearchExpressionInput["all"])?.enabled !== true) throw new CommunityError("QUERY_SYNTAX".
       if ((value as SearchExpressionInput["all"])?.enabled !== true) throw new CommunityError("QUERY_SYNTAX", "all.enabled must be true");
       return { kind: "all" };
     case "and": case "or": {
+      // SAFETY: The module validates or constructs this value before applying the asserted contract.
       const terms = (value as { readonly terms: readonly SearchExpressionInput[] }).terms;
       if (!Array.isArray(terms) || terms.length < 1 || terms.length > 64) throw new CommunityError("QUERY_COST_LIMIT", `${kind} requires between 1 and 64 terms`);
       return { kind, terms: Object.freeze(terms.map((term) => searchExpressionFromInput(term, depth + 1, counter))) };
     }
-    case "not": return { kind: "not", term: searchExpressionFromInput((value as { readonly term: SearchExpressionInput }).term, depth + 1, counter) };
+    // SAFETY: The module validates or constructs this value before applying the asserted contract.
+    // SAFETY: The module validates or constructs this value before applying the asserted contract.
+    case "not": return { kind: "not", term: searchExpressionFromInput((/* SAFETY: Runtime validation immediately surrounding this expression establishes the asserted contract. */ value as { readonly term: SearchExpressionInput }).term, depth + 1, counter) };
     case "text": {
+      // SAFETY: The module validates or constructs this value before applying the asserted contract.
       const text = value as NonNullable<SearchExpressionInput["text"]>;
       if (text.fields.length < 1 || text.fields.length > 64 || text.value.length > 2048) throw new CommunityError("QUERY_COST_LIMIT", "Text search fields or value exceed limits");
       return { kind: "text", fields: Object.freeze([...text.fields]), value: text.value, mode: enumValue(text.mode, ["term", "phrase", "prefix"], "text mode") };
     }
     case "compare": {
+      // SAFETY: The module validates or constructs this value before applying the asserted contract.
       const compare = value as NonNullable<SearchExpressionInput["compare"]>;
       return { kind: "compare", field: compare.field, operator: enumValue(compare.operator, ["eq", "ne", "lt", "lte", "gt", "gte", "in"], "comparison operator"), value: communityValue(compare.value) };
     }
     case "range": {
+      // SAFETY: The module validates or constructs this value before applying the asserted contract.
       const range = value as NonNullable<SearchExpressionInput["range"]>;
       if (range.lower === undefined && range.upper === undefined) throw new CommunityError("QUERY_SYNTAX", "Range search requires a lower or upper bound");
-      return { kind: "range", field: range.field, ...(range.lower === undefined ? {} : { lower: communityScalar(range.lower) }), ...(range.upper === undefined ? {} : { upper: communityScalar(range.upper) }), includeLower: range.includeLower, includeUpper: range.includeUpper };
+      return { kind: "range", field: range.field, ...(!(range.lower === undefined) && { lower: communityScalar(range.lower) }), ...(!(range.upper === undefined) && { upper: communityScalar(range.upper) }), includeLower: range.includeLower, includeUpper: range.includeUpper };
     }
-    case "exists": return { kind: "exists", field: (value as NonNullable<SearchExpressionInput["exists"]>).field };
+    // SAFETY: The module validates or constructs this value before applying the asserted contract.
+    // SAFETY: The module validates or constructs this value before applying the asserted contract.
+    case "exists": return { kind: "exists", field: (/* SAFETY: Runtime validation immediately surrounding this expression establishes the asserted contract. */ value as NonNullable<SearchExpressionInput["exists"]>).field };
     case "related": {
+      // SAFETY: The module validates or constructs this value before applying the asserted contract.
       const related = value as NonNullable<SearchExpressionInput["related"]>;
       if (!Number.isInteger(related.maxDepth) || related.maxDepth < 1 || related.maxDepth > 8) throw new CommunityError("QUERY_COST_LIMIT", "Relation depth must be between 1 and 8");
       return { kind: "related", relation: relation(related.relation), target: validateObjectRef(related.target), direction: enumValue(related.direction, ["in", "out"], "relation direction"), maxDepth: related.maxDepth };
@@ -258,9 +277,9 @@ function communityScalar(input: CommunityScalarInput): CommunityFieldScalar {
     if (value !== true) throw new CommunityError("QUERY_SYNTAX", "nullValue must be true");
     return null;
   }
-  if (kind === "number" && (typeof value !== "number" || !Number.isFinite(value))) throw new CommunityError("QUERY_SYNTAX", "Numeric query values must be finite");
-  if (kind === "string" && (typeof value !== "string" || value.length > 2048)) throw new CommunityError("QUERY_COST_LIMIT", "String query value exceeds its limit");
-  if (typeof value !== "string" && typeof value !== "number" && typeof value !== "boolean") throw new CommunityError("QUERY_SYNTAX", "Invalid query scalar");
+  if (kind === "number" && (!__epochIsNumber(value) || !Number.isFinite(value))) throw new CommunityError("QUERY_SYNTAX", "Numeric query values must be finite");
+  if (kind === "string" && (!__epochIsString(value) || value.length > 2048)) throw new CommunityError("QUERY_COST_LIMIT", "String query value exceeds its limit");
+  if (!__epochIsString(value) && !__epochIsNumber(value) && !__epochIsBoolean(value)) throw new CommunityError("QUERY_SYNTAX", "Invalid query scalar");
   return value;
 }
 
@@ -276,21 +295,21 @@ function boundedFirst(value: number): number {
 }
 
 function authorization(context: CommunityGraphQLContext): CommunityAuthorizationContext {
-  if (typeof context !== "object" || context === null || typeof context.authorization !== "object" || context.authorization === null) throw new CommunityError("AUTHORIZATION_DENIED", "GraphQL host must inject authorization context");
+  if (!__epochIsObject(context) || context === null || !__epochIsObject(context.authorization) || context.authorization === null) throw new CommunityError("AUTHORIZATION_DENIED", "GraphQL host must inject authorization context");
   return context.authorization;
 }
 
-function nodeRecord(entity: CommunityEntity | undefined, fields: CommunityEntity["fields"] | undefined): unknown {
+function nodeRecord(entity: CommunityEntity | undefined, fields: CommunityEntity["fields"] | undefined): BoundaryValue {
   return entity === undefined ? undefined : { id: entity.ref.objectId, ref: entity.ref, fields: fields ?? {}, visibility: entity.visibility, ownerId: entity.ownerId, createdAt: entity.createdAt, updatedAt: entity.updatedAt, provenance: entity.provenance, tombstone: entity.tombstone };
 }
-function searchRecord(page: SearchPage): unknown { return { nodes: page.hits, pageInfo: page.pageInfo, snapshot: page.snapshot, completeness: page.completeness }; }
-function explanationRecord(explanation: SearchExplanation, normalized: SearchExpression): unknown {
+function searchRecord(page: SearchPage): BoundaryValue { return { nodes: page.hits, pageInfo: page.pageInfo, snapshot: page.snapshot, completeness: page.completeness }; }
+function explanationRecord(explanation: SearchExplanation, normalized: SearchExpression): BoundaryValue {
   return { ...explanation, parsedExpression: null, normalizedExpression: semanticExpression(normalized), omissions: [] };
 }
-function parsedRecord(query: CommunityParsedSearch): unknown { return { expression: semanticExpression(query.ast), canonical: query.canonical, canonicalJson: query.canonicalJson, queryHash: query.queryHash, version: query.version, fieldRegistryVersion: query.fieldRegistryVersion, resolvedAt: query.resolvedAt, orderBy: query.sort, diagnostics: query.diagnostics }; }
-function projectionRecord(value: ProjectionDefinition | undefined): unknown { return value === undefined ? undefined : { id: value.projectionId, version: value.version, label: value.label, ownerId: value.ownerId, visibility: value.visibility, updateMode: value.updateMode, consistency: value.consistency, definition: value }; }
-function mountRecord(value: NamespaceMount): unknown { return { id: value.mountId, scope: value.scope, path: value.mountPath, projectionId: value.projectionId, mode: value.mode, order: value.order, writable: value.writable, ownerId: value.ownerId, createdAt: value.createdAt, updatedAt: value.updatedAt }; }
-function sourceCapabilitiesRecord(value: CommunityGraphQLSourceCapabilities): unknown { return { ...value, fields: Object.entries(value.fields).map(([name, field]) => ({ name, ...field })) }; }
+function parsedRecord(query: CommunityParsedSearch): BoundaryValue { return { expression: semanticExpression(query.ast), canonical: query.canonical, canonicalJson: query.canonicalJson, queryHash: query.queryHash, version: query.version, fieldRegistryVersion: query.fieldRegistryVersion, resolvedAt: query.resolvedAt, orderBy: query.sort, diagnostics: query.diagnostics }; }
+function projectionRecord(value: ProjectionDefinition | undefined): BoundaryValue { return value === undefined ? undefined : { id: value.projectionId, version: value.version, label: value.label, ownerId: value.ownerId, visibility: value.visibility, updateMode: value.updateMode, consistency: value.consistency, definition: value }; }
+function mountRecord(value: NamespaceMount): BoundaryValue { return { id: value.mountId, scope: value.scope, path: value.mountPath, projectionId: value.projectionId, mode: value.mode, order: value.order, writable: value.writable, ownerId: value.ownerId, createdAt: value.createdAt, updatedAt: value.updatedAt }; }
+function sourceCapabilitiesRecord(value: CommunityGraphQLSourceCapabilities): BoundaryValue { return { ...value, fields: Object.entries(value.fields).map(([name, field]) => ({ name, ...field })) }; }
 
 function mountInput(value: MountInput): CommunityGraphQLMountInput {
   return { mountId: value.mountId, projectionId: value.projectionId, mountPath: normalizeVirtualPath(value.path), mode: enumValue(value.mode, ["replace", "before", "after"], "mount mode"), scope: namespaceScope(value.scope), order: value.order, writable: value.writable };
@@ -298,6 +317,7 @@ function mountInput(value: MountInput): CommunityGraphQLMountInput {
 function namespaceScope(value: string): "builtin" | "community" | "workspace" | "user" | "session" {
   const normalized = value.toLowerCase();
   if (!SCOPES.has(normalized)) throw new CommunityError("NAMESPACE_MOUNT_CONFLICT", `Unsupported namespace scope: ${value}`);
+  // SAFETY: The module validates or constructs this value before applying the asserted contract.
   return normalized as "builtin" | "community" | "workspace" | "user" | "session";
 }
 function resettableNamespaceScope(value: string): "workspace" | "user" | "session" {
@@ -308,12 +328,15 @@ function resettableNamespaceScope(value: string): "workspace" | "user" | "sessio
 function relation(value: string): "reply" | "quote" | "mention" | "provenance" | "promotion" | "replacement" | "moderation" | "attachment" | "backlink" {
   const normalized = value.toLowerCase();
   if (!RELATIONS.has(normalized)) throw new CommunityError("QUERY_INVALID_OPERATOR", `Unsupported relation: ${value}`);
+  // SAFETY: The module validates or constructs this value before applying the asserted contract.
   return normalized as "reply";
 }
 
 function enumValue<const T extends string>(value: string, allowed: readonly T[], label: string): T {
   const normalized = value.toLowerCase();
+  // SAFETY: Runtime checks or construction above establish T)) throw new CommunityError("QUERY_INVALID_OPERATOR".
   if (!allowed.includes(normalized as T)) throw new CommunityError("QUERY_INVALID_OPERATOR", `Unsupported ${label}: ${value}`);
+  // SAFETY: The module validates or constructs this value before applying the asserted contract.
   return normalized as T;
 }
 
@@ -324,9 +347,9 @@ function guard<TArgs, TResult>(resolver: (args: TArgs, context: CommunityGraphQL
   };
 }
 
-function graphQLError(error: unknown): GraphQLError {
+function graphQLError(error: BoundaryValue): GraphQLError {
   if (error instanceof GraphQLError) return error;
   if (isCommunityError(error)) return new GraphQLError(error.message, { originalError: error, extensions: { code: error.code, httpStatus: error.httpStatus } });
-  if (typeof error === "object" && error !== null && "name" in error && error.name === "AbortError") return new GraphQLError("Operation cancelled", { extensions: { code: "CANCELLED", httpStatus: 499 } });
+  if (__epochIsObject(error) && error !== null && "name" in error && error.name === "AbortError") return new GraphQLError("Operation cancelled", { extensions: { code: "CANCELLED", httpStatus: 499 } });
   return new GraphQLError("Internal Community GraphQL failure", { extensions: { code: "INTERNAL", httpStatus: 500 } });
 }

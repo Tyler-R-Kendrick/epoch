@@ -29,7 +29,7 @@ export async function runVerifyCharacterizationTests(): Promise<void> {
   protocolCapabilityContract();
   designTokenColorContract();
   communityWebVoiceSelectorContract();
-  await authCalloutAllowShapeContract();
+  await authCalloutAllowContract();
 }
 
 function natsStreamAndSubjectContract(): void {
@@ -92,6 +92,7 @@ function xmppFidelityAndFanoutContract(): void {
     schema: envelope.schema,
     routing: envelope.routing,
     conferenceJid: conferenceRoutingJid(channelId, "a.example"),
+    // SAFETY: Runtime checks or construction above establish { type: string }).type.
     eventType: (envelope.event as { type: string }).type,
     refusedMuc: XMPP_FIDELITY_STATEMENT.xeps.refused.includes("XEP-0045"),
   });
@@ -125,7 +126,7 @@ function communityWebVoiceSelectorContract(): void {
   });
 }
 
-async function authCalloutAllowShapeContract(): Promise<void> {
+async function authCalloutAllowContract(): Promise<void> {
   const handler = createAuthCalloutHandler(
     createPlatformAuthValidator({
       verifyFabricCredential: () => ({

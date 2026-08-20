@@ -21,7 +21,7 @@ export type CliCaptureResult = {
 	kind: "recording";
 };
 
-function termSize(): { cols: number | null; rows: number | null } {
+function termSize() {
 	return {
 		cols: process.stdout.columns ?? null,
 		rows: process.stdout.rows ?? null,

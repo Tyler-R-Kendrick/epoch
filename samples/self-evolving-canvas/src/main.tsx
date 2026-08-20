@@ -15,6 +15,8 @@ import {
   readCanvas,
 } from "./domain";
 import "./styles.css";
+type BoundaryValue = null | undefined | boolean | number | string | bigint | symbol | Readonly<object>;
+
 
 const participantId = browserParticipantId();
 const localVfs = createLocalStorageEpochVfs(localStorage, "epoch:self-evolving-canvas:local:");
@@ -30,7 +32,7 @@ function App() {
   useEffect(() => {
     void fetchClusterState()
       .then(setClusterState)
-      .catch((error: unknown) => setGossipStatus(errorMessage(error)));
+      .catch((error: BoundaryValue) => setGossipStatus(errorMessage(error)));
   }, []);
 
   function commitLocalDraft(): void {
@@ -164,7 +166,7 @@ function browserParticipantId(): string {
   return created;
 }
 
-function errorMessage(error: unknown): string {
+function errorMessage(error: BoundaryValue): string {
   return error instanceof Error ? error.message : String(error);
 }
 

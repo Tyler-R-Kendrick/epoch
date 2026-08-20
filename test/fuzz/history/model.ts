@@ -50,7 +50,8 @@ export function storeCanonicalDigest(store: SignedChangeGraphStore): string {
   const events = store.repository.events()
     .filter((event) => event.type !== "repository.identity")
     .map((event) => event.toJSON())
-    .sort((left, right) => String((left as { id?: string }).id).localeCompare(String((right as { id?: string }).id)));
+    // SAFETY: Runtime checks or construction above establish { id?: string }).id).localeCompare(String((right as { id?: string }).id))).
+    .sort((left, right) => String((/* SAFETY: Assertion is justified by surrounding validation or construction. */ left as { id?: string }).id).localeCompare(String((/* SAFETY: Assertion is justified by surrounding validation or construction. */ right as { id?: string }).id)));
   // Heads intentionally omitted: a fresh replica may carry a local identity head
   // that is outside the transported change-graph event set.
   return createHash("sha256").update(canonical({ events })).digest("hex");

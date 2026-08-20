@@ -282,18 +282,22 @@ export function listGitMappingEvents(repository: EpochRepository): Event[] {
 }
 
 /** Content hashes of current Epoch-tracked file records (path → sha256). */
-export function epochContentHashes(repository: EpochRepository): Record<string, string> {
+export function epochContentHashes(repository: EpochRepository) {
   const hashes: Record<string, string> = {};
   // Export to temp is heavy; read latest records from working tree when present.
   for (const event of repository.events()) {
     if (event.type !== "record") continue;
     const path = event.payload.path;
     const blob = event.payload.blob_sha256;
-    if (typeof path === "string" && typeof blob === "string") {
+    if (isString(path) && isString(blob)) {
       hashes[path] = blob;
     }
   }
   return hashes;
+}
+
+function isString<Value>(value: Value): value is Value & string {
+  return typeof value === "string";
 }
 
 function entityTypeForPath(path: string): string {

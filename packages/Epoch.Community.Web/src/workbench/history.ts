@@ -1,3 +1,4 @@
+import { isString } from "../value-kind";
 import type { NormalizedCommunityQuery } from "@epoch/community-core";
 
 export interface QueryHistoryEntry {
@@ -46,8 +47,8 @@ function sanitize(entries: readonly QueryHistoryEntry[]): QueryHistoryEntry[] {
   const seen = new Set<string>();
   const output: QueryHistoryEntry[] = [];
   for (const entry of entries) {
-    if (!entry || typeof entry.queryHash !== "string" || entry.queryHash.length === 0 || entry.queryHash.length > 256 ||
-        typeof entry.canonical !== "string" || entry.canonical.length > 16_384 || typeof entry.resolvedAt !== "string" ||
+    if (!entry || !isString(entry.queryHash) || entry.queryHash.length === 0 || entry.queryHash.length > 256 ||
+        !isString(entry.canonical) || entry.canonical.length > 16_384 || !isString(entry.resolvedAt) ||
         seen.has(entry.queryHash)) continue;
     seen.add(entry.queryHash);
     output.push({ ...entry, favorite: entry.favorite === true });

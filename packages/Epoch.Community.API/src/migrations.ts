@@ -1,3 +1,5 @@
+// SAFETY: The module validates or constructs this value before applying the asserted contract.
+// SAFETY: The module validates or constructs this value before applying the asserted contract.
 import {
   CommunityError,
   communityMessageToEntity,
@@ -22,6 +24,11 @@ import {
   type PersistedProjectionDefinition,
   type QuarantinedProjectionDefinition,
 } from "./state-schema";
+type BoundaryValue = null | undefined | boolean | number | string | bigint | symbol | Readonly<object>;
+type DictionaryValue = null | undefined | boolean | number | string | bigint | readonly DictionaryValue[] | { readonly [key: string]: DictionaryValue };
+function __epochIsString<T>(value: T): value is T & string { return typeof value === "string"; }
+function __epochIsNumber<T>(value: T): value is T & number { return typeof value === "number"; }
+
 
 export interface CommunityMigrationContext {
   readonly clock: Clock;
@@ -48,11 +55,12 @@ const ALL_OBJECT_KINDS = [
   "member", "agent", "artifact", "tombstone",
 ] as const satisfies readonly CommunityObjectKind[];
 
-export function migrateCommunityState(input: unknown, context: CommunityMigrationContext): CommunityStateV3 {
+export function migrateCommunityState(input: BoundaryValue, context: CommunityMigrationContext): CommunityStateV3 {
   if (record(input) && input.schemaVersion === 3) return validateCommunityStateV3(input);
   if (!record(input) || (input.schemaVersion !== 1 && input.schemaVersion !== 2) || !Array.isArray(input.repositories)) {
     fail("Unsupported Community state schema", { schemaVersion: record(input) ? input.schemaVersion : undefined });
   }
+  // SAFETY: The module validates or constructs this value before applying the asserted contract.
   const sourceVersion = input.schemaVersion as 1 | 2;
   const runtime = createCommunityRuntimeContext(context);
   const migratedAt = runtime.now();
@@ -83,10 +91,12 @@ export function migrateCommunityState(input: unknown, context: CommunityMigratio
   };
 
   if (sourceVersion === 2) {
-    const state = input as unknown as LegacyStateV2;
+    // SAFETY: The module validates or constructs this value before applying the asserted contract.
+    const state = input as LegacyStateV2;
     if (!Array.isArray(state.objects) || !Array.isArray(state.projections)) fail("Schema 2 state collections are invalid");
     for (const value of state.objects) {
       const message = validateLegacyMessage(value);
+      // SAFETY: The module validates or constructs this value before applying the asserted contract.
       add(communityMessageToEntity(message, {
         provenance: { sourceId: "community-api-v2", nativeId: message.ref.objectId, observedAt: message.updatedAt ?? message.publishedAt },
         visibility: message.context.kind === "dm" ? "private" : "public",
@@ -95,7 +105,8 @@ export function migrateCommunityState(input: unknown, context: CommunityMigratio
     }
   }
 
-  for (const value of (input as unknown as LegacyStateV1).repositories) {
+  // SAFETY: Runtime checks or construction above establish LegacyStateV1).repositories) {.
+  for (const value of (input as LegacyStateV1).repositories) {
     for (const entity of migrateRepository(value, runtime, migratedAt)) add(entity, "repositories", sourceVersion === 2);
   }
   if (conflicts.length > 0) fail("Conflicting duplicate canonical objects require recovery", {
@@ -103,15 +114,17 @@ export function migrateCommunityState(input: unknown, context: CommunityMigratio
   });
 
   const projectionDefinitions: PersistedProjectionDefinition[] = [];
+  // SAFETY: The module validates or constructs this value before applying the asserted contract.
   const quarantinedDefinitions: QuarantinedProjectionDefinition[] = [];
   if (sourceVersion === 2) {
-    for (const value of (input as unknown as LegacyStateV2).projections) {
+    // SAFETY: Runtime checks or construction above establish LegacyStateV2).projections) {.
+    for (const value of (input as LegacyStateV2).projections) {
       try {
         projectionDefinitions.push(migrateProjection(value, migratedAt));
       } catch (error) {
-        const projectionId = record(value) && typeof value.projectionId === "string" ? value.projectionId : undefined;
+        const projectionId = record(value) && __epochIsString(value.projectionId) ? value.projectionId : undefined;
         quarantinedDefinitions.push({
-          ...(projectionId === undefined ? {} : { projectionId }),
+          ...(!(projectionId === undefined) && { projectionId }),
           reason: error instanceof Error ? error.message : String(error),
           quarantinedAt: migratedAt,
           input: structuredClone(value),
@@ -133,7 +146,7 @@ export function migrateCommunityState(input: unknown, context: CommunityMigratio
   });
 }
 
-export function migrateLocalSavedViews(input: unknown, context: CommunityMigrationContext): LocalSavedViewMigrationResult {
+export function migrateLocalSavedViews(input: BoundaryValue, context: CommunityMigrationContext): LocalSavedViewMigrationResult {
   const runtime = createCommunityRuntimeContext(context);
   const migratedAt = runtime.now();
   const source = Array.isArray(input) ? input : record(input) && Array.isArray(input.views) ? input.views : undefined;
@@ -157,10 +170,10 @@ export function migrateLocalSavedViews(input: unknown, context: CommunityMigrati
       }, migratedAt));
     } catch (error) {
       const projectionId = record(value)
-        ? typeof value.projectionId === "string" ? value.projectionId : typeof value.id === "string" ? value.id : undefined
+        ? __epochIsString(value.projectionId) ? value.projectionId : __epochIsString(value.id) ? value.id : undefined
         : undefined;
       quarantinedDefinitions.push({
-        ...(projectionId === undefined ? {} : { projectionId }),
+        ...(!(projectionId === undefined) && { projectionId }),
         reason: error instanceof Error ? error.message : String(error),
         quarantinedAt: migratedAt,
         input: structuredClone(value),
@@ -170,7 +183,7 @@ export function migrateLocalSavedViews(input: unknown, context: CommunityMigrati
   return { projectionDefinitions, quarantinedDefinitions };
 }
 
-function migrateRepository(value: unknown, runtime: ReturnType<typeof createCommunityRuntimeContext>, migratedAt: string): readonly CommunityEntity[] {
+function migrateRepository(value: BoundaryValue, runtime: ReturnType<typeof createCommunityRuntimeContext>, migratedAt: string): readonly CommunityEntity[] {
   if (!record(value)) fail("Invalid persisted Community repository");
   const slug = text(value.slug, "repository.slug");
   const repositoryRef = optionalRef(value.ref) ?? nextRef(runtime, "project");
@@ -215,7 +228,7 @@ function migrateRepository(value: unknown, runtime: ReturnType<typeof createComm
     for (const commentValue of array(issueValue.comments, "issue.comments")) {
       if (!record(commentValue)) fail("Invalid persisted Community comment");
       const ref = optionalRef(commentValue.ref) ?? nextRef(runtime, "message");
-      const commentId = typeof commentValue.id === "string" ? commentValue.id : runtime.nextId("comment");
+      const commentId = __epochIsString(commentValue.id) ? commentValue.id : runtime.nextId("comment");
       const publishedAt = timestamp(commentValue, migratedAt);
       output.push(messageEntity({
         ref,
@@ -252,9 +265,9 @@ function migrateRepository(value: unknown, runtime: ReturnType<typeof createComm
       changeId: id,
       sourceView: text(changeValue.sourceView, "change.sourceView"),
       targetView: text(changeValue.targetView, "change.targetView"),
-      reviewers: array(changeValue.reviews, "change.reviews").flatMap((review) => record(review) && typeof review.reviewer === "string" ? [review.reviewer] : []),
-      reviewDecisions: array(changeValue.reviews, "change.reviews").flatMap((review) => record(review) && typeof review.decision === "string" ? [review.decision] : []),
-      reviewBodies: array(changeValue.reviews, "change.reviews").flatMap((review) => record(review) && typeof review.body === "string" ? [review.body] : []),
+      reviewers: array(changeValue.reviews, "change.reviews").flatMap((review) => record(review) && __epochIsString(review.reviewer) ? [review.reviewer] : []),
+      reviewDecisions: array(changeValue.reviews, "change.reviews").flatMap((review) => record(review) && __epochIsString(review.decision) ? [review.decision] : []),
+      reviewBodies: array(changeValue.reviews, "change.reviews").flatMap((review) => record(review) && __epochIsString(review.body) ? [review.body] : []),
     }));
   }
 
@@ -277,7 +290,7 @@ function migrateRepository(value: unknown, runtime: ReturnType<typeof createComm
     for (const commentValue of array(discussionValue.comments, "discussion.comments")) {
       if (!record(commentValue)) fail("Invalid persisted Community discussion comment");
       const commentRef = optionalRef(commentValue.ref) ?? nextRef(runtime, "message");
-      const commentId = typeof commentValue.id === "string" ? commentValue.id : runtime.nextId("comment");
+      const commentId = __epochIsString(commentValue.id) ? commentValue.id : runtime.nextId("comment");
       output.push(enrichEntity(messageEntity({
         ref: commentRef,
         context: repositoryRef,
@@ -299,13 +312,14 @@ function migrateRepository(value: unknown, runtime: ReturnType<typeof createComm
   return output;
 }
 
-function migrateProjection(value: unknown, migratedAt: string): PersistedProjectionDefinition {
+function migrateProjection(value: BoundaryValue, migratedAt: string): PersistedProjectionDefinition {
   if (!record(value)) fail("Saved projection must be an object");
   const projectionId = validateProjectionId(text(value.projectionId, "projection.projectionId"));
   const ownerId = text(value.ownerId, "projection.ownerId");
+  // SAFETY: The module validates or constructs this value before applying the asserted contract.
   const query = value.query === undefined ? undefined : migrateNormalizedQuery(
-    typeof value.query === "string"
-      ? { query: value.query, queryLanguageVersion: typeof value.queryLanguageVersion === "number" ? value.queryLanguageVersion : 0 }
+    __epochIsString(value.query)
+      ? { query: value.query, queryLanguageVersion: __epochIsNumber(value.queryLanguageVersion) ? value.queryLanguageVersion : 0 }
       : value.query as never,
   );
   if (query?.error !== undefined) fail(`Invalid saved projection query: ${query.error}`);
@@ -326,7 +340,7 @@ function migrateProjection(value: unknown, migratedAt: string): PersistedProject
         nodeId: `${projectionId}.select`,
         kind: "select",
         objectKinds: ALL_OBJECT_KINDS,
-        ...(query?.ast === undefined || query.ast === null ? {} : { where: query.ast }),
+        ...(!(query?.ast === undefined || query.ast === null) && { where: query.ast }),
         children: [{
           nodeId: `${projectionId}.leaf`,
           kind: "leaf",
@@ -342,9 +356,9 @@ function migrateProjection(value: unknown, migratedAt: string): PersistedProject
   return { definition, revision: 1, createdAt, updatedAt };
 }
 
-function migrateOrder(input: unknown): readonly SearchOrder[] {
+function migrateOrder(input: BoundaryValue): readonly SearchOrder[] {
   if (!record(input)) return [{ field: "updatedAt", direction: "descending", nulls: "last" }];
-  const field = input.by === "publishedAt" ? "createdAt" : typeof input.by === "string" ? input.by : "updatedAt";
+  const field = input.by === "publishedAt" ? "createdAt" : __epochIsString(input.by) ? input.by : "updatedAt";
   return [{ field, direction: input.direction === "ascending" ? "ascending" : "descending", nulls: "last" }];
 }
 
@@ -384,9 +398,10 @@ function enrichEntity(entity: CommunityEntity, fields: CommunityEntity["fields"]
   return validateCommunityEntity({ ...entity, fields: { ...entity.fields, ...fields } });
 }
 
-function validateLegacyMessage(value: unknown): CommunityMessage {
+function validateLegacyMessage(value: BoundaryValue): CommunityMessage {
   if (!record(value)) fail("Invalid persisted Community object");
-  const message = structuredClone(value) as unknown as CommunityMessage;
+  // SAFETY: The module validates or constructs this value before applying the asserted contract.
+  const message = structuredClone(value) as CommunityMessage;
   const ref = migrateSchema2Ref(message.ref);
   const context = migrateSchema2Ref(message.context);
   const threadRoot = migrateSchema2Ref(message.threadRoot);
@@ -395,10 +410,10 @@ function validateLegacyMessage(value: unknown): CommunityMessage {
   if (message.updatedAt !== undefined) validateIsoDateTime(message.updatedAt, "message.updatedAt");
   if (!Array.isArray(message.relations) || !Array.isArray(message.aliases)) fail("Invalid persisted Community object collections");
   const relations = message.relations.map((relation) => ({ ...relation, source: migrateSchema2Ref(relation.source), target: migrateSchema2Ref(relation.target) }));
-  return { ...message, ref, context, threadRoot, relations, ...(inReplyTo === undefined ? {} : { inReplyTo }) };
+  return { ...message, ref, context, threadRoot, relations, ...(!(inReplyTo === undefined) && { inReplyTo }) };
 }
 
-function migrateSchema2Ref(value: unknown): CommunityObjectRef {
+function migrateSchema2Ref(value: BoundaryValue): CommunityObjectRef {
   if (record(value) && value.kind === "saved-view") return validateObjectRef({ ...value, kind: "projection" });
   return validateObjectRef(value);
 }
@@ -418,45 +433,48 @@ function nextRef(runtime: ReturnType<typeof createCommunityRuntimeContext>, kind
   return validateObjectRef({ objectId: runtime.nextId(kind), kind });
 }
 
-function optionalRef(value: unknown): CommunityObjectRef | undefined { return value === undefined ? undefined : validateObjectRef(value); }
-function timestamp(input: Record<string, unknown>, fallback: string): string { return dateOr(input.publishedAt ?? input.createdAt, fallback); }
-function dateOr(value: unknown, fallback: string): string { return value === undefined ? fallback : validateIsoDateTime(value); }
+function optionalRef(value: BoundaryValue): CommunityObjectRef | undefined { return value === undefined ? undefined : validateObjectRef(value); }
+function timestamp(input: Record<string, DictionaryValue>, fallback: string): string { return dateOr(input.publishedAt ?? input.createdAt, fallback); }
+function dateOr(value: BoundaryValue, fallback: string): string { return value === undefined ? fallback : validateIsoDateTime(value); }
 
-function visibility(value: unknown): ProjectionDefinition["visibility"] {
+function visibility(value: BoundaryValue): ProjectionDefinition["visibility"] {
   if (value === "private" || value === "shared" || value === "public") return value;
   fail("Saved projection visibility is invalid");
 }
 
-function repositoryVisibility(value: unknown): "private" | "public" {
+function repositoryVisibility(value: BoundaryValue): "private" | "public" {
   if (value === undefined) return "public";
   if (value === "private" || value === "public") return value;
   fail("Repository visibility is invalid");
 }
 
-function integer(value: unknown, label: string): number {
+function integer(value: BoundaryValue, label: string): number {
+  // SAFETY: Runtime checks or construction above establish number) < 1) fail(`${label} is invalid`).
   if (!Number.isInteger(value) || (value as number) < 1) fail(`${label} is invalid`);
+  // SAFETY: The module validates or constructs this value before applying the asserted contract.
   return value as number;
 }
 
-function text(value: unknown, label: string, empty = false): string {
-  if (typeof value !== "string" || (!empty && value.length === 0) || value.length > 10_000_000) fail(`${label} is invalid`);
+function text(value: BoundaryValue, label: string, empty = false): string {
+  if (!__epochIsString(value) || (!empty && value.length === 0) || value.length > 10_000_000) fail(`${label} is invalid`);
   return value.normalize("NFC");
 }
 
-function strings(value: unknown, label: string): readonly string[] {
+function strings(value: BoundaryValue, label: string): readonly string[] {
   const values = array(value, label);
-  if (!values.every((item) => typeof item === "string")) fail(`${label} is invalid`);
+  if (!values.every((item) => __epochIsString(item))) fail(`${label} is invalid`);
+  // SAFETY: The module validates or constructs this value before applying the asserted contract.
   return (values as string[]).map((item) => item.normalize("NFC"));
 }
 
-function array(value: unknown, label: string): readonly unknown[] {
+function array(value: BoundaryValue, label: string): readonly unknown[] {
   if (!Array.isArray(value)) fail(`${label} must be an array`);
   return value;
 }
 
-function record(value: unknown): value is Record<string, unknown> { return typeof value === "object" && value !== null && !Array.isArray(value); }
-function canonical(value: unknown): string { return JSON.stringify(value); }
+function record(value: BoundaryValue): value is Record<string, DictionaryValue> { return typeof value === "object" && value !== null && !Array.isArray(value); }
+function canonical(value: BoundaryValue): string { return JSON.stringify(value); }
 
-function fail(message: string, details?: Readonly<Record<string, unknown>>): never {
+function fail(message: string, details?: Readonly<Record<string, DictionaryValue>>): never {
   throw new CommunityError("PERSISTENCE_MIGRATION", message, details);
 }

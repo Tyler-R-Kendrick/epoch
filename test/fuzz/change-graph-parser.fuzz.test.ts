@@ -93,7 +93,8 @@ function forgeObject(index: number, kindIndex: number): ForgeObject {
   };
 }
 
-void main().catch((error: unknown) => {
+void main().catch((error) => {
+  // SAFETY: Runtime checks or construction above establish Error).stack ?? error)}\n`).
   process.stderr.write(`${String((error as Error).stack ?? error)}\n`);
   process.exitCode = 1;
 });

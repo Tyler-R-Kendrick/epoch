@@ -315,7 +315,7 @@
     state.snapDuration = dist <= 1 ? SNAP_ADJACENT_S : SNAP_JUMP_S;
     state.snapDir = target >= fromProgress ? 1 : -1;
     body.setAttribute("data-ride-snap", "1");
-    if (typeof body._nbEnsureRideLoop === "function") body._nbEnsureRideLoop();
+    if (globalThis.CW_VALUE.isFunction(body._nbEnsureRideLoop)) body._nbEnsureRideLoop();
   }
 
   function sectionInputLocked() {
@@ -385,7 +385,7 @@
   }
 
   function syncRideChapter(best, smooth) {
-    var blend = typeof smooth === "number" ? smooth : state.scrollSmooth;
+    var blend = globalThis.CW_VALUE.isNumber(smooth) ? smooth : state.scrollSmooth;
     /* Scene snap: only the departing + arriving chapters share the dissolve. */
     if (state.snapAnimating && state.snapFrom && state.snapTo && !state.reduce) {
       var t = state.snapDuration > 0 ? state.snapElapsed / state.snapDuration : 1;
@@ -704,7 +704,7 @@
             : -1;
         if (goSection(dir)) {
           ev.preventDefault();
-          if (typeof body._nbEnsureRideLoop === "function") body._nbEnsureRideLoop();
+          if (globalThis.CW_VALUE.isFunction(body._nbEnsureRideLoop)) body._nbEnsureRideLoop();
         } else {
           ev.preventDefault();
         }

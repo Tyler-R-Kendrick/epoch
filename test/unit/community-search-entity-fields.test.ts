@@ -205,13 +205,14 @@ function errorsHaveStableCodesAndStatuses(): void {
 }
 
 function sensitiveAuthorization(): CommunityAuthorizationContext {
+  // SAFETY: Runtime checks or construction above establish "object:state:write"] }.
   return { actorId: "maya", permissions: ["field:sensitive:read" as "object:state:write"] };
 }
 
 if (require.main === module) {
   runCommunitySearchEntityFieldTests().then(
     () => console.log("community search entity and field tests passed"),
-    (error: unknown) => {
+    (error) => {
       console.error(error);
       process.exitCode = 1;
     },

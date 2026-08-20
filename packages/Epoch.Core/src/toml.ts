@@ -60,7 +60,10 @@ export class TomlDateTime {
   }
 }
 
-type Table = Record<string, unknown>;
+export type TomlValue = string | number | boolean | TomlDateTime | TomlValue[] | Table;
+export interface Table {
+  [key: string]: TomlValue;
+}
 
 /**
  * A table with no prototype.
@@ -73,6 +76,7 @@ type Table = Record<string, unknown>;
  * thought of so far.
  */
 function emptyTable(): Table {
+  // SAFETY: Runtime checks or construction above establish Table.
   return Object.create(null) as Table;
 }
 
@@ -122,9 +126,9 @@ class TomlReader {
   private line = 1;
   private lineStart = 0;
   private nesting = 0;
-  private readonly meta = new WeakMap<object, TableMeta>();
+  private readonly meta = new WeakMap<Table, TableMeta>();
   /** Arrays a `[[header]]` created, and so may append to. Static arrays are closed. */
-  private readonly arrayTables = new WeakSet<unknown[]>();
+  private readonly arrayTables = new WeakSet<TomlValue[]>();
 
   constructor(private readonly text: string, private readonly source?: string) {}
 
@@ -250,7 +254,7 @@ class TomlReader {
     return isArray ? this.openArrayTable(root, path, line, column) : this.openTable(root, path, line, column);
   }
 
-  private metaOf(table: object): TableMeta {
+  private metaOf(table: Table): TableMeta {
     const found = this.meta.get(table);
     if (found !== undefined) return found;
     const created: TableMeta = { explicit: false, closed: false, dotted: false };
@@ -312,7 +316,7 @@ class TomlReader {
     const parent = this.walk(root, path, line, column);
     const key = path[path.length - 1];
     const existing = parent[key];
-    let array: unknown[];
+    let array: TomlValue[];
 
     if (existing === undefined) {
       array = [];
@@ -388,7 +392,7 @@ class TomlReader {
     return target;
   }
 
-  private value(): unknown {
+  private value(): TomlValue {
     const character = this.peek();
     if (character === "\"") {
       return this.peek(1) === "\"" && this.peek(2) === "\"" ? this.multilineBasicString() : this.basicString();
@@ -410,10 +414,10 @@ class TomlReader {
 
   // ------------------------------------------------------------------ arrays
 
-  private array(): readonly unknown[] {
+  private array(): TomlValue[] {
     this.expect("[", "'[' opening an array");
     this.enter();
-    const values: unknown[] = [];
+    const values: TomlValue[] = [];
     for (;;) {
       this.skipTrivia();
       if (this.peek() === "]") {
@@ -629,7 +633,7 @@ class TomlReader {
 
   // ---------------------------------------------------- numbers and datetimes
 
-  private numberOrDateTime(): unknown {
+  private numberOrDateTime(): number | TomlDateTime {
     const line = this.line;
     const column = this.column;
     const rest = this.text.slice(this.index);
@@ -715,7 +719,7 @@ class TomlReader {
   }
 }
 
-function isTable(value: unknown): value is Table {
+function isTable(value: TomlValue | undefined): value is Table {
   return typeof value === "object" && value !== null && !Array.isArray(value) && !(value instanceof TomlDateTime);
 }
 

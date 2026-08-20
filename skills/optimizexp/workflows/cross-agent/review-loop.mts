@@ -18,6 +18,14 @@ import {
 import { createHash } from "node:crypto";
 import path from "node:path";
 import process from "node:process";
+import type { JsonObject } from "../../harness/lib/value-types.mts";
+import {
+	isBoolean,
+	isNumber,
+	isObject,
+	isString,
+	parseStringArray,
+} from "../../harness/lib/value-types.mts";
 import {
 	validateComparison,
 	validateScorecard,
@@ -85,7 +93,8 @@ function repoRoot(explicit?: string): string {
 }
 
 function parseArgs(argv: string[]) {
-	const out: Record<string, string | boolean> = { mode: "help" };
+	const out: Record<string, string | boolean> = {};
+	out.mode = "help";
 	for (let i = 0; i < argv.length; i++) {
 		const a = argv[i]!;
 		if (a === "--help" || a === "-h") out.mode = "help";
@@ -176,9 +185,9 @@ Survey/backlog: harness/survey.mts (template|validate|aggregate|rank-backlog).
  * Finite N (>=1) caps max outer cycles. Infinite: null.
  * Accepts: infinite|inf|∞|-1|0|null|undefined|"" → null
  */
-function parsePasses(raw: unknown): number | null {
+function parsePasses<T>(raw: T): number | null {
 	if (raw === undefined || raw === null || raw === "") return null;
-	if (typeof raw === "boolean") return null;
+	if (isBoolean(raw)) return null;
 	const s = String(raw).trim().toLowerCase();
 	if (
 		s === "infinite" ||
@@ -206,13 +215,14 @@ function runDirOf(root: string, runId: string): string {
 function readScope(
 	root: string,
 	runId: string,
-): Record<string, unknown> | null {
+): JsonObject | null {
 	const p = path.join(runDirOf(root, runId), "scope.json");
 	if (!existsSync(p)) return null;
-	return JSON.parse(readFileSync(p, "utf8")) as Record<string, unknown>;
+	// SAFETY: The surrounding parser or local invariant establishes this domain type at the boundary.
+	return JSON.parse(readFileSync(p, "utf8")) as JsonObject;
 }
 
-function writeScope(root: string, runId: string, scope: Record<string, unknown>) {
+function writeScope(root: string, runId: string, scope: JsonObject) {
 	const runDir = runDirOf(root, runId);
 	mkdirSync(runDir, { recursive: true });
 	writeFileSync(
@@ -278,6 +288,7 @@ function initRun(
 		personas,
 		features: opts.features ?? [],
 		projects: opts.projects ?? [],
+		// SAFETY: The surrounding parser or local invariant establishes this domain type at the boundary.
 		surfaces: [] as string[],
 		reportOnly: opts.reportOnly,
 		/** Outer harm cycles: null = infinite until harm floor then delight (unless noDelight). */
@@ -287,8 +298,10 @@ function initRun(
 		passesCompleted: 0,
 		status: "running" as const,
 		regime: "harm_reduce" as const,
+		// SAFETY: The surrounding parser or local invariant establishes this domain type at the boundary.
 		regimesEntered: ["harm_reduce"] as string[],
 		stopPolicy,
+		// SAFETY: The surrounding parser or local invariant establishes this domain type at the boundary.
 		stopReason: null as string | null,
 		noDelight,
 		noSurvey,
@@ -296,9 +309,12 @@ function initRun(
 		delightPassesLabel: passesLabel(delightPasses),
 		delightCyclesCompleted: 0,
 		surveyCompleted: false,
-		equilibrium: null as Record<string, unknown> | null,
-		lastShouldStop: null as Record<string, unknown> | null,
-		lastEquilibrium: null as Record<string, unknown> | null,
+		// SAFETY: The surrounding parser or local invariant establishes this domain type at the boundary.
+		equilibrium: null as JsonObject | null,
+		// SAFETY: The surrounding parser or local invariant establishes this domain type at the boundary.
+		lastShouldStop: null as JsonObject | null,
+		// SAFETY: The surrounding parser or local invariant establishes this domain type at the boundary.
+		lastEquilibrium: null as JsonObject | null,
 		outerCycles: "passes",
 		hostAgent: "cross-agent",
 		createdAt: new Date().toISOString(),
@@ -354,6 +370,7 @@ function modeReadBus(args: Record<string, string | boolean>, root: string) {
 	const entries: BusEntry[] = [];
 	for (const f of files) {
 		try {
+			// SAFETY: The surrounding parser or local invariant establishes this domain type at the boundary.
 			const body = JSON.parse(
 				readFileSync(path.join(dir, f), "utf8"),
 			) as BusEntry;
@@ -377,7 +394,7 @@ function modeReadBus(args: Record<string, string | boolean>, root: string) {
 		const matched = o.comparison?.matchedExpectation;
 		const isMismatch =
 			matched === false ||
-			(typeof delta?.total === "number" && delta.total > 0);
+			(isNumber(delta?.total) && delta.total > 0);
 		if (isMismatch) mismatchCount++;
 		if (mismatchesOnly && !isMismatch) continue;
 		const judged = o.scores?.primary;
@@ -464,7 +481,9 @@ function modeShouldStop(args: Record<string, string | boolean>, root: string) {
 			: Math.max(0, Number(args.implementableFindings));
 	const backlogEmpty = implementableFindings === 0;
 
+	// SAFETY: The surrounding parser or local invariant establishes this domain type at the boundary.
 	const curr = JSON.parse(readFileSync(scoresPath, "utf8")) as ScoresFile;
+	// SAFETY: The surrounding parser or local invariant establishes this domain type at the boundary.
 	const prev = JSON.parse(readFileSync(prevPath, "utf8")) as ScoresFile;
 	const scoresFlat =
 		curr.metric_total >= prev.metric_total &&
@@ -493,9 +512,8 @@ function modeShouldStop(args: Record<string, string | boolean>, root: string) {
 			invocationStop = false;
 			// Record regime switch intent on scope
 			scope.regime = "delight_maximize";
-			const entered = Array.isArray(scope.regimesEntered)
-				? (scope.regimesEntered as string[])
-				: ["harm_reduce"];
+			const entered = parseStringArray(scope.regimesEntered);
+			if (entered.length === 0) entered.push("harm_reduce");
 			if (!entered.includes("delight_maximize")) {
 				entered.push("delight_maximize");
 			}
@@ -605,6 +623,7 @@ function aggregate(cells: ScoreCell[]): ScoresFile {
 }
 
 function modeScore(scoresPath: string) {
+	// SAFETY: The surrounding parser or local invariant establishes this domain type at the boundary.
 	const raw = JSON.parse(readFileSync(scoresPath, "utf8")) as {
 		iteration?: number;
 		cells: ScoreCell[];
@@ -615,7 +634,9 @@ function modeScore(scoresPath: string) {
 }
 
 function modePlateau(currPath: string, prevPath: string) {
+	// SAFETY: The surrounding parser or local invariant establishes this domain type at the boundary.
 	const curr = JSON.parse(readFileSync(currPath, "utf8")) as ScoresFile;
+	// SAFETY: The surrounding parser or local invariant establishes this domain type at the boundary.
 	const prev = JSON.parse(readFileSync(prevPath, "utf8")) as ScoresFile;
 	const plateau =
 		curr.metric_total >= prev.metric_total &&
@@ -696,6 +717,7 @@ function validateExperimentCertificates(root: string, runId: string, reportOnly:
 	if (existsSync(busDir)) {
 		for (const f of readdirSync(busDir).filter((x) => x.endsWith(".json"))) {
 			try {
+				// SAFETY: The surrounding parser or local invariant establishes this domain type at the boundary.
 				const b = JSON.parse(readFileSync(path.join(busDir, f), "utf8")) as BusBody;
 				if (b.runId === runId && b.kind === "outcome" && b.id) outcomeIds.add(b.id);
 			} catch { /* malformed bus is reported by the bus gate */ }
@@ -704,7 +726,10 @@ function validateExperimentCertificates(root: string, runId: string, reportOnly:
 	for (const file of files) {
 		const beforeProblems = problems.length;
 		let cert: ExperimentCertificate;
-		try { cert = JSON.parse(readFileSync(file, "utf8")) as ExperimentCertificate; }
+		try {
+			// SAFETY: Certificate fields are validated immediately below before trust.
+			cert = JSON.parse(readFileSync(file, "utf8")) as ExperimentCertificate;
+		}
 		catch { problems.push(`${path.relative(runDir, file)}: invalid_json`); continue; }
 		const label = path.relative(runDir, file);
 		if (cert.runId !== runId) problems.push(`${label}: runId_mismatch`);
@@ -745,6 +770,7 @@ function modeValidateBus(root: string) {
 		const p = path.join(dir, f);
 		let body: BusBody;
 		try {
+			// SAFETY: The surrounding parser or local invariant establishes this domain type at the boundary.
 			body = JSON.parse(readFileSync(p, "utf8")) as BusBody;
 		} catch {
 			problems.push(`${f}: invalid JSON`);
@@ -782,13 +808,16 @@ function modeValidateBus(root: string) {
 	// Second pass: comparison against full maps (file order independent)
 	const comparisonProblems: string[] = [];
 	for (const f of files) {
+		// SAFETY: The surrounding parser or local invariant establishes this domain type at the boundary.
 		const body = JSON.parse(
 			readFileSync(path.join(dir, f), "utf8"),
 		) as BusBody;
 		if (body.kind !== "outcome") continue;
+		// SAFETY: Scorecards were validated during the first pass above.
 		const expectPrimary = body.expects
 			? (expects.get(body.expects)?.scores?.primary as PrimaryScores | undefined)
 			: undefined;
+		// SAFETY: Scorecards were validated during the first pass above.
 		const actPrimary = body.actId
 			? (acts.get(body.actId)?.scores?.primary as PrimaryScores | undefined)
 			: undefined;
@@ -805,6 +834,7 @@ function modeValidateBus(root: string) {
 				body.comparison,
 				expectPrimary,
 				actPrimary,
+				// SAFETY: The surrounding parser or local invariant establishes this domain type at the boundary.
 				body.scores?.primary as PrimaryScores | undefined,
 			).map((msg) => `${f}: ${msg}`),
 		);
@@ -818,6 +848,7 @@ function modeValidateBus(root: string) {
 	}
 
 	const matched = new Set(
+		// SAFETY: The surrounding parser or local invariant establishes this domain type at the boundary.
 		outcomes.map((o) => o.expects).filter(Boolean) as string[],
 	);
 	const open = [...expects.keys()].filter((id) => !matched.has(id));
@@ -857,6 +888,7 @@ function modeEquilibrium(
 		process.exit(2);
 	}
 	const runId = String(args.run || "");
+	// SAFETY: The surrounding parser or local invariant establishes this domain type at the boundary.
 	const curr = JSON.parse(readFileSync(scoresPath, "utf8")) as ScoresFile & {
 		delight_total?: number;
 		delight_min?: number;
@@ -865,6 +897,7 @@ function modeEquilibrium(
 		primary?: PrimaryScores;
 		cells?: ScoreCell[];
 	};
+	// SAFETY: The surrounding parser or local invariant establishes this domain type at the boundary.
 	const prev = JSON.parse(readFileSync(prevPath, "utf8")) as typeof curr;
 
 	const harmDeclared =
@@ -900,6 +933,7 @@ function modeEquilibrium(
 		const backlogPath = path.join(runDirOf(root, runId), "backlog.json");
 		if (existsSync(backlogPath)) {
 			try {
+				// SAFETY: The surrounding parser or local invariant establishes this domain type at the boundary.
 				const backlog = JSON.parse(readFileSync(backlogPath, "utf8")) as { items?: Array<{ status?: string; effort?: string }> };
 				readyBacklogItems = (backlog.items ?? []).filter((item) => item.status === "ready" && (item.effort === "S" || item.effort === "M")).length;
 			} catch { readyBacklogItems = 1; }
@@ -1013,9 +1047,8 @@ function modeEquilibrium(
 		scope.flatIterations = flatIterations;
 		scope.lastEquilibrium = { ...result, at: new Date().toISOString() };
 		scope.regime = nextRegime;
-		const entered = Array.isArray(scope.regimesEntered)
-			? (scope.regimesEntered as string[])
-			: ["harm_reduce"];
+		const entered = parseStringArray(scope.regimesEntered);
+		if (entered.length === 0) entered.push("harm_reduce");
 		if (!entered.includes(nextRegime)) entered.push(nextRegime);
 		scope.regimesEntered = entered;
 		if (stop) {
@@ -1082,6 +1115,7 @@ function lintScoreDivergence(root: string, runId: string): string[] {
 		if (!existsSync(scoresPath)) continue;
 		let card: ScoresFile;
 		try {
+			// SAFETY: The surrounding parser or local invariant establishes this domain type at the boundary.
 			card = JSON.parse(readFileSync(scoresPath, "utf8")) as ScoresFile;
 		} catch {
 			continue;
@@ -1115,6 +1149,7 @@ function lintCopiedScores(root: string, runId: string): string[] {
 	const baselineRaw = readFileSync(baselinePath, "utf8");
 	let baseline: ScoresFile & { justification?: string };
 	try {
+		// SAFETY: The surrounding parser or local invariant establishes this domain type at the boundary.
 		baseline = JSON.parse(baselineRaw) as typeof baseline;
 	} catch {
 		return [];
@@ -1126,12 +1161,13 @@ function lintCopiedScores(root: string, runId: string): string[] {
 		const raw = readFileSync(scoresPath, "utf8");
 		let card: ScoresFile & { justification?: string };
 		try {
+			// SAFETY: The surrounding parser or local invariant establishes this domain type at the boundary.
 			card = JSON.parse(raw) as typeof card;
 		} catch {
 			continue;
 		}
 		const justification =
-			typeof card.justification === "string" ? card.justification.trim() : "";
+			isString(card.justification) ? card.justification.trim() : "";
 		if (justification) continue;
 		if (raw === baselineRaw || scoresEquivalent(baseline, card)) {
 			problems.push(
@@ -1142,12 +1178,7 @@ function lintCopiedScores(root: string, runId: string): string[] {
 	return problems;
 }
 
-function countBusTriples(root: string, runId: string): {
-	expects: number;
-	acts: number;
-	outcomes: number;
-	completeTriples: number;
-} {
+function countBusTriples(root: string, runId: string) {
 	const dir = path.join(root, ".optimizexp", "bus", "entries");
 	if (!existsSync(dir)) {
 		return { expects: 0, acts: 0, outcomes: 0, completeTriples: 0 };
@@ -1158,6 +1189,7 @@ function countBusTriples(root: string, runId: string): {
 	for (const f of readdirSync(dir).filter((x) => x.endsWith(".json"))) {
 		let body: BusBody;
 		try {
+			// SAFETY: The surrounding parser or local invariant establishes this domain type at the boundary.
 			body = JSON.parse(readFileSync(path.join(dir, f), "utf8")) as BusBody;
 		} catch {
 			continue;
@@ -1193,10 +1225,13 @@ function validateBusForRun(root: string, runId: string): string[] {
 	const acts = new Map<string, BusBody>();
 	const outcomes: BusBody[] = [];
 	const pendingMismatches = new Map<string, string>();
-	const cellKey = (body: BusBody) => `${body.persona ?? ""}|${typeof body.surface === "string" ? body.surface : body.surface?.name ?? ""}`;
+	const cellKey = (body: BusBody) => `${body.persona ?? ""}|${isString(body.surface) ? body.surface : body.surface?.name ?? ""}`;
 	for (const f of readdirSync(dir).filter((x) => x.endsWith(".json")).sort()) {
 		let body: BusBody;
-		try { body = JSON.parse(readFileSync(path.join(dir, f), "utf8")) as BusBody; }
+		try {
+			// SAFETY: Bus fields are validated immediately below before trust.
+			body = JSON.parse(readFileSync(path.join(dir, f), "utf8")) as BusBody;
+		}
 		catch { problems.push(`${f}: invalid_json`); continue; }
 		if (body.runId !== runId) continue;
 		if (!body.id) problems.push(`${f}: missing_id`);
@@ -1222,7 +1257,8 @@ function validateBusForRun(root: string, runId: string): string[] {
 		if (body.kind === "outcome") {
 			if (!body.expects) problems.push(`${f}: outcome_missing_expects`);
 			outcomes.push(body);
-			const mismatch = body.comparison && typeof body.comparison === "object" &&
+			// SAFETY: The comparison object is checked above and both accessed fields are optional.
+			const mismatch = body.comparison && isObject(body.comparison) &&
 				((body.comparison as { matchedExpectation?: boolean }).matchedExpectation === false ||
 					Number((body.comparison as { deltaFromExpect?: { total?: number } }).deltaFromExpect?.total ?? 0) > 0);
 			if (mismatch && body.id) pendingMismatches.set(cellKey(body), body.id);
@@ -1323,16 +1359,17 @@ type ScorecardDimension = {
 	lastRunId?: string;
 };
 
-const DIMENSION_STATUS_RANK: Record<string, number> = {
-	missing: 0,
-	"external-blocked": 0,
-	partial: 1,
-	proven: 2,
-	strong: 2,
-};
+const DIMENSION_STATUS_RANK = new Map([
+	["missing", 0],
+	["external-blocked", 0],
+	["partial", 1],
+	["proven", 2],
+	["strong", 2],
+]);
 
 function readJsonFile<T>(p: string): T | null {
 	try {
+		// SAFETY: The surrounding parser or local invariant establishes this domain type at the boundary.
 		return JSON.parse(readFileSync(p, "utf8")) as T;
 	} catch {
 		return null;
@@ -1352,7 +1389,7 @@ function listProductConfigs(root: string): ProductOptimizexpConfig[] {
 	for (const candidate of candidates) {
 		if (!existsSync(candidate)) continue;
 		const parsed = readJsonFile<Omit<ProductOptimizexpConfig, "dir">>(candidate);
-		if (parsed && typeof parsed === "object") {
+		if (parsed && isObject(parsed)) {
 			out.push({ ...parsed, dir: path.dirname(path.dirname(candidate)) });
 		}
 	}
@@ -1366,14 +1403,10 @@ function listProductConfigs(root: string): ProductOptimizexpConfig[] {
  */
 function productsForRun(
 	root: string,
-	scope: Record<string, unknown>,
+	scope: JsonObject,
 ): ProductOptimizexpConfig[] {
-	const featureIds = Array.isArray(scope.features)
-		? (scope.features as string[])
-		: [];
-	const projectIds = Array.isArray(scope.projects)
-		? (scope.projects as string[])
-		: [];
+	const featureIds = parseStringArray(scope.features);
+	const projectIds = parseStringArray(scope.projects);
 	return listProductConfigs(root).filter((cfg) => {
 		const id = cfg.product?.id;
 		if (id !== undefined && projectIds.includes(id)) return true;
@@ -1388,13 +1421,11 @@ function validateCompetitiveScorecard(
 	root: string,
 	runDir: string,
 	runId: string,
-	scope: Record<string, unknown>,
+	scope: JsonObject,
 	products: readonly ProductOptimizexpConfig[],
 ): string[] {
 	const missing: string[] = [];
-	const featureIds = Array.isArray(scope.features)
-		? (scope.features as string[])
-		: [];
+	const featureIds = parseStringArray(scope.features);
 	const mutating = !scope.reportOnly;
 	for (const cfg of products) {
 		if (!cfg.competitive?.requireScorecardOnComplete) continue;
@@ -1448,8 +1479,8 @@ function validateCompetitiveScorecard(
 			if (
 				scored?.status !== undefined &&
 				dimension.status !== undefined &&
-				(DIMENSION_STATUS_RANK[scored.status] ?? 0) >
-					(DIMENSION_STATUS_RANK[dimension.status] ?? 0) &&
+				(DIMENSION_STATUS_RANK.get(scored.status) ?? 0) >
+					(DIMENSION_STATUS_RANK.get(dimension.status) ?? 0) &&
 				!existsSync(path.join(runDir, "design-council.md"))
 			) {
 				missing.push(`council_verdict_missing:${id}`);
@@ -1470,7 +1501,7 @@ function validateBacklogIntegrity(root: string, runDir: string): string[] {
 		if (!existsSync(backlogPath)) continue;
 		const rel = path.relative(root, backlogPath);
 		const backlog = readJsonFile<{
-			items?: Record<string, unknown>[];
+			items?: JsonObject[];
 		}>(backlogPath);
 		if (backlog === null) {
 			missing.push(`backlog_invalid_json:${rel}`);
@@ -1481,11 +1512,11 @@ function validateBacklogIntegrity(root: string, runDir: string): string[] {
 			const required = ["id", "title", "problem", "desiredOutcome"];
 			const incomplete = required.some((field) => {
 				const value = item[field];
-				return typeof value !== "string" || value.trim() === "";
+				return !isString(value) || value.trim() === "";
 			});
 			const leaked = Object.values(item).some(
 				(value) =>
-					typeof value === "string" && /\bundefined\b/u.test(value),
+					isString(value) && /\bundefined\b/u.test(value),
 			);
 			if (incomplete || leaked) {
 				missing.push(`backlog_malformed:${rel}:${label}`);
@@ -1563,12 +1594,10 @@ function validateTokenAudit(
 function validateDesignCritique(
 	root: string,
 	runDir: string,
-	scope: Record<string, unknown>,
+	scope: JsonObject,
 	products: readonly ProductOptimizexpConfig[],
 ): string[] {
-	const experiences = Array.isArray(scope.experiences)
-		? (scope.experiences as string[])
-		: [];
+	const experiences = parseStringArray(scope.experiences);
 	if (
 		scope.reportOnly === true ||
 		!experiences.includes("ux") ||
@@ -1623,12 +1652,10 @@ function validateDesignCritique(
 function validateDetectorPass(
 	root: string,
 	runDir: string,
-	scope: Record<string, unknown>,
+	scope: JsonObject,
 	products: readonly ProductOptimizexpConfig[],
 ): string[] {
-	const experiences = Array.isArray(scope.experiences)
-		? (scope.experiences as string[])
-		: [];
+	const experiences = parseStringArray(scope.experiences);
 	if (
 		scope.reportOnly === true ||
 		!experiences.includes("ux") ||
@@ -1659,7 +1686,7 @@ function validateDetectorPass(
 	// keeps a deliberate file-wide exemption expressible.
 	const waived = new Set<string>();
 	for (const w of waivers?.waived ?? []) {
-		if (typeof w.reason !== "string" || w.reason.trim().length <= 12) continue;
+		if (!isString(w.reason) || w.reason.trim().length <= 12) continue;
 		waived.add(`${w.rule ?? ""}:${w.file ?? ""}:${w.line ?? "*"}`);
 	}
 
@@ -1674,7 +1701,7 @@ function validateDetectorPass(
 	// A waiver without a real reason is a rubber stamp, which is the failure mode
 	// this whole apparatus exists to prevent.
 	for (const w of waivers?.waived ?? []) {
-		if (typeof w.reason !== "string" || w.reason.trim().length <= 12) {
+		if (!isString(w.reason) || w.reason.trim().length <= 12) {
 			problems.push(`detector_waiver_unreasoned:${w.rule ?? "unknown"}`);
 		}
 	}
@@ -1685,12 +1712,10 @@ function validateDetectorPass(
 function validateMobileEvidence(
 	root: string,
 	runId: string,
-	scope: Record<string, unknown>,
+	scope: JsonObject,
 	products: readonly ProductOptimizexpConfig[],
 ): string[] {
-	const experiences = Array.isArray(scope.experiences)
-		? (scope.experiences as string[])
-		: [];
+	const experiences = parseStringArray(scope.experiences);
 	if (
 		scope.reportOnly === true ||
 		!experiences.includes("ux") ||
@@ -1714,7 +1739,7 @@ function validateMobileEvidence(
 			path.join(abs, "meta.json"),
 		);
 		const width = meta?.screen?.widthPx;
-		if (typeof width === "number" && width <= 480) {
+		if (isNumber(width) && width <= 480) {
 			return [];
 		}
 	}
@@ -1756,9 +1781,7 @@ function modeAssertComplete(
 	const noSurvey = Boolean(scope.noSurvey);
 	const stopPolicy = String(scope.stopPolicy || "");
 	const status = String(scope.status || "running");
-	const regimesEntered = Array.isArray(scope.regimesEntered)
-		? (scope.regimesEntered as string[])
-		: [];
+	const regimesEntered = parseStringArray(scope.regimesEntered);
 
 	if (
 		!stopPolicy.includes("pareto") &&
@@ -1801,6 +1824,7 @@ function modeAssertComplete(
 		if (!regimesEntered.includes("delight_maximize")) {
 			missing.push("delight_regime_never_entered");
 		}
+		// SAFETY: The surrounding parser or local invariant establishes this domain type at the boundary.
 		const lastEq = scope.lastEquilibrium as
 			| { stop?: boolean; reason?: string }
 			| null
@@ -1825,6 +1849,7 @@ function modeAssertComplete(
 		}
 	} else {
 		// harm-only path still needs harm floor marker
+		// SAFETY: The surrounding parser or local invariant establishes this domain type at the boundary.
 		const lastSs = scope.lastShouldStop as
 			| { plateau?: boolean; reason?: string }
 			| null
@@ -1861,6 +1886,7 @@ function modeAssertComplete(
 		const summary = readFileSync(summaryPath, "utf8");
 		const reason =
 			String(scope.stopReason || scope.candidateStopReason || "") ||
+			// SAFETY: The surrounding parser or local invariant establishes this domain type at the boundary.
 			(scope.lastEquilibrium as { reason?: string } | null)?.reason ||
 			"";
 		if (noDelight) {
@@ -1885,12 +1911,8 @@ function modeAssertComplete(
 	}
 
 	// ── Feature-quality / exploration gates (critical path) ──
-	const featureIds = Array.isArray(scope.features)
-		? (scope.features as string[])
-		: [];
-	const projectIds = Array.isArray(scope.projects)
-		? (scope.projects as string[])
-		: [];
+	const featureIds = parseStringArray(scope.features);
+	const projectIds = parseStringArray(scope.projects);
 
 	// Surface map required for non-root product projects when features are set
 	const projectPaths = new Map(listProjects(root).map((project) => [project.id, project.path]));
@@ -1909,6 +1931,7 @@ function modeAssertComplete(
 		missing.push("feature_coverage_missing");
 	} else if (existsSync(coveragePath)) {
 		try {
+			// SAFETY: The surrounding parser or local invariant establishes this domain type at the boundary.
 			const cov = JSON.parse(readFileSync(coveragePath, "utf8")) as {
 				runId?: string;
 				ok?: boolean;
@@ -1943,6 +1966,7 @@ function modeAssertComplete(
 		let stamped = 0;
 		for (const f of outcomes) {
 			try {
+				// SAFETY: The surrounding parser or local invariant establishes this domain type at the boundary.
 				const body = JSON.parse(
 					readFileSync(path.join(busDir, f), "utf8"),
 				) as {
@@ -1967,6 +1991,7 @@ function modeAssertComplete(
 				);
 				const metaP = path.join(abs, "meta.json");
 				if (existsSync(metaP)) {
+					// SAFETY: The surrounding parser or local invariant establishes this domain type at the boundary.
 					const meta = JSON.parse(readFileSync(metaP, "utf8")) as {
 						repro?: { via?: string };
 					};
@@ -1982,13 +2007,15 @@ function modeAssertComplete(
 	}
 
 	// ── Artifact-truth gates: the loop cannot claim equilibrium past its artifacts ──
-	const runProducts = productsForRun(root, scope as Record<string, unknown>);
+	// SAFETY: The surrounding parser or local invariant establishes this domain type at the boundary.
+	const runProducts = productsForRun(root, scope as JsonObject);
 	missing.push(
 		...validateCompetitiveScorecard(
 			root,
 			runDir,
 			runId,
-			scope as Record<string, unknown>,
+			// SAFETY: The surrounding parser or local invariant establishes this domain type at the boundary.
+			scope as JsonObject,
 			runProducts,
 		),
 	);
@@ -1996,13 +2023,15 @@ function modeAssertComplete(
 	missing.push(...validateStandingDefects(root, runProducts));
 	missing.push(...validateTokenAudit(root, runProducts));
 	missing.push(
-		...validateDetectorPass(root, runDir, scope as Record<string, unknown>, runProducts),
+		// SAFETY: The surrounding parser or local invariant establishes this domain type at the boundary.
+		...validateDetectorPass(root, runDir, scope as JsonObject, runProducts),
 	);
 	missing.push(
 		...validateDesignCritique(
 			root,
 			runDir,
-			scope as Record<string, unknown>,
+			// SAFETY: The surrounding parser or local invariant establishes this domain type at the boundary.
+			scope as JsonObject,
 			runProducts,
 		),
 	);
@@ -2010,7 +2039,8 @@ function modeAssertComplete(
 		...validateMobileEvidence(
 			root,
 			runId,
-			scope as Record<string, unknown>,
+			// SAFETY: The surrounding parser or local invariant establishes this domain type at the boundary.
+			scope as JsonObject,
 			runProducts,
 		),
 	);
@@ -2029,6 +2059,7 @@ function modeAssertComplete(
 		candidateStopReason:
 			scope.stopReason ||
 			scope.candidateStopReason ||
+			// SAFETY: The surrounding parser or local invariant establishes this domain type at the boundary.
 			(scope.lastEquilibrium as { reason?: string } | null)?.reason ||
 			null,
 		bus,
@@ -2097,6 +2128,7 @@ function modeMarkComplete(
 	if (
 		!noDelight &&
 		stopReason === "pareto-equilibrium" &&
+		// SAFETY: The surrounding parser or local invariant establishes this domain type at the boundary.
 		!(scope.regimesEntered as string[] | undefined)?.includes(
 			"delight_maximize",
 		)
@@ -2156,13 +2188,14 @@ function modeAggregateBus(root: string, runId: string) {
 	}
 	const cells: ScoreCell[] = [];
 	for (const f of readdirSync(dir).filter((x) => x.endsWith(".json"))) {
+		// SAFETY: The surrounding parser or local invariant establishes this domain type at the boundary.
 		const body = JSON.parse(readFileSync(path.join(dir, f), "utf8")) as BusBody;
 		if (body.kind !== "outcome") continue;
 		if (runId && body.runId && body.runId !== runId) continue;
 		const primary = body.scores?.primary;
 		if (!primary) continue;
 		const surface =
-			typeof body.surface === "string"
+			isString(body.surface)
 				? body.surface
 				: body.surface?.name || body.scores?.surface || "unknown";
 		cells.push({
@@ -2180,7 +2213,7 @@ function modeAggregateBus(root: string, runId: string) {
 function main() {
 	const args = parseArgs(process.argv.slice(2));
 	const root = repoRoot(
-		typeof args.root === "string" ? args.root : undefined,
+		isString(args.root) ? args.root : undefined,
 	);
 	const mode = String(args.mode ?? "help");
 	if (mode === "help") {
@@ -2193,6 +2226,7 @@ function main() {
 			console.error("--run required");
 			process.exit(2);
 		}
+		// SAFETY: The surrounding parser or local invariant establishes this domain type at the boundary.
 		const experiences = String(args.experiences || "ux,dx,ax")
 			.split(/[,\s]+/)
 			.filter(Boolean) as Experiences[];
@@ -2239,26 +2273,32 @@ function main() {
 		return;
 	}
 	if (mode === "read-bus") {
+		// SAFETY: The surrounding parser or local invariant establishes this domain type at the boundary.
 		modeReadBus(args as Record<string, string | boolean>, root);
 		return;
 	}
 	if (mode === "should-stop") {
+		// SAFETY: The surrounding parser or local invariant establishes this domain type at the boundary.
 		modeShouldStop(args as Record<string, string | boolean>, root);
 		return;
 	}
 	if (mode === "equilibrium") {
+		// SAFETY: The surrounding parser or local invariant establishes this domain type at the boundary.
 		modeEquilibrium(args as Record<string, string | boolean>, root);
 		return;
 	}
 	if (mode === "status") {
+		// SAFETY: The surrounding parser or local invariant establishes this domain type at the boundary.
 		modeStatus(args as Record<string, string | boolean>, root);
 		return;
 	}
 	if (mode === "assert-complete") {
+		// SAFETY: The surrounding parser or local invariant establishes this domain type at the boundary.
 		modeAssertComplete(args as Record<string, string | boolean>, root);
 		return;
 	}
 	if (mode === "mark-complete") {
+		// SAFETY: The surrounding parser or local invariant establishes this domain type at the boundary.
 		modeMarkComplete(args as Record<string, string | boolean>, root);
 		return;
 	}

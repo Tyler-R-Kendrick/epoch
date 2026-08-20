@@ -25,11 +25,12 @@ export function createObjectPromise(input: Omit<ObjectPromiseV1, "protocol">): O
   return value;
 }
 
-export function validateObjectPromise(value: unknown): ObjectPromiseValidation {
-  if (typeof value !== "object" || value === null) return { ok: false, reason: "object promise must be an object" };
+export function validateObjectPromise<Value>(value: Value): ObjectPromiseValidation {
+  if (!isObject(value)) return { ok: false, reason: "object promise must be an object" };
+  // SAFETY: Runtime checks or construction above establish Partial<ObjectPromiseV1>.
   const promise = value as Partial<ObjectPromiseV1>;
   if (promise.protocol !== OBJECT_PROMISE_PROTOCOL) return { ok: false, reason: "unsupported object promise protocol" };
-  try { validateObjectId(promise.objectId ?? ""); } catch (error) { return { ok: false, reason: (error as Error).message }; }
+  try { validateObjectId(promise.objectId ?? ""); } catch (error) { return { ok: false, reason: error instanceof Error ? error.message : String(error) }; }
   if (!Number.isSafeInteger(promise.size) || promise.size! < 0) return { ok: false, reason: "object promise size is invalid" };
   if (!Array.isArray(promise.sources) || promise.sources.length === 0) return { ok: false, reason: "object promise requires a source" };
   for (const source of promise.sources) {
@@ -48,6 +49,10 @@ export function validateObjectPromise(value: unknown): ObjectPromiseValidation {
     return { ok: false, reason: "object promise expiry is invalid" };
   }
   return { ok: true };
+}
+
+function isObject<Value>(value: Value): value is Value & object {
+  return typeof value === "object" && value !== null;
 }
 
 function privateAddress(hostname: string): boolean {

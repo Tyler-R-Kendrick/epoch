@@ -8,6 +8,26 @@ import {
   type SuccessorStatement,
 } from "./publisher";
 import { ed25519ManifestVerifier, type ManifestSignatureVerifier } from "./signing";
+type BoundaryValue = null | undefined | boolean | number | string | bigint | symbol | Readonly<object>;
+type DictionaryValue = null | undefined | boolean | number | string | bigint | readonly DictionaryValue[] | { readonly [key: string]: DictionaryValue };
+function __epochIsString<T>(value: T): value is T & string { return typeof value === "string"; }
+function __epochIsNumber<T>(value: T): value is T & number { return typeof value === "number"; }
+function __epochIsBoolean<T>(value: T): value is T & boolean { return typeof value === "boolean"; }
+function __epochIsBigInt<T>(value: T): value is T & bigint { return typeof value === "bigint"; }
+function __epochIsSymbol<T>(value: T): value is T & symbol { return typeof value === "symbol"; }
+function __epochIsUndefined<T>(value: T): value is T & undefined { return typeof value === "undefined"; }
+function __epochIsFunction<T>(value: T): value is T & ((...args: never[]) => BoundaryValue) { return typeof value === "function"; }
+
+function boundaryKind(value: BoundaryValue): string {
+  if (__epochIsNumber(value)) return "number";
+  if (__epochIsBoolean(value)) return "boolean";
+  if (__epochIsBigInt(value)) return "bigint";
+  if (__epochIsSymbol(value)) return "symbol";
+  if (__epochIsUndefined(value)) return "undefined";
+  if (__epochIsFunction(value)) return "function";
+  return "object";
+}
+
 
 /**
  * Extension trust policy (ADR-0037).
@@ -120,7 +140,7 @@ const POLICY_KEYS = new Set(["trust", "allow", "block", "allow_publishers", "rev
  * so one bad entry does not discard a whole table, which is the same failure
  * at smaller scale.
  */
-export function readTrustPolicyReport(table: Record<string, unknown> | undefined): TrustPolicyRead {
+export function readTrustPolicyReport(table: Record<string, DictionaryValue> | undefined): TrustPolicyRead {
   if (table === undefined) return { policy: DEFAULT_TRUST_POLICY, diagnostics: [] };
   const diagnostics: TrustPolicyDiagnostic[] = [];
 
@@ -173,12 +193,12 @@ export function readTrustPolicyReport(table: Record<string, unknown> | undefined
  * Unknown values fail closed to `explicit` rather than widening trust. Callers
  * that can show the operator a diagnostic should prefer `readTrustPolicyReport`.
  */
-export function readTrustPolicy(table: Record<string, unknown> | undefined): ExtensionTrustPolicy {
+export function readTrustPolicy(table: Record<string, DictionaryValue> | undefined): ExtensionTrustPolicy {
   return readTrustPolicyReport(table).policy;
 }
 
-function describe(value: unknown): string {
-  return typeof value === "string" ? `"${value}"` : Array.isArray(value) ? "an array" : `a ${typeof value}`;
+function describe(value: BoundaryValue): string {
+  return __epochIsString(value) ? `"${value}"` : Array.isArray(value) ? "an array" : `a ${boundaryKind(value)}`;
 }
 
 /**

@@ -116,7 +116,8 @@ export class InMemoryProjectionRuntime implements ProjectionRuntime {
     validateExecution(path, undefined, context);
     if (this.source.explain !== undefined) return this.source.explain(projectionId, path, context);
     const entry = await this.resolve(projectionId, path, context);
-    return Object.freeze({ projectionId, path, ...(entry === undefined ? {} : { entry }), componentOrder: [projectionId], shadowed: [], detail: entry === undefined ? "Path did not resolve" : "Path resolved directly in the projection" });
+    const explanation = { projectionId, path, componentOrder: [projectionId], shadowed: [], detail: entry === undefined ? "Path did not resolve" : "Path resolved directly in the projection" };
+    return entry === undefined ? Object.freeze(explanation) : Object.freeze({ ...explanation, entry });
   }
 
   async *watch(projectionId: string, path: string, context: ProjectionWatchContext): AsyncIterable<ProjectionDelta> {
@@ -131,7 +132,7 @@ export class InMemoryProjectionRuntime implements ProjectionRuntime {
 }
 
 export function normalizeVirtualPath(path: string): string {
-  if (typeof path !== "string" || path.length === 0 || path.length > 4096 || !path.startsWith("/")) throw new CommunityError("PROJECTION_INVALID", "Virtual paths must be absolute and bounded");
+  if (path.length === 0 || path.length > 4096 || !path.startsWith("/")) throw new CommunityError("PROJECTION_INVALID", "Virtual paths must be absolute and bounded");
   if (path !== path.normalize("NFKC")) throw new CommunityError("PROJECTION_INVALID", "Virtual path uses ambiguous Unicode normalization");
   if ([...path].some((character) => {
     const code = character.codePointAt(0) ?? 0;
@@ -143,7 +144,7 @@ export function normalizeVirtualPath(path: string): string {
 }
 
 export function combineCompleteness(values: readonly SearchCompleteness[]): SearchCompleteness {
-  const severity: Readonly<Record<SearchCompleteness["status"], number>> = { complete: 0, approximate: 1, stale: 2, partial: 3 };
+  const severity = { complete: 0, approximate: 1, stale: 2, partial: 3 } satisfies Readonly<Record<SearchCompleteness["status"], number>>;
   const status = values.reduce<SearchCompleteness["status"]>((worst, value) => severity[value.status] > severity[worst] ? value.status : worst, "complete");
   const sources = new Map<string, CommunitySourceCheckpoint>();
   for (const value of values) for (const source of value.sources) sources.set(`${source.sourceId}\0${source.token}`, source);
@@ -157,8 +158,8 @@ export function combineCompleteness(values: readonly SearchCompleteness[]): Sear
 
 export function validateVfsEntry(entry: VfsEntry, projectionId: string): VfsEntry {
   if (entry.projectionId !== projectionId || !Number.isInteger(entry.projectionVersion) || entry.projectionVersion < 1) throw new CommunityError("PROJECTION_INVALID", "Projection entry has mismatched projection identity");
-  if (typeof entry.entryId !== "string" || entry.entryId.length === 0 || entry.entryId.length > 512 || typeof entry.parentEntryId !== "string" || entry.parentEntryId.length > 512) throw new CommunityError("PROJECTION_INVALID", "Projection occurrence identity is invalid");
-  if (typeof entry.name !== "string" || entry.name.length === 0 || entry.name.length > 120 || entry.name === "." || entry.name === ".." || /[/\\]/u.test(entry.name)) throw new CommunityError("PROJECTION_INVALID", "Projection entry name is unsafe");
+  if (entry.entryId.length === 0 || entry.entryId.length > 512 || entry.parentEntryId.length > 512) throw new CommunityError("PROJECTION_INVALID", "Projection occurrence identity is invalid");
+  if (entry.name.length === 0 || entry.name.length > 120 || entry.name === "." || entry.name === ".." || /[/\\]/u.test(entry.name)) throw new CommunityError("PROJECTION_INVALID", "Projection entry name is unsafe");
   normalizeVirtualPath(entry.logicalPath);
   validateObjectRef(entry.target);
   if (!(["directory", "entity", "representation", "relation", "mount"] as const).includes(entry.kind)) throw new CommunityError("PROJECTION_INVALID", "Projection entry kind is invalid");
@@ -171,7 +172,7 @@ function validateCompleteness(value: SearchCompleteness): SearchCompleteness {
   return value;
 }
 
-function isFieldScalar(value: unknown): value is CommunityFieldScalar {
+function isFieldScalar(value: CommunityFieldScalar): value is CommunityFieldScalar {
   return value === null || typeof value === "string" || typeof value === "boolean" || (typeof value === "number" && Number.isFinite(value));
 }
 

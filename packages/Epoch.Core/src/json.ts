@@ -1,24 +1,28 @@
-export type JsonValue = null | boolean | number | string | JsonValue[] | { [key: string]: JsonValue };
+export type JsonObject = { [key: string]: JsonValue };
+export type JsonValue = null | boolean | number | string | JsonValue[] | JsonObject;
 
-export function isRecord(value: unknown): value is Record<string, unknown> {
+export function isRecord<Value>(value: Value): value is Value & JsonObject {
   return value !== null && typeof value === "object" && !Array.isArray(value);
 }
 
-export function canonicalJson(value: unknown): string {
+export function canonicalJson<Value>(value: Value): string {
   return JSON.stringify(sortJson(value));
 }
 
-export function sortJson(value: unknown): unknown {
+export function sortJson<Value>(value: Value): Value {
   if (Array.isArray(value)) {
-    return value.map(sortJson);
+    // SAFETY: Mapping only recursively reorders object keys, preserving the array's value contract.
+    return value.map(sortJson) as Value;
   }
 
-  if (value !== null && typeof value === "object") {
-    const sorted: Record<string, unknown> = {};
-    for (const key of Object.keys(value as Record<string, unknown>).sort()) {
-      sorted[key] = sortJson((value as Record<string, unknown>)[key]);
+  if (isRecord(value)) {
+    const sorted: JsonObject = {};
+    for (const key of Object.keys(value).sort()) {
+      const item = value[key];
+      if (item !== undefined) sorted[key] = sortJson(item);
     }
-    return sorted;
+    // SAFETY: The result has the same keys and recursively equivalent values as the input object.
+    return sorted as Value;
   }
 
   return value;

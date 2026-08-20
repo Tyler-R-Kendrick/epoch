@@ -4,6 +4,10 @@ import { extname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createCanvasClusterNode, type CanvasClusterNode } from "./backend.js";
 import type { CanvasClusterGossipRequest, EpochVfsSnapshot } from "./domain.js";
+type BoundaryValue = null | undefined | boolean | number | string | bigint | symbol | Readonly<object>;
+type DictionaryValue = null | undefined | boolean | number | string | bigint | readonly DictionaryValue[] | { readonly [key: string]: DictionaryValue };
+function __epochIsString<T>(value: T): value is T & string { return typeof value === "string"; }
+
 
 export interface CanvasSampleServerOptions {
   readonly dataDir?: string;
@@ -66,7 +70,7 @@ async function handleApi(
 
   if (request.method === "POST" && path === "/api/agent") {
     const body = await readJsonBody(request);
-    const prompt = isRecord(body) && typeof body.prompt === "string" ? body.prompt : "";
+    const prompt = isRecord(body) && __epochIsString(body.prompt) ? body.prompt : "";
     cluster.commitAgentPrompt(prompt);
     writeJson(response, 200, cluster.state());
     return;
@@ -109,17 +113,17 @@ function resolveStaticPath(staticDir: string, pathname: string): string | undefi
   return absolute;
 }
 
-async function readJsonBody(request: IncomingMessage): Promise<unknown> {
+async function readJsonBody(request: IncomingMessage): BoundaryValue {
   const chunks: Buffer[] = [];
   for await (const chunk of request) {
-    chunks.push(typeof chunk === "string" ? Buffer.from(chunk) : chunk);
+    chunks.push(__epochIsString(chunk) ? Buffer.from(chunk) : chunk);
   }
   const text = Buffer.concat(chunks).toString("utf8");
   return text.length === 0 ? {} : JSON.parse(text);
 }
 
-function asGossipRequest(value: unknown): CanvasClusterGossipRequest {
-  if (!isRecord(value) || typeof value.participantId !== "string" || !isEpochVfsSnapshot(value.snapshot)) {
+function asGossipRequest(value: BoundaryValue): CanvasClusterGossipRequest {
+  if (!isRecord(value) || !__epochIsString(value.participantId) || !isEpochVfsSnapshot(value.snapshot)) {
     throw new Error("invalid Epoch gossip request");
   }
   return {
@@ -128,13 +132,13 @@ function asGossipRequest(value: unknown): CanvasClusterGossipRequest {
   };
 }
 
-function isEpochVfsSnapshot(value: unknown): value is EpochVfsSnapshot {
+function isEpochVfsSnapshot(value: BoundaryValue): value is EpochVfsSnapshot {
   return isRecord(value)
     && Array.isArray(value.files)
-    && value.files.every((file) => isRecord(file) && typeof file.path === "string" && typeof file.content === "string");
+    && value.files.every((file) => isRecord(file) && __epochIsString(file.path) && __epochIsString(file.content));
 }
 
-function writeJson(response: ServerResponse, status: number, value: unknown): void {
+function writeJson(response: ServerResponse, status: number, value: BoundaryValue): void {
   response.writeHead(status, { "content-type": "application/json" });
   response.end(JSON.stringify(value));
 }
@@ -160,7 +164,7 @@ function defaultStaticDir(): string {
   return fileURLToPath(new URL("../dist", import.meta.url));
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
+function isRecord(value: BoundaryValue): value is Record<string, DictionaryValue> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 

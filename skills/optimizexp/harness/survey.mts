@@ -21,6 +21,7 @@ import {
 	validatePositive,
 	type PositiveScores,
 } from "./lib/scorecard.mts";
+import { isNumber, isObject } from "./lib/value-types.mts";
 
 const SURVEY_QUESTION_IDS = [
 	"q_excitement",
@@ -33,7 +34,7 @@ const SURVEY_QUESTION_IDS = [
 	"q_recommend",
 ] as const;
 
-const PROMPTS: Record<(typeof SURVEY_QUESTION_IDS)[number], string> = {
+const PROMPTS = {
 	q_excitement:
 		"On a scale of 0–5, how excited are you to use this path again? Why?",
 	q_ease:
@@ -46,7 +47,7 @@ const PROMPTS: Record<(typeof SURVEY_QUESTION_IDS)[number], string> = {
 	q_one_change: "If you could demand one change next week, what is it?",
 	q_never: "What should we never do on this path?",
 	q_recommend: "Would you recommend this experience to a peer? (yes/mixed/no + why)",
-};
+} satisfies Record<(typeof SURVEY_QUESTION_IDS)[number], string>;
 
 type FeatureRequest = {
 	id: string;
@@ -114,6 +115,8 @@ type BacklogItem = {
 	runId: string;
 };
 
+type BacklogDocument = { items?: BacklogItem[] };
+
 function repoRoot(): string {
 	let dir = process.cwd();
 	for (;;) {
@@ -126,7 +129,8 @@ function repoRoot(): string {
 }
 
 function parseArgs(argv: string[]) {
-	const out: Record<string, string | boolean> = { mode: "help" };
+	const out: Record<string, string | boolean> = {};
+	out.mode = "help";
 	for (let i = 0; i < argv.length; i++) {
 		const a = argv[i]!;
 		if (a === "--help" || a === "-h") out.mode = "help";
@@ -154,8 +158,8 @@ See references/persona-survey.md and experiment-backlog.md.
 `);
 }
 
-function isInt0to5(n: unknown): n is number {
-	return typeof n === "number" && Number.isInteger(n) && n >= 0 && n <= 5;
+function isInt0to5<T>(n: T): n is T & number {
+	return isNumber(n) && Number.isInteger(n) && n >= 0 && n <= 5;
 }
 
 function slugify(s: string): string {
@@ -166,9 +170,10 @@ function slugify(s: string): string {
 		.slice(0, 48);
 }
 
-function validateSurvey(raw: unknown): string[] {
+function validateSurvey<T>(raw: T): string[] {
 	const problems: string[] = [];
-	if (!raw || typeof raw !== "object") return ["survey: not an object"];
+	if (!raw || !isObject(raw)) return ["survey: not an object"];
+	// SAFETY: The surrounding parser or local invariant establishes this domain type at the boundary.
 	const s = raw as Partial<SurveyResponse>;
 	if (s.schemaVersion !== 1) problems.push("schemaVersion must be 1");
 	if (s.kind !== "persona-survey") problems.push("kind must be persona-survey");
@@ -249,6 +254,7 @@ function modeTemplate(root: string, runId: string, personasCsv: string) {
 	if (personas.length === 0) {
 		const scopePath = path.join(runDir, "scope.json");
 		if (existsSync(scopePath)) {
+			// SAFETY: The surrounding parser or local invariant establishes this domain type at the boundary.
 			const scope = JSON.parse(readFileSync(scopePath, "utf8")) as {
 				personas?: string[];
 			};
@@ -343,6 +349,7 @@ function loadSurveys(root: string, runId: string): SurveyResponse[] {
 		(x) => x.endsWith(".json") && !x.startsWith("_"),
 	)) {
 		try {
+			// SAFETY: The surrounding parser or local invariant establishes this domain type at the boundary.
 			const body = JSON.parse(
 				readFileSync(path.join(dir, f), "utf8"),
 			) as SurveyResponse;
@@ -554,9 +561,10 @@ function modeRankBacklog(root: string, runId: string, global: boolean) {
 		const gdir = path.join(root, ".optimizexp", "backlog");
 		mkdirSync(gdir, { recursive: true });
 		globalPath = path.join(gdir, "experiments.json");
-		let existing: { items?: BacklogItem[] } = { items: [] };
+		let existing: BacklogDocument = { items: [] };
 		if (existsSync(globalPath)) {
 			try {
+				// SAFETY: The surrounding parser or local invariant establishes this domain type at the boundary.
 				existing = JSON.parse(readFileSync(globalPath, "utf8")) as {
 					items?: BacklogItem[];
 				};

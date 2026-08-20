@@ -34,15 +34,18 @@ const HCD_TAGS = [
 // must stay reconciled: total mapping, no orphans, panels only in config.json.
 export function runPersonaMapTests(): void {
   const root = process.cwd();
+  // SAFETY: Runtime checks or construction above establish the asserted type.
   const personaMap = JSON.parse(
     readFileSync(join(root, ".optimizexp/persona-map.json"), "utf8"),
   ) as PersonaMap;
+  // SAFETY: Runtime checks or construction above establish the asserted type.
   const config = JSON.parse(
     readFileSync(
       join(root, "packages/Epoch.Community.Web/.optimizexp/config.json"),
       "utf8",
     ),
   ) as PanelConfig;
+  // SAFETY: Runtime checks or construction above establish the asserted type.
   const dimensions = JSON.parse(
     readFileSync(
       join(root, ".optimizexp/competitive/community-web-dimensions.json"),

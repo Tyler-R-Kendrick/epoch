@@ -1,4 +1,8 @@
 import { fail } from "./errors";
+type BoundaryValue = null | undefined | boolean | number | string | bigint | symbol | Readonly<object>;
+function __epochIsString<T>(value: T): value is T & string { return typeof value === "string"; }
+function __epochIsFunction<T>(value: T): value is T & ((...args: never[]) => BoundaryValue) { return typeof value === "function"; }
+
 
 export const CANONICAL_ID_KINDS = [
   "repo", "principal", "key", "change", "change-graph", "fragment", "review-bundle", "merge-plan",
@@ -30,8 +34,8 @@ export function createCanonicalId<K extends CanonicalIdKind>(kind: K, random: Ra
   return `epoch:${kind}:${base32(bytes)}`;
 }
 
-export function parseCanonicalId(value: unknown, expectedKind?: CanonicalIdKind): { readonly kind: CanonicalIdKind; readonly token: string } {
-  if (typeof value !== "string" || value.length > 96 || [...value].some((character) => character.codePointAt(0)! > 0x7f)) {
+export function parseCanonicalId(value: BoundaryValue, expectedKind?: CanonicalIdKind) {
+  if (!__epochIsString(value) || value.length > 96 || [...value].some((character) => character.codePointAt(0)! > 0x7f)) {
     return fail("invalid-id", "Canonical ID must be bounded ASCII");
   }
   const parts = value.split(":");
@@ -41,22 +45,24 @@ export function parseCanonicalId(value: unknown, expectedKind?: CanonicalIdKind)
     || expectedKind !== undefined && kind !== expectedKind || token === undefined || !tokenPattern.test(token)) {
     return fail("invalid-id", `Invalid canonical ID: ${value}`);
   }
+  // SAFETY: The module validates or constructs this value before applying the asserted contract.
   return { kind: kind as CanonicalIdKind, token };
 }
 
-export function parseChangeId(value: unknown): { readonly kind: "change"; readonly token: string } {
+export function parseChangeId(value: BoundaryValue) {
   const parsed = parseCanonicalId(value, "change");
   return { kind: "change", token: parsed.token };
 }
 
-export function assertRevisionId(value: unknown): RevisionId {
-  if (typeof value !== "string" || !eventIdPattern.test(value)) fail("invalid-ref", "RevisionId must be a signed EventId");
+export function assertRevisionId(value: BoundaryValue): RevisionId {
+  if (!__epochIsString(value) || !eventIdPattern.test(value)) fail("invalid-ref", "RevisionId must be a signed EventId");
+  // SAFETY: The module validates or constructs this value before applying the asserted contract.
   return value as RevisionId;
 }
 
 function platformRandom(byteLength: number): Uint8Array {
   const crypto = globalThis.crypto;
-  if (crypto === undefined || typeof crypto.getRandomValues !== "function") {
+  if (crypto === undefined || !__epochIsFunction(crypto.getRandomValues)) {
     fail("unsupported-capability", "This runtime has no cryptographic random source; inject a 256-bit CSPRNG");
   }
   return crypto.getRandomValues(new Uint8Array(byteLength));

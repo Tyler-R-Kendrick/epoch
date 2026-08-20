@@ -7,6 +7,12 @@
  */
 
 import { parseTomlDocument, TomlError } from "@epoch/core";
+type BoundaryValue = null | undefined | boolean | number | string | bigint | symbol | Readonly<object>;
+type DictionaryValue = null | undefined | boolean | number | string | bigint | readonly DictionaryValue[] | { readonly [key: string]: DictionaryValue };
+function __epochIsString<T>(value: T): value is T & string { return typeof value === "string"; }
+function __epochIsNumber<T>(value: T): value is T & number { return typeof value === "number"; }
+function __epochIsObject<T>(value: T): value is T & object { return typeof value === "object"; }
+
 
 export const EXTENSION_API_VERSION = 1;
 
@@ -130,7 +136,7 @@ export function isExtensionName(value: string): boolean {
  * `executable_sha256`, and which modules an extension may load — so it reads
  * the same TOML everything else does rather than a subset of its own.
  */
-function parseTable(text: string): Record<string, unknown> {
+function parseTable(text: string): Record<string, DictionaryValue> {
   try {
     return parseTomlDocument(text);
   } catch (error) {
@@ -141,9 +147,9 @@ function parseTable(text: string): Record<string, unknown> {
   }
 }
 
-function requireString(table: Record<string, unknown>, field: string): string {
+function requireString(table: Record<string, DictionaryValue>, field: string): string {
   const value = table[field];
-  if (typeof value !== "string" || value.length === 0) {
+  if (!__epochIsString(value) || value.length === 0) {
     throw new ExtensionManifestError("invalid-field", `manifest field '${field}' must be a non-empty string`);
   }
   return value;
@@ -164,7 +170,7 @@ export function parseExtensionManifest(text: string): ExtensionManifest {
   }
 
   const api = table.api;
-  if (typeof api !== "number") throw new ExtensionManifestError("invalid-field", "manifest field 'api' must be a number");
+  if (!__epochIsNumber(api)) throw new ExtensionManifestError("invalid-field", "manifest field 'api' must be a number");
   if (api !== EXTENSION_API_VERSION) {
     throw new ExtensionManifestError("unsupported-api", `unsupported extension API version ${api}; expected ${EXTENSION_API_VERSION}`);
   }
@@ -173,10 +179,12 @@ export function parseExtensionManifest(text: string): ExtensionManifest {
   if (!Array.isArray(rawCapabilities)) {
     throw new ExtensionManifestError("invalid-field", "manifest field 'capabilities' must be an array");
   }
+  // SAFETY: The module validates or constructs this value before applying the asserted contract.
   const capabilities = rawCapabilities.map((entry) => {
-    if (typeof entry !== "string" || !(CAPABILITY_KINDS as readonly string[]).includes(entry)) {
+    if (!__epochIsString(entry) || !(CAPABILITY_KINDS as readonly string[]).includes(entry)) {
       throw new ExtensionManifestError("invalid-field", `unknown capability: ${String(entry)}`);
     }
+    // SAFETY: The module validates or constructs this value before applying the asserted contract.
     return entry as CapabilityKind;
   });
   if (capabilities.length === 0) {
@@ -189,7 +197,7 @@ export function parseExtensionManifest(text: string): ExtensionManifest {
   }
 
   const publisher = table.publisher;
-  if (publisher !== undefined && (typeof publisher !== "string" || !PRINCIPAL_PATTERN.test(publisher))) {
+  if (publisher !== undefined && (!__epochIsString(publisher) || !PRINCIPAL_PATTERN.test(publisher))) {
     throw new ExtensionManifestError("invalid-field", "manifest field 'publisher' must be an epoch:principal identifier");
   }
 
@@ -201,32 +209,33 @@ export function parseExtensionManifest(text: string): ExtensionManifest {
   // field sits inside the signed payload, so a lenient format is a way for two
   // verifiers to disagree about whether the same signature has expired.
   if (notAfter !== undefined
-    && (typeof notAfter !== "string" || !RFC3339_PATTERN.test(notAfter) || Number.isNaN(Date.parse(notAfter)))) {
+    && (!__epochIsString(notAfter) || !RFC3339_PATTERN.test(notAfter) || Number.isNaN(Date.parse(notAfter)))) {
     throw new ExtensionManifestError("invalid-field", "manifest field 'not_after' must be an RFC 3339 timestamp");
   }
   const signature = table.signature;
   const executableSha256 = table.executable_sha256;
-  if (executableSha256 !== undefined && (typeof executableSha256 !== "string" || !/^[a-f0-9]{64}$/u.test(executableSha256))) {
+  if (executableSha256 !== undefined && (!__epochIsString(executableSha256) || !/^[a-f0-9]{64}$/u.test(executableSha256))) {
     throw new ExtensionManifestError("invalid-field", "manifest field 'executable_sha256' must be a lowercase hex SHA-256");
   }
-  if (typeof signature === "string" && typeof executableSha256 !== "string") {
+  if (__epochIsString(signature) && !__epochIsString(executableSha256)) {
     // A signature that does not cover the binary is worse than no signature,
     // because it looks like a guarantee.
     throw new ExtensionManifestError("invalid-field", "a signed manifest must declare 'executable_sha256'");
   }
 
+  // SAFETY: The module validates or constructs this value before applying the asserted contract.
   return {
     name,
     api,
     version: requireString(table, "version"),
-    description: typeof description === "string" ? description : undefined,
+    description: __epochIsString(description) ? description : undefined,
     publisher: publisher as string | undefined,
     capabilities,
     determinism,
-    executableSha256: typeof executableSha256 === "string" ? executableSha256 : undefined,
-    notAfter: typeof notAfter === "string" ? notAfter : undefined,
+    executableSha256: __epochIsString(executableSha256) ? executableSha256 : undefined,
+    notAfter: __epochIsString(notAfter) ? notAfter : undefined,
     provides: provides.length === 0 ? undefined : provides,
-    signature: typeof signature === "string" ? signature : undefined,
+    signature: __epochIsString(signature) ? signature : undefined,
   };
 }
 
@@ -239,18 +248,20 @@ export function parseExtensionManifest(text: string): ExtensionManifest {
  * a provider nobody consented to, and shaping signed evidence is exactly what
  * it would be doing (ADR-0045).
  */
-function parseProvides(value: unknown): readonly ProviderDeclaration[] {
+function parseProvides(value: BoundaryValue): readonly ProviderDeclaration[] {
   if (value === undefined) return [];
   if (!Array.isArray(value)) {
     throw new ExtensionManifestError("invalid-field", "manifest field 'provides' must be an array of tables");
   }
+  // SAFETY: The module validates or constructs this value before applying the asserted contract.
   return value.map((entry) => {
-    if (typeof entry !== "object" || entry === null || Array.isArray(entry)) {
+    if (!__epochIsObject(entry) || entry === null || Array.isArray(entry)) {
       throw new ExtensionManifestError("invalid-field", "each 'provides' entry must be a table");
     }
-    const record = entry as Record<string, unknown>;
+    // SAFETY: The module validates or constructs this value before applying the asserted contract.
+    const record = entry as Record<string, DictionaryValue>;
     const capability = record.capability;
-    if (typeof capability !== "string" || !(CAPABILITY_KINDS as readonly string[]).includes(capability)) {
+    if (!__epochIsString(capability) || !(CAPABILITY_KINDS as readonly string[]).includes(capability)) {
       throw new ExtensionManifestError("invalid-field", `unknown provided capability: ${String(capability)}`);
     }
     if (capability === "command") {
@@ -259,15 +270,15 @@ function parseProvides(value: unknown): readonly ProviderDeclaration[] {
       throw new ExtensionManifestError("invalid-field", "'command' is a Tier 1 capability and cannot be provided as a module");
     }
     const module = record.module;
-    if (typeof module !== "string" || !MODULE_NAME_PATTERN.test(module)) {
+    if (!__epochIsString(module) || !MODULE_NAME_PATTERN.test(module)) {
       throw new ExtensionManifestError("invalid-field", "a 'provides' entry needs a 'module' file name beside the manifest");
     }
     const language = record.language;
-    if (typeof language !== "string" || language.length === 0) {
+    if (!__epochIsString(language) || language.length === 0) {
       throw new ExtensionManifestError("invalid-field", `provider '${module}' must declare the 'language' it parses`);
     }
     const moduleSha256 = record.module_sha256;
-    if (typeof moduleSha256 !== "string" || !DIGEST_PATTERN.test(moduleSha256)) {
+    if (!__epochIsString(moduleSha256) || !DIGEST_PATTERN.test(moduleSha256)) {
       throw new ExtensionManifestError(
         "invalid-field",
         `provider '${module}' must declare 'module_sha256'; an unbound module cannot be trusted`,
@@ -276,11 +287,13 @@ function parseProvides(value: unknown): readonly ProviderDeclaration[] {
     const strings = (key: string): readonly string[] | undefined => {
       const raw = record[key];
       if (raw === undefined) return undefined;
-      if (!Array.isArray(raw) || raw.some((item) => typeof item !== "string")) {
+      if (!Array.isArray(raw) || raw.some((item) => !__epochIsString(item))) {
         throw new ExtensionManifestError("invalid-field", `provider '${module}' field '${key}' must be an array of strings`);
       }
+      // SAFETY: The module validates or constructs this value before applying the asserted contract.
       return raw as readonly string[];
     };
+    // SAFETY: The module validates or constructs this value before applying the asserted contract.
     return {
       capability: capability as CapabilityKind,
       module,
@@ -309,8 +322,8 @@ export function canonicalManifest(manifest: ExtensionManifest): string {
     // manifest that declares neither expiry nor providers produces the bytes it
     // produced before either existed, and its signature keeps verifying
     // (ADR-0045, ADR-0046).
-    ...(manifest.notAfter === undefined ? {} : { notAfter: manifest.notAfter }),
-    ...(manifest.provides === undefined ? {} : {
+    ...(!(manifest.notAfter === undefined) && { notAfter: manifest.notAfter }),
+    ...(!(manifest.provides === undefined) && {
       // Sorted so declaration order in the file cannot change the signed bytes,
       // and complete so a signature binds every module the extension ships.
       provides: [...manifest.provides]

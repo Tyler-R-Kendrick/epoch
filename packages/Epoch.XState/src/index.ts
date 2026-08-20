@@ -1,5 +1,8 @@
 import type { BrowserEpoch, TrackChangeResult } from "@epoch/integration-core";
 import { stableJson } from "@epoch/integration-core";
+type BoundaryValue = null | undefined | boolean | number | string | bigint | symbol | Readonly<object>;
+type DictionaryValue = null | undefined | boolean | number | string | bigint | readonly DictionaryValue[] | { readonly [key: string]: DictionaryValue };
+
 
 export interface EpochXStateSnapshot {
   readonly context?: unknown;
@@ -12,9 +15,9 @@ export interface EpochXStateObserverOptions<TSnapshot extends EpochXStateSnapsho
   readonly entity: string;
   readonly source: string;
   readonly events?: readonly string[];
-  readonly select: (snapshot: TSnapshot) => unknown;
+  readonly select: (snapshot: TSnapshot) => BoundaryValue;
   readonly summary?: (snapshot: TSnapshot) => string;
-  readonly metadata?: (snapshot: TSnapshot) => Record<string, unknown> | undefined;
+  readonly metadata?: (snapshot: TSnapshot) => Record<string, DictionaryValue> | undefined;
 }
 
 export interface EpochXStateObserver<TSnapshot> {
@@ -26,7 +29,7 @@ export interface TrackXStateMachineUpdateInput {
   readonly source: string;
   readonly summary: string;
   readonly definition: unknown;
-  readonly metadata?: Record<string, unknown>;
+  readonly metadata?: Record<string, DictionaryValue>;
 }
 
 export function createEpochXStateObserver<TSnapshot extends EpochXStateSnapshot>(

@@ -1,16 +1,18 @@
 #!/usr/bin/env sh
 set -eu
 
-# Fast local pre-commit gate (Monorepo DX Playbook + Epoch agent workflow).
-# Full suite runs on pre-push via `npm run gate:push` / `npm run verify`.
+# Strengthened local pre-commit gate (`npm run gate:commit`):
+#   - parallel static checks (konsistent, docs, design, ESLint, anti-slop Oxlint)
+#   - Community Web a11y lint (same check as the CI Lint job)
+# Typecheck, build, unit, coverage, Pact, and e2e remain in `gate:push` /
+# `verify` and GitHub Actions until the anti-slop typecheck debt is cleared.
 #
 # Bypass (emergency only): SKIP_GIT_HOOKS=1 git commit ...
 if [ -n "${SKIP_GIT_HOOKS:-}" ] || [ -n "${CI:-}" ]; then
   exit 0
 fi
 
-# Whitespace and merge-conflict-marker hygiene on staged content.
 git diff --cached --check
 
-# Fast structural + docs + design + lint gates.
-npm run gate:fast
+echo "pre-commit: running gate:commit (parallel static + a11y lint)"
+npm run gate:commit

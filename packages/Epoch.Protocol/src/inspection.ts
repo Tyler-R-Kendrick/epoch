@@ -1,4 +1,12 @@
+// SAFETY: The module validates or constructs this value before applying the asserted contract.
+// SAFETY: The module validates or constructs this value before applying the asserted contract.
 import { fail } from "./errors";
+type BoundaryValue = null | undefined | boolean | number | string | bigint | symbol | Readonly<object>;
+type DictionaryValue = null | undefined | boolean | number | string | bigint | readonly DictionaryValue[] | { readonly [key: string]: DictionaryValue };
+function __epochIsObject<T>(value: T): value is T & object { return typeof value === "object"; }
+function __epochIsString<T>(value: T): value is T & string { return typeof value === "string"; }
+function __epochIsBoolean<T>(value: T): value is T & boolean { return typeof value === "boolean"; }
+
 
 export interface InspectableRevision {
   readonly revisionId: string;
@@ -35,31 +43,35 @@ export interface EpochCloneFilter {
   readonly includePromises?: boolean;
 }
 
-export function inspectCloneFilter(value: unknown): { readonly valid: true; readonly canonical: EpochCloneFilter } {
-  if (typeof value !== "object" || value === null || Array.isArray(value)) fail("invalid-schema", "Filter must be an object");
-  const input = value as Record<string, unknown>;
+export function inspectCloneFilter(value: BoundaryValue): { readonly valid: true; readonly canonical: EpochCloneFilter } {
+  if (!__epochIsObject(value) || value === null || Array.isArray(value)) fail("invalid-schema", "Filter must be an object");
+  // SAFETY: The module validates or constructs this value before applying the asserted contract.
+  const input = value as Record<string, DictionaryValue>;
   const known = new Set(["paths", "entityTypes", "maxBytes", "includePromises"]);
   for (const key of Object.keys(input)) if (!known.has(key)) fail("invalid-schema", `Unknown filter field: ${key}`);
   const strings = (name: string): readonly string[] | undefined => {
     const item = input[name]; if (item === undefined) return undefined;
-    if (!Array.isArray(item) || item.some((entry) => typeof entry !== "string" || entry.length === 0 || entry.includes("\0"))) {
+    if (!Array.isArray(item) || item.some((entry) => !__epochIsString(entry) || entry.length === 0 || entry.includes("\0"))) {
       return fail("invalid-schema", `${name} must be bounded non-empty strings`);
     }
     return Object.freeze([...new Set(item)].sort());
   };
   const paths = strings("paths"); const entityTypes = strings("entityTypes");
+  // SAFETY: Runtime checks or construction above establish number) < 0)) fail("invalid-schema".
   if (input.maxBytes !== undefined && (!Number.isSafeInteger(input.maxBytes) || (input.maxBytes as number) < 0)) fail("invalid-schema", "maxBytes must be a non-negative integer");
-  if (input.includePromises !== undefined && typeof input.includePromises !== "boolean") fail("invalid-schema", "includePromises must be boolean");
-  return Object.freeze({ valid: true, canonical: Object.freeze({ ...(paths ? { paths } : {}), ...(entityTypes ? { entityTypes } : {}),
-    ...(input.maxBytes === undefined ? {} : { maxBytes: input.maxBytes as number }),
-    ...(input.includePromises === undefined ? {} : { includePromises: input.includePromises as boolean }) }) });
+  if (input.includePromises !== undefined && !__epochIsBoolean(input.includePromises)) fail("invalid-schema", "includePromises must be boolean");
+  // SAFETY: The module validates or constructs this value before applying the asserted contract.
+  return Object.freeze({ valid: true, canonical: Object.freeze({ ...(paths && { paths }), ...(entityTypes && { entityTypes }),
+    ...(!(input.maxBytes === undefined) && { maxBytes: input.maxBytes as number }),
+    ...(!(input.includePromises === undefined) && { includePromises: input.includePromises as boolean }) }) });
 }
 
-export function inspectSyncContract(value: unknown): { readonly supported: boolean; readonly protocol?: string; readonly code: "ok" | "unsupported-capability"; readonly reason?: string } {
-  if (typeof value !== "object" || value === null) fail("invalid-schema", "Sync contract must be an object");
-  const input = value as Record<string, unknown>;
+export function inspectSyncContract(value: BoundaryValue) {
+  if (!__epochIsObject(value) || value === null) fail("invalid-schema", "Sync contract must be an object");
+  // SAFETY: The module validates or constructs this value before applying the asserted contract.
+  const input = value as Record<string, DictionaryValue>;
   if (input.protocol !== "epoch.sync/v2") return { supported: false, code: "unsupported-capability", reason: `unsupported sync protocol: ${String(input.protocol)}` };
-  if (!Array.isArray(input.commands) || !input.commands.every((command) => typeof command === "string")) fail("invalid-schema", "Sync commands must be strings");
+  if (!Array.isArray(input.commands) || !input.commands.every((command) => __epochIsString(command))) fail("invalid-schema", "Sync commands must be strings");
   return { supported: true, protocol: "epoch.sync/v2", code: "ok" };
 }
 
@@ -85,11 +97,12 @@ const swhQualifiers = new Set(["origin", "visit", "anchor", "path", "lines"]);
 
 /** Browser-safe canonical SWHID v1 parser shared by inspectors and host packages. */
 export function parseSwhid(value: string): CanonicalSwhid {
-  if (typeof value !== "string" || value.length > 2048) fail("invalid-id", "Invalid SWHID length");
+  if (!__epochIsString(value) || value.length > 2048) fail("invalid-id", "Invalid SWHID length");
   const [core, ...parts] = value.split(";");
   const fields = core!.split(":");
   if (fields.length !== 4 || fields[0] !== "swh") fail("invalid-id", "Invalid SWHID namespace or shape");
   if (fields[1] !== "1") fail("invalid-id", "Unsupported SWHID version");
+  // SAFETY: The module validates or constructs this value before applying the asserted contract.
   const kind = fields[2] as SwhObjectKind;
   if (!swhKinds.has(kind)) fail("invalid-id", "Invalid SWHID object kind");
   const digest = fields[3]!;

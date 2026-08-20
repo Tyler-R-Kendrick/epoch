@@ -143,7 +143,7 @@ export function createCommunityServiceApis(input: CreateCommunityServiceApisOpti
       context: input.runtime,
       sources: [source],
       authorization,
-      ...(signal === undefined ? {} : { signal }),
+      ...(!(signal === undefined) && { signal }),
     });
   }
 

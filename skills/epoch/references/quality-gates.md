@@ -12,10 +12,14 @@ Use Node.js `^20.20.0` or `>=22.13.0` with npm `>=10.0.0`; these versions match 
 |---|---|---|
 | `npm run docs:check` | Every change | Local Markdown links and docs/spec discoverability from `README.md`. |
 | `npm run lint` | Every source, script, or test change | ESLint rules over TypeScript, JavaScript scripts, tests, and configuration. |
+| `npm run lint:oxlint` | TypeScript / JavaScript changes (agent-facing) | Vendored anti-slop Oxlint rules (`oxlint.config.ts`, ADR-0056). Required in `gate:fast` / `gate:commit` and CI Lint alongside ESLint. Do not weaken rules. |
 | `npm run konsistent` | Every workspace layout change | Structural conventions from `konsistent.json`: package and sample `package.json` manifests plus package `src/index.ts` entrypoints (Epoch.CLI excepted). |
 | `npm run typecheck` | Every source or test change | `tsgo --noEmit` for Core, CLI, WASM, WASM React, Platform Web, Community API, Community Core, Community CLI, Community Web, and tests. |
 | `npm test` | Every behavior change | Unit/component runtime tests plus Cucumber features against compiled TypeScript output. |
 | `npm run coverage` | Every behavior change | c8 coverage over unit/component tests and Cucumber features with enforced thresholds. |
+| `npm run gate:fast` | Static local checks | Parallel konsistent, docs, design, ESLint, and anti-slop Oxlint (`scripts/run-gate-fast.mjs`). |
+| `npm run gate:commit` | Before commit / push | Hook gate: `gate:fast` + Community Web a11y lint. Wired to `.githooks/pre-commit` and `pre-push`. |
+| `npm run gate:push` | Before PR (preferred) | Mid-tier: `gate:commit` + typecheck + build + unit tests. |
 | `npm run verify` | Before review | Docs check, lint, typecheck, konsistent, tests, and coverage in sequence. |
 | `npm run change-graph:fuzz-smoke` | Change Graph / protocol parser changes | Deterministic seeded smoke (not coverage-guided). |
 | `npm run fuzz:fast-check` | Change Graph / parser property changes | Short fast-check + history command model with shrinking. |

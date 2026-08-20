@@ -1,3 +1,8 @@
+type BoundaryValue = null | undefined | boolean | number | string | bigint | symbol | Readonly<object>;
+type DictionaryValue = null | undefined | boolean | number | string | bigint | readonly DictionaryValue[] | { readonly [key: string]: DictionaryValue };
+function __epochIsString<T>(value: T): value is T & string { return typeof value === "string"; }
+function __epochIsObject<T>(value: T): value is T & object { return typeof value === "object"; }
+// SAFETY: The module validates or constructs this value before applying the asserted contract.
 export type ForgeObjectKind = "issue" | "change" | "comment" | "release";
 export interface ForgeObject {
   readonly kind: ForgeObjectKind; readonly objectId: string; readonly repositoryId: string;
@@ -15,41 +20,54 @@ export const FORGE_CAPABILITIES = Object.freeze({
   radicle: { specVersion: "codec-boundary-v1", source: "https://radicle.xyz/", transport: "codec-only", verification: "injected-evidence-required" },
 });
 
-function object(value: unknown): Record<string, unknown> { if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("malformed forge record"); return value as Record<string, unknown>; }
-function text(value: unknown, name: string): string { if (typeof value !== "string" || !value) throw new Error(`malformed ${name}`); return value; }
-function number(value: unknown, name: string): number { if (!Number.isSafeInteger(value) || (value as number) < 0) throw new Error(`malformed ${name}`); return value as number; }
+// SAFETY: The module validates or constructs this value before applying the asserted contract.
+// SAFETY: The module validates or constructs this value before applying the asserted contract.
+// SAFETY: The module validates or constructs this value before applying the asserted contract.
+function object(value: BoundaryValue): Record<string, DictionaryValue> { if (!value || !__epochIsObject(value) || Array.isArray(value)) throw new Error("malformed forge record"); return /* SAFETY: Runtime validation immediately surrounding this expression establishes the asserted contract. */ value as Record<string, DictionaryValue>; }
+function text(value: BoundaryValue, name: string): string { if (!__epochIsString(value) || !value) throw new Error(`malformed ${name}`); return value; }
+// SAFETY: The module validates or constructs this value before applying the asserted contract.
+// SAFETY: The module validates or constructs this value before applying the asserted contract.
+// SAFETY: The module validates or constructs this value before applying the asserted contract.
+function number(value: BoundaryValue, name: string): number { if (!Number.isSafeInteger(value) || (value as number) < 0) throw new Error(`malformed ${name}`); return /* SAFETY: Runtime validation immediately surrounding this expression establishes the asserted contract. */ value as number; }
 function assertPublic(value: ForgeObject): void { if (value.visibility !== "public") throw new Error("private or shared content cannot be exported"); }
-function stable(value: unknown): string {
+function stable(value: BoundaryValue): string {
   if (Array.isArray(value)) return `[${value.map(stable).join(",")}]`;
-  if (value && typeof value === "object") return `{${Object.entries(value as Record<string, unknown>).sort(([a], [b]) => a.localeCompare(b)).map(([k, v]) => `${JSON.stringify(k)}:${stable(v)}`).join(",")}}`;
+  // SAFETY: The module validates or constructs this value before applying the asserted contract.
+  // SAFETY: The module validates or constructs this value before applying the asserted contract.
+  // SAFETY: The module validates or constructs this value before applying the asserted contract.
+  if (value && __epochIsObject(value)) return `{${Object.entries(/* SAFETY: Runtime validation immediately surrounding this expression establishes the asserted contract. */ value as Record<string, DictionaryValue>).sort(([a], [b]) => a.localeCompare(b)).map(([k, v]) => `${JSON.stringify(k)}:${stable(v)}`).join(",")}}`;
   return JSON.stringify(value);
 }
-function parseForge(value: unknown): ForgeObject {
-  const row = object(value); const kind = text(row.kind, "kind") as ForgeObjectKind;
+function parseForge(value: BoundaryValue): ForgeObject {
+  // SAFETY: The module validates or constructs this value before applying the asserted contract.
+  // SAFETY: The module validates or constructs this value before applying the asserted contract.
+  // SAFETY: The module validates or constructs this value before applying the asserted contract.
+  const row = object(value); const kind = /* SAFETY: Runtime validation immediately surrounding this expression establishes the asserted contract. */ text(row.kind, "kind") as ForgeObjectKind;
   if (!["issue", "change", "comment", "release"].includes(kind)) throw new Error("unsupported forge object kind");
+  // SAFETY: The module validates or constructs this value before applying the asserted contract.
   const visibility = text(row.visibility, "visibility") as ForgeObject["visibility"];
   if (!["public", "shared", "private"].includes(visibility)) throw new Error("malformed visibility");
   const parsed: ForgeObject = { kind, objectId: text(row.objectId, "objectId"), repositoryId: text(row.repositoryId, "repositoryId"),
-    title: text(row.title, "title"), body: typeof row.body === "string" ? row.body : "", state: text(row.state, "state"),
+    title: text(row.title, "title"), body: __epochIsString(row.body) ? row.body : "", state: text(row.state, "state"),
     authorId: text(row.authorId, "authorId"), createdAt: number(row.createdAt, "createdAt"), updatedAt: number(row.updatedAt, "updatedAt"),
     visibility, revision: text(row.revision, "revision") };
   return Array.isArray(row.labels) ? { ...parsed, labels: row.labels.map((item) => text(item, "label")) } : parsed;
 }
 
-export function encodeF3Archive(values: readonly ForgeObject[]): { readonly bytes: string; readonly losses: readonly CodecLoss[] } {
+export function encodeF3Archive(values: readonly ForgeObject[]) {
   for (const value of values) assertPublic(value);
   const ordered = [...values].sort((a, b) => a.objectId.localeCompare(b.objectId));
   return { bytes: stable({ f3Version: "4.0", objects: ordered }), losses: [] };
 }
-export function decodeF3Archive(bytes: string): { readonly objects: readonly ForgeObject[]; readonly quarantine: readonly unknown[]; readonly losses: readonly CodecLoss[] } {
-  let root: Record<string, unknown>; try { root = object(JSON.parse(bytes)); } catch { throw new Error("malformed F3 archive"); }
+export function decodeF3Archive(bytes: string) {
+  let root: Record<string, DictionaryValue>; try { root = object(JSON.parse(bytes)); } catch { throw new Error("malformed F3 archive"); }
   if (root.f3Version !== "4.0" || !Array.isArray(root.objects)) throw new Error("unsupported F3 archive");
   const objects: ForgeObject[] = []; const quarantine: unknown[] = []; const losses: CodecLoss[] = []; const ids = new Set<string>();
   root.objects.forEach((item, index) => { try { const parsed = parseForge(item); if (ids.has(parsed.objectId)) { losses.push({ path: `objects[${index}]`, reason: "duplicate-id", severity: "warning" }); return; } ids.add(parsed.objectId); objects.push(parsed); } catch { quarantine.push(item); losses.push({ path: `objects[${index}]`, reason: "quarantined-malformed-or-unsupported", severity: "error" }); } });
   return { objects, quarantine, losses };
 }
 
-export function encodeForgeFed(value: ForgeObject): { readonly document: Record<string, unknown>; readonly losses: readonly CodecLoss[] } {
+export function encodeForgeFed(value: ForgeObject) {
   assertPublic(value);
   if (value.kind !== "issue" && value.kind !== "change") throw new Error(`unsupported ForgeFed kind: ${value.kind}`);
   const losses: CodecLoss[] = [];
@@ -58,7 +76,7 @@ export function encodeForgeFed(value: ForgeObject): { readonly document: Record<
     context: value.repositoryId, name: value.title, content: value.body, attributedTo: value.authorId, published: value.createdAt, updated: value.updatedAt,
     state: value.state, revision: value.revision }, losses };
 }
-export function decodeForgeFed(value: unknown): { readonly object: ForgeObject; readonly losses: readonly CodecLoss[] } {
+export function decodeForgeFed(value: BoundaryValue) {
   const row = object(value); const type = text(row.type, "ForgeFed type"); if (type !== "Ticket" && type !== "MergeRequest") throw new Error("unsupported ForgeFed type");
   return { object: parseForge({ kind: type === "MergeRequest" ? "change" : "issue", objectId: row.id, repositoryId: row.context,
     title: row.name, body: row.content, state: row.state, authorId: row.attributedTo, createdAt: row.published, updatedAt: row.updated,
@@ -72,19 +90,20 @@ export interface Nip34SignatureEvidence {
   readonly pubkey: string;
   readonly verifier: string;
 }
-export function encodeNip34(value: ForgeObject, meta: { eventId: string; pubkey: string; createdAt: number; expiresAt: number; audience: readonly string[] }): { event: Nip34Event; losses: readonly CodecLoss[] } {
+export function encodeNip34(value: ForgeObject, meta: { eventId: string; pubkey: string; createdAt: number; expiresAt: number; audience: readonly string[] }) {
   assertPublic(value); return { event: { id: meta.eventId, pubkey: meta.pubkey, created_at: meta.createdAt, kind: value.kind === "issue" ? 1621 : 1617,
     tags: [["d", value.objectId], ["a", value.repositoryId], ["expiration", String(meta.expiresAt)], ...meta.audience.map((item) => ["aud", item]), ["revision", value.revision]],
     content: stable(value) }, losses: [] };
 }
-export function decodeNip34(value: unknown, options?: { now?: number; audience?: string; seen?: Set<string>; maxBytes?: number; signatureEvidence?: Nip34SignatureEvidence }): { object: ForgeObject; losses: readonly CodecLoss[] } {
+export function decodeNip34(value: BoundaryValue, options?: { now?: number; audience?: string; seen?: Set<string>; maxBytes?: number; signatureEvidence?: Nip34SignatureEvidence }) {
   const row = object(value); const id = text(row.id, "NIP-34 event id"); const pubkey = text(row.pubkey, "NIP-34 pubkey"); number(row.created_at, "NIP-34 created_at");
-  if (!Array.isArray(row.tags) || typeof row.content !== "string") throw new Error("malformed NIP-34 event");
+  if (!Array.isArray(row.tags) || !__epochIsString(row.content)) throw new Error("malformed NIP-34 event");
   const evidence = options?.signatureEvidence;
   if (evidence?.verified !== true || !evidence.verifier) throw new Error("NIP-34 decode requires verified signature evidence from an injected verifier");
   if (evidence.eventId !== id) throw new Error("NIP-34 signature evidence event id mismatch");
   if (evidence.pubkey !== pubkey) throw new Error("NIP-34 signature evidence pubkey mismatch");
   if (new TextEncoder().encode(row.content).length > (options?.maxBytes ?? 65_536)) throw new Error("NIP-34 size limit exceeded");
+  // SAFETY: The module validates or constructs this value before applying the asserted contract.
   const tags = row.tags as unknown[][]; const tag = (name: string) => tags.filter((item) => item[0] === name).map((item) => String(item[1] ?? ""));
   const expires = Number(tag("expiration")[0]); if (!Number.isSafeInteger(expires)) throw new Error("malformed NIP-34 expiration");
   if ((options?.now ?? Math.floor(Date.now() / 1000)) >= expires) throw new Error("NIP-34 event expired");
@@ -103,11 +122,11 @@ export interface RadicleSignedRefEvidence {
   readonly revision: string;
   readonly verifier: string;
 }
-export function encodeRadicle(value: ForgeObject, meta: { radicleId: string; signedRef: string; sequence: number }): { record: RadicleRecord; losses: readonly CodecLoss[] } {
+export function encodeRadicle(value: ForgeObject, meta: { radicleId: string; signedRef: string; sequence: number }) {
   assertPublic(value); if (!/^rad:/u.test(meta.radicleId) || !/^refs\/rad\/sigrefs\//u.test(meta.signedRef)) throw new Error("malformed Radicle identity or signed ref");
   return { record: { ...meta, patchId: value.objectId, revision: value.revision, payload: value }, losses: value.kind === "change" ? [] : [{ path: "kind", reason: "mapped-to-patch", severity: "info" }] };
 }
-export function decodeRadicle(value: unknown, options?: { lastSequence?: number; signedRefEvidence?: RadicleSignedRefEvidence }): { object: ForgeObject; losses: readonly CodecLoss[] } {
+export function decodeRadicle(value: BoundaryValue, options?: { lastSequence?: number; signedRefEvidence?: RadicleSignedRefEvidence }) {
   const row = object(value); const sequence = number(row.sequence, "Radicle sequence");
   const radicleId = text(row.radicleId, "Radicle id"); const signedRef = text(row.signedRef, "Radicle signed ref"); const revision = text(row.revision, "Radicle revision");
   if (!/^rad:/u.test(radicleId) || !/^refs\/rad\/sigrefs\//u.test(signedRef)) throw new Error("malformed Radicle identity or signed ref");

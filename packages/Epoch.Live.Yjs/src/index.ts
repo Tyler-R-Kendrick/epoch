@@ -1,4 +1,7 @@
 import { stableJson, type LiveStore } from "@epoch/live";
+type BoundaryValue = null | undefined | boolean | number | string | bigint | symbol | Readonly<object>;
+type DictionaryValue = null | undefined | boolean | number | string | bigint | readonly DictionaryValue[] | { readonly [key: string]: DictionaryValue };
+
 
 /**
  * Structural contract for a shared CRDT map. This package imports no
@@ -14,17 +17,17 @@ export interface SharedMapEventLike {
 }
 
 export interface SharedMapLike {
-  get(key: string): unknown;
-  set(key: string, value: unknown): void;
+  get(key: string): BoundaryValue;
+  set(key: string, value: BoundaryValue): void;
   delete(key: string): void;
-  forEach(callback: (value: unknown, key: string) => void): void;
+  forEach(callback: (value: BoundaryValue, key: string) => void): void;
   observe(callback: (event: SharedMapEventLike) => void): void;
   unobserve(callback: (event: SharedMapEventLike) => void): void;
 }
 
 export interface SharedMapBindingOptions {
   /** Document-level transaction wrapper (a `doc.transact`-shaped function). */
-  readonly transact?: (changes: () => void, origin: unknown) => void;
+  readonly transact?: (changes: () => void, origin: BoundaryValue) => void;
   /** Action type used when applying remote map changes to the store. */
   readonly actionType?: string;
   /** Origin token stamped on binding-originated transactions. */
@@ -51,7 +54,8 @@ export function bindLiveStoreToSharedMap<TState extends object>(
   let applyingRemote = false;
 
   function pushStoreToMap(): void {
-    const state = store.getState() as Record<string, unknown>;
+    // SAFETY: The module validates or constructs this value before applying the asserted contract.
+    const state = store.getState() as Record<string, DictionaryValue>;
     transact(() => {
       const stale: string[] = [];
       map.forEach((_value, key) => {
@@ -65,7 +69,7 @@ export function bindLiveStoreToSharedMap<TState extends object>(
   }
 
   function pullMapIntoStore(keys: Iterable<string>): void {
-    const payload: Record<string, unknown> = {};
+    const payload: Record<string, DictionaryValue> = {};
     let changed = false;
     for (const key of keys) {
       payload[key] = map.get(key);

@@ -5,6 +5,7 @@ import { join } from "node:path";
 import { execPath, stdout } from "node:process";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath, URL, URLSearchParams } from "node:url";
+import "../app/value-kind.js";
 
 // The suite lives in test/; the app it exercises is the sibling app/ directory.
 const root = fileURLToPath(new URL("../app/", import.meta.url));
@@ -38,7 +39,7 @@ load("query.js", window);
 load("sitemap.js", window);
 load("workbench.js", window);
 load("graphql-engine.js", window);
-assert.equal(typeof window.CommunityGraphQL.createCommunityGraphQLSchema, "function",
+assert.equal(globalThis.CW_VALUE.isFunction(window.CommunityGraphQL.createCommunityGraphQLSchema), true,
   "generated browser runtime exposes the portable Community GraphQL package");
 assert.match(window.CommunityGraphQL.COMMUNITY_GRAPHQL_SDL, /input SearchExpressionInput @oneOf/,
   "generated GraphQL runtime retains typed oneOf search expressions");

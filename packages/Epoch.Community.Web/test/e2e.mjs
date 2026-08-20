@@ -104,10 +104,10 @@ const CASES = [
           emailKind: email.kind,
           emailBody: email.envelope?.args?.body || "",
           secretKind: secret.kind,
-          runtime: typeof window.CW_RUNTIME?.sanitizeStreamCommand,
+          runtime: globalThis.CW_VALUE.isFunction(window.CW_RUNTIME?.sanitizeStreamCommand),
         };
       });
-      if (probe.runtime !== "function") return log("runtime policy missing: " + JSON.stringify(probe));
+      if (!probe.runtime) return log("runtime policy missing: " + JSON.stringify(probe));
       if (probe.emailKind !== "emit" || /maya@epoch\.dev/.test(probe.emailBody)) {
         return log("email not ciphered: " + JSON.stringify(probe));
       }
@@ -485,7 +485,7 @@ const CASES = [
       const ride = await page.evaluate(() => {
         const scroller = document.querySelector("[data-ride-track]");
         if (!scroller) return { ok: false, reason: "no scroller" };
-        if (typeof document.body._nbSetRideProgress === "function") {
+        if (globalThis.CW_VALUE.isFunction(document.body._nbSetRideProgress)) {
           document.body._nbSetRideProgress(0.5);
         } else {
           const max = Math.max(1, scroller.scrollHeight - scroller.clientHeight);
@@ -508,7 +508,7 @@ const CASES = [
       }
       /* Keyboard section snap at fixed velocity. */
       await page.evaluate(() => {
-        if (typeof document.body._nbSetRideProgress === "function") {
+        if (globalThis.CW_VALUE.isFunction(document.body._nbSetRideProgress)) {
           document.body._nbSetRideProgress(0);
         }
       });
@@ -525,7 +525,7 @@ const CASES = [
         chapter: document.body.getAttribute("data-chapter"),
         snapping: document.body.getAttribute("data-ride-snap"),
         settle: document.body.getAttribute("data-scene-settle"),
-        hasGo: typeof document.body._nbGoSection === "function",
+        hasGo: globalThis.CW_VALUE.isFunction(document.body._nbGoSection),
       }));
       if (keyed.chapter !== "what") {
         return log("ArrowDown did not snap to next section: " + JSON.stringify(keyed));
@@ -561,7 +561,7 @@ const CASES = [
       }
       /* Synchronous wheel burst must advance exactly one scene — never skip to board. */
       await page.evaluate(() => {
-        if (typeof document.body._nbSetRideProgress === "function") {
+        if (globalThis.CW_VALUE.isFunction(document.body._nbSetRideProgress)) {
           document.body._nbSetRideProgress(0);
         }
       });
@@ -603,9 +603,9 @@ const CASES = [
         return log("missing Aino→Grid catalog craft: " + JSON.stringify(story));
       }
       await page.evaluate(() => {
-        if (typeof document.body._nbSetRideProgress === "function") {
+        if (globalThis.CW_VALUE.isFunction(document.body._nbSetRideProgress)) {
           document.body._nbSetRideProgress(0.9);
-        } else if (typeof document.body._nbAnimateToChapter === "function") {
+        } else if (globalThis.CW_VALUE.isFunction(document.body._nbAnimateToChapter)) {
           document.body._nbAnimateToChapter("board");
         }
       });
@@ -4661,7 +4661,7 @@ const CASES = [
       });
       if (postId) {
         await page.evaluate((id) => {
-          if (typeof window.CW_APP.openThread === "function") window.CW_APP.openThread(id);
+          if (globalThis.CW_VALUE.isFunction(window.CW_APP.openThread)) window.CW_APP.openThread(id);
           else {
             window.CW_APP.state.threadFocus = id;
             window.CW_APP.render(true);
@@ -5869,7 +5869,7 @@ const CASES = [
           kw,
           com,
           text: pre?.textContent?.slice(0, 80) || "",
-          editorReady: typeof window.CW_SYNTAX?.highlight === "function",
+          editorReady: globalThis.CW_VALUE.isFunction(window.CW_SYNTAX?.highlight),
         };
       });
       if (!syn.editorReady) return log("CW_SYNTAX missing");
@@ -7564,7 +7564,7 @@ const CASES = [
           present: !!el,
           moving: el?.dataset.moving,
           pressed: el?.getAttribute("aria-pressed"),
-          api: typeof window.CW_GRIDROAD?.isMoving === "function"
+          api: globalThis.CW_VALUE.isFunction(window.CW_GRIDROAD?.isMoving)
             ? window.CW_GRIDROAD.isMoving()
             : null,
         };
@@ -9956,7 +9956,7 @@ const CASES = [
         const history = await window.CW_WORKSPACE.execute("feed.history",
           { feed: "general", changeId: record.changeId });
         return {
-          bound: posted && typeof posted.changeId === "string",
+          bound: posted && globalThis.CW_VALUE.isString(posted.changeId),
           changeId: record.changeId,
           sameChange: edited.data.changeId === record.changeId,
           newRevision: edited.data.revisionId !== record.revisionId,

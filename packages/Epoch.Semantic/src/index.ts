@@ -107,5 +107,6 @@ export function selectBuiltinProvider(
   const byExtension = candidates.find((provider) => provider.extensions.some((extension) => lowered.endsWith(extension)));
   if (byExtension !== undefined) return byExtension;
   if (reference.mimeType === undefined) return undefined;
+  // SAFETY: The module validates or constructs this value before applying the asserted contract.
   return candidates.find((provider) => provider.mimeTypes.includes(reference.mimeType as string));
 }

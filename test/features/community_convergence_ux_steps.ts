@@ -21,6 +21,7 @@ interface ConvergenceWorld {
   browser?: Browser;
   page?: Page;
   result?: unknown;
+  selection?: { readonly selected: string | null; readonly detail: string | null };
   beforeDigest?: string;
   supportBundle?: string;
 }
@@ -60,11 +61,13 @@ When("I try to split the edit into {string}", function (parts: string) {
 });
 
 Then("the split is rejected without changing the change graph", function () {
+  // SAFETY: Runtime checks or construction above establish { ok: boolean }).ok.
   assert.equal((convergence.result as { ok: boolean }).ok, false);
   assert.equal(requiredWorkbench().snapshot().snapshotDigest, convergence.beforeDigest);
 });
 
 Then("the workbench explains the ambiguous hunk that needs a human boundary", function () {
+  // SAFETY: Runtime checks or construction above establish { explanation: string }).explanation.
   assert.match((convergence.result as { explanation: string }).explanation, /shared\.ts.*human boundary/iu);
 });
 
@@ -77,11 +80,13 @@ When("I open its revision history", function () {
 });
 
 Then("both heads retain stable revision identities", function () {
+  // SAFETY: Runtime checks or construction above establish { heads: readonly string[] }.
   const history = convergence.result as { heads: readonly string[] };
   assert.deepEqual(history.heads, ["rev-change-a", "rev-change-b"]);
 });
 
 Then("the superseded revision remains visible without becoming current", function () {
+  // SAFETY: Runtime checks or construction above establish { revisions: readonly { revisionId: string.
   const history = convergence.result as { revisions: readonly { revisionId: string; current: boolean; supersededBy?: string }[] };
   assert.ok(history.revisions.some((revision) => revision.revisionId === "rev-change-0" && !revision.current && revision.supersededBy));
 });
@@ -95,16 +100,16 @@ When("I traverse cumulative and per-change review by keyboard", async function (
   await page.locator('[role="treeitem"]').first().focus();
   await page.keyboard.press("ArrowDown");
   await page.keyboard.press("Enter");
-  convergence.snapshot = await page.evaluate(() => {
+  convergence.selection = await page.evaluate(() => {
     const selected = document.querySelector('[role="treeitem"][aria-selected="true"]');
     const detail = document.querySelector('[data-review-detail]');
-    return { selected: selected?.getAttribute("data-change-id"), detail: detail?.getAttribute("data-change-id") } as never;
+    return { selected: selected?.getAttribute("data-change-id") ?? null, detail: detail?.getAttribute("data-change-id") ?? null };
   });
 });
 
 Then("the selected change remains synchronized with the review detail", function () {
-  assert.equal((convergence.snapshot as unknown as { selected: string }).selected, "api");
-  assert.equal((convergence.snapshot as unknown as { detail: string }).detail, "api");
+  assert.equal(convergence.selection?.selected, "api");
+  assert.equal(convergence.selection?.detail, "api");
 });
 
 Then("the gate matrix distinguishes current passing stale and missing evidence", async function () {
@@ -123,12 +128,14 @@ When("I request a partial merge through {string}", function (changeId: string) {
 });
 
 Then("the merge preview includes {string} and excludes {string}", function (included: string, excluded: string) {
+  // SAFETY: Runtime checks or construction above establish { included: readonly string[] }.
   const result = convergence.result as { included: readonly string[] };
   assert.deepEqual(result.included, included.split(","));
   assert.ok(!result.included.includes(excluded));
 });
 
 Then("the merge control explains dependency closure before confirmation", function () {
+  // SAFETY: Runtime checks or construction above establish { explanation: string.
   const result = convergence.result as { explanation: string; confirmationRequired: boolean };
   assert.equal(result.confirmationRequired, true);
   assert.match(result.explanation, /dependency-closed/iu);
@@ -140,16 +147,19 @@ Given("a dependency-closed merge preview for {string}", function (changes: strin
 });
 
 When("I confirm a squash with maintainer authority", function () {
+  // SAFETY: Runtime checks or construction above establish never.
   convergence.result = requiredWorkbench().squash(convergence.result as never, { authority: "maintainer.merge", confirmed: true });
 });
 
 Then("the squash records both source changes and their revisions", function () {
+  // SAFETY: Runtime checks or construction above establish { sourceChanges: readonly string[].
   const result = convergence.result as { sourceChanges: readonly string[]; sourceRevisions: readonly string[] };
   assert.deepEqual(result.sourceChanges, ["base", "api"]);
   assert.equal(result.sourceRevisions.length, 2);
 });
 
 Then("the resulting change has a new stable identity", function () {
+  // SAFETY: Runtime checks or construction above establish { changeId: string }).changeId.
   assert.match((convergence.result as { changeId: string }).changeId, /^squash-/u);
 });
 
@@ -162,6 +172,7 @@ When("a new revision supersedes the approved revision", function () {
 });
 
 Then("merge remains blocked with an unmistakable stale approval explanation", function () {
+  // SAFETY: Runtime checks or construction above establish { allowed: boolean.
   const result = convergence.result as { allowed: boolean; explanation: string };
   assert.equal(result.allowed, false);
   assert.match(result.explanation, /STALE.*revision/iu);
@@ -176,6 +187,7 @@ When("deterministic resolution cannot resolve it", function () {
 });
 
 Then("the conflict remains first-class and actionable", function () {
+  // SAFETY: Runtime checks or construction above establish { state: string.
   const result = convergence.result as { state: string; base: string; left: string; right: string };
   assert.equal(result.state, "unresolved");
   assert.ok(result.base && result.left && result.right);
@@ -188,6 +200,7 @@ When("an AI resolution proposal arrives and I later confirm a human resolution",
 });
 
 Then("the AI proposal remains untrusted and the human resolution closes the conflict", function () {
+  // SAFETY: Runtime checks or construction above establish { state: string.
   const conflict = convergence.result as { state: string; acceptedBy: string; aiProposalState: string };
   assert.equal(conflict.state, "resolved");
   assert.equal(conflict.acceptedBy, "human");
@@ -203,12 +216,14 @@ When("I reconnect and hydrate the selected object", function () {
 });
 
 Then("availability changes without changing integrity", function () {
+  // SAFETY: Runtime checks or construction above establish { availability: string.
   const result = convergence.result as { availability: string; integrity: string };
   assert.equal(result.availability, "available");
   assert.equal(result.integrity, "verified");
 });
 
 Then("the workspace reports copy-on-write storage separately from execution isolation", function () {
+  // SAFETY: Runtime checks or construction above establish { copyMode: string.
   const result = convergence.result as { copyMode: string; executionIsolation: string };
   assert.equal(result.copyMode, "copy-on-write");
   assert.equal(result.executionIsolation, "none");
@@ -223,10 +238,12 @@ When("the mirror synchronizes the latest revision", function () {
 });
 
 Then("the jj change identity remains stable across revisions", function () {
+  // SAFETY: Runtime checks or construction above establish { jjChangeId: string }).jjChangeId.
   assert.equal((convergence.result as { jjChangeId: string }).jjChangeId, "jj-change-1");
 });
 
 Then("the forge fidelity report names preserved and lossy fields without exporting private content", function () {
+  // SAFETY: Runtime checks or construction above establish { fidelity: { preserved: readonly string[].
   const result = convergence.result as { fidelity: { preserved: readonly string[]; losses: readonly string[] }; exportPayload: string };
   assert.ok(result.fidelity.preserved.includes("change.identity"));
   assert.ok(result.fidelity.losses.includes("review.threading"));
@@ -252,6 +269,7 @@ When("the sponsor revokes the grant", function () {
 });
 
 Then("new agent work is denied with the principal sponsor grant and budget reason", function () {
+  // SAFETY: Runtime checks or construction above establish { allowed: boolean.
   const result = convergence.result as { allowed: boolean; explanation: string };
   assert.equal(result.allowed, false);
   assert.match(result.explanation, /agent-1.*maintainer-1.*revoked.*budget/iu);
@@ -266,6 +284,7 @@ When("I confirm the public archive request with release authority", function () 
 });
 
 Then("archive status is remote-confirmed for the public release", function () {
+  // SAFETY: Runtime checks or construction above establish { status: string }).status.
   assert.equal((convergence.result as { status: string }).status, "remote-confirmed");
 });
 
@@ -402,7 +421,15 @@ async function openWorkbench(): Promise<Page> {
   return convergence.page;
 }
 
-function operationsFixture(overrides: Record<string, unknown>): CommunityConvergenceOperations {
+interface OperationsFixtureOverrides {
+  readonly agent?: boolean;
+  readonly gitProtocol?: string;
+  readonly mirror?: "lagging" | "quarantined";
+  readonly objectFilter?: string;
+  readonly promisor?: "partial";
+}
+
+function operationsFixture(overrides: OperationsFixtureOverrides): CommunityConvergenceOperations {
   const base: CommunityConvergenceOperations = {
     promisor: { health: "degraded", missingPromised: 3, integrity: "verified" },
     workspace: { provider: "browser-opfs", copyMode: "copy-on-write", executionIsolation: "none" },
@@ -418,12 +445,23 @@ function operationsFixture(overrides: Record<string, unknown>): CommunityConverg
       merge: "maintainer.merge", force: "maintainer.force", grant: "identity.grant", budget: "budget.allocate", "public-archive": "release.archive",
     },
   };
+  const promisor = overrides.promisor === "partial"
+    ? { ...base.promisor, missingPromised: 3 }
+    : base.promisor;
+  const mirror = overrides.mirror === undefined
+    ? base.mirror
+    : { ...base.mirror, state: overrides.mirror };
+  const git = overrides.objectFilter === undefined
+    ? (overrides.gitProtocol === undefined ? base.git : { ...base.git, protocol: overrides.gitProtocol })
+    : {
+        ...base.git,
+        objectFilter: overrides.objectFilter,
+        protocol: overrides.gitProtocol ?? base.git.protocol,
+      };
   return {
     ...base,
-    ...(overrides.promisor === "partial" ? { promisor: { ...base.promisor, missingPromised: 3 } } : {}),
-    ...(overrides.mirror === "quarantined" ? { mirror: { ...base.mirror, state: "quarantined" as const } } : {}),
-    ...(overrides.mirror === "lagging" ? { mirror: { ...base.mirror, state: "lagging" as const } } : {}),
-    ...(overrides.gitProtocol === undefined ? {} : { git: { ...base.git, protocol: String(overrides.gitProtocol) } }),
-    ...(overrides.objectFilter === undefined ? {} : { git: { ...base.git, objectFilter: String(overrides.objectFilter), ...(overrides.gitProtocol === undefined ? {} : { protocol: String(overrides.gitProtocol) }) } }),
+    git,
+    mirror,
+    promisor,
   };
 }

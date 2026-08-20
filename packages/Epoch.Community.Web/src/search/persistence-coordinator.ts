@@ -1,3 +1,4 @@
+import { isFunction, isUndefined } from "../value-kind";
 import { CommunityError } from "@epoch/community-core";
 
 export type SqliteStorageMode = "memory" | "opfs" | "opfs-wl" | "opfs-sahpool";
@@ -23,7 +24,10 @@ export interface WriterLease {
 }
 
 export interface PersistenceChannel {
-  postMessage(message: Readonly<Record<string, unknown>>): void;
+  postMessage(message: {
+    readonly type: "writer-acquired" | "writer-released";
+    readonly lockName: string;
+  }): void;
   close(): void;
 }
 
@@ -44,18 +48,18 @@ export function chooseSqliteStorage(
 }
 
 export function detectSqliteStorageCapabilities(scope: {
-  readonly navigator?: { readonly storage?: { readonly getDirectory?: unknown } };
+  readonly navigator?: { readonly storage?: { readonly getDirectory?: () => Promise<FileSystemDirectoryHandle> } };
   readonly crossOriginIsolated?: boolean;
-  readonly SharedArrayBuffer?: unknown;
+  readonly SharedArrayBuffer?: SharedArrayBufferConstructor;
 } = globalThis): SqliteStorageCapabilities {
   return Object.freeze({
-    opfs: typeof scope.navigator?.storage?.getDirectory === "function",
+    opfs: isFunction(scope.navigator?.storage?.getDirectory),
     crossOriginIsolated: scope.crossOriginIsolated === true,
-    sharedArrayBuffer: typeof scope.SharedArrayBuffer === "function",
+    sharedArrayBuffer: isFunction(scope.SharedArrayBuffer),
   });
 }
 
-export function mapSqlitePersistenceError(error: unknown): CommunityError {
+export function mapSqlitePersistenceError<ErrorValue>(error: ErrorValue): CommunityError {
   if (error instanceof CommunityError) return error;
   const name = error instanceof DOMException ? error.name : "";
   if (name === "QuotaExceededError") {
@@ -109,7 +113,7 @@ export class BrowserPersistenceCoordinator {
 }
 
 function createWebLockManager(): ExclusiveLockManager {
-  const locks = typeof navigator === "undefined" ? undefined : navigator.locks;
+  const locks = isUndefined(navigator) ? undefined : navigator.locks;
   return {
     async acquire(name: string): Promise<undefined | (() => void)> {
       if (locks === undefined) return inProcessLocks.acquire(name);

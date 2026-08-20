@@ -8,7 +8,7 @@ async function main(): Promise<void> {
   await runCommunityWebAppNavigationRuntimeTests();
 }
 
-main().catch((error: unknown) => {
+main().catch((error) => {
   console.error(error);
   process.exitCode = 1;
 });

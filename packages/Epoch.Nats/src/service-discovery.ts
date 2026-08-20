@@ -7,6 +7,8 @@
  */
 
 import { serviceAdvertiseSubject, serviceLookupSubject } from "./subjects";
+function __epochIsString<T>(value: T): value is T & string { return typeof value === "string"; }
+
 
 export class ServiceDiscoveryDeniedError extends Error {
   readonly code = "svc_discovery_denied" as const;
@@ -78,17 +80,17 @@ export function createInMemoryServiceDirectory(
       if (input.communityId !== undefined && input.communityId !== communityId) {
         throw new ServiceDiscoveryDeniedError("cross-community service advertise denied");
       }
-      if (typeof input.name !== "string" || input.name.trim().length === 0) {
+      if (!__epochIsString(input.name) || input.name.trim().length === 0) {
         throw new ServiceDiscoveryDeniedError("service name required");
       }
-      if (typeof input.endpoint !== "string" || !input.endpoint.startsWith("epoch.")) {
+      if (!__epochIsString(input.endpoint) || !input.endpoint.startsWith("epoch.")) {
         throw new ServiceDiscoveryDeniedError("service endpoint must be an epoch.* subject");
       }
       const advertisement: ServiceAdvertisement = {
         name: input.name,
         communityId,
         endpoint: input.endpoint,
-        ...(sourceServer === undefined ? {} : { sourceServer }),
+        ...(!(sourceServer === undefined) && { sourceServer }),
         expiresAt: now() + ttlMs,
       };
       advertisements.push(advertisement);

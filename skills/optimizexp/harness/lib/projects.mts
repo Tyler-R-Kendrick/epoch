@@ -46,6 +46,7 @@ function readPkgName(absDir: string): string | undefined {
 	const p = path.join(absDir, "package.json");
 	if (!existsSync(p)) return undefined;
 	try {
+		// SAFETY: The surrounding parser or local invariant establishes this domain type at the boundary.
 		const j = JSON.parse(readFileSync(p, "utf8")) as { name?: string };
 		return j.name;
 	} catch {

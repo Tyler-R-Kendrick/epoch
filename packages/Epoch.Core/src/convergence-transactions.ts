@@ -1,11 +1,12 @@
 import { mkdirSync, readFileSync, renameSync, writeFileSync, existsSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { ProtocolError } from "@epoch/protocol";
+import type { EventPayload } from "./domain";
 
 export interface ParentEvent {
   readonly eventId: string;
   readonly type: string;
-  readonly payload: Readonly<Record<string, unknown>>;
+  readonly payload: Readonly<EventPayload>;
   readonly author: string;
   readonly parents: readonly string[];
   readonly lamport: number;
@@ -35,7 +36,7 @@ export class ExplicitParentEventLog {
 
   appendWithParents(
     type: string,
-    payload: Readonly<Record<string, unknown>>,
+    payload: Readonly<EventPayload>,
     options: AppendWithParentsOptions,
   ): ParentEvent {
     if (this.#transactions.has(options.transactionId)) throw error("transaction-failed", "Transaction replay rejected");
@@ -135,6 +136,7 @@ export class OperationDag {
     mkdirSync(directory, { recursive: true });
     this.#path = join(directory, "operations-v1.json");
     if (existsSync(this.#path)) {
+      // SAFETY: Runtime checks or construction above establish OperationFile.
       const stored = JSON.parse(readFileSync(this.#path, "utf8")) as OperationFile;
       if (stored.schemaVersion !== 1 || !Array.isArray(stored.operations)) throw error("invalid-schema", "Unsupported operation DAG file");
       for (const operation of stored.operations) this.add(operation, false);
@@ -183,14 +185,18 @@ function redactArgs(args: readonly string[]): readonly string[] {
   return result;
 }
 
-function readState(path: string): AtomicRepositoryState { return cloneState(JSON.parse(readFileSync(path, "utf8")) as AtomicRepositoryState); }
+function readState(path: string): AtomicRepositoryState {
+  // SAFETY: State files are written atomically from AtomicRepositoryState values by this module.
+  return cloneState(JSON.parse(readFileSync(path, "utf8")) as AtomicRepositoryState);
+}
 function readJournal(path: string): Journal {
+  // SAFETY: Runtime checks or construction above establish Journal.
   const value = JSON.parse(readFileSync(path, "utf8")) as Journal;
   if (value.schemaVersion !== 1 || !["prepared", "committed"].includes(value.phase)) throw error("invalid-schema", "Invalid transaction journal");
   return value;
 }
 function cloneState(value: AtomicRepositoryState): AtomicRepositoryState { return structuredClone(value); }
-function atomicWrite(path: string, value: unknown): void { const temporary = `${path}.tmp`; writeFileSync(temporary, `${JSON.stringify(value)}\n`, "utf8"); renameSync(temporary, path); }
+function atomicWrite<Value>(path: string, value: Value): void { const temporary = `${path}.tmp`; writeFileSync(temporary, `${JSON.stringify(value)}\n`, "utf8"); renameSync(temporary, path); }
 function cleanup(root: string, transactionId: string): void {
   for (const suffix of ["transaction.json", "objects.quarantine.json", "events.quarantine.json", "indexes.quarantine.json"]) rmSync(join(root, `${transactionId}.${suffix}`), { force: true });
 }

@@ -4,6 +4,14 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { main } from "@epoch/cli";
 
+interface CliCapture {
+  readonly io: {
+    readonly stdout: { readonly write: (message: string) => boolean };
+    readonly stderr: { readonly write: (message: string) => boolean };
+  };
+  readonly out: () => string;
+}
+
 export async function runCliCoverageTests(): Promise<void> {
   const root = mkdtempSync(join(tmpdir(), "epoch-cli-coverage-"));
   const captured = createCapture();
@@ -36,7 +44,7 @@ export async function runCliCoverageTests(): Promise<void> {
   }
 }
 
-function createCapture(): { io: { stdout: { write(message: string): boolean }; stderr: { write(message: string): boolean } }; out: () => string } {
+function createCapture(): CliCapture {
   let stdout = "";
   let stderr = "";
   return {

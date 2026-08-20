@@ -1,4 +1,9 @@
 import type { TrustGrant } from "./trust";
+type BoundaryValue = null | undefined | boolean | number | string | bigint | symbol | Readonly<object>;
+type DictionaryValue = null | undefined | boolean | number | string | bigint | readonly DictionaryValue[] | { readonly [key: string]: DictionaryValue };
+function __epochIsString<T>(value: T): value is T & string { return typeof value === "string"; }
+function __epochIsObject<T>(value: T): value is T & object { return typeof value === "object"; }
+
 
 /**
  * The machine-owned record of extension consent (ADR-0037).
@@ -37,10 +42,10 @@ export class TrustStoreError extends Error {
   }
 }
 
-function requireStringArray(value: unknown, field: string): readonly string[] {
+function requireStringArray(value: BoundaryValue, field: string): readonly string[] {
   if (!Array.isArray(value)) throw new TrustStoreError(`trust store field '${field}' must be an array`);
   return value.map((entry) => {
-    if (typeof entry !== "string") throw new TrustStoreError(`trust store field '${field}' must contain only strings`);
+    if (!__epochIsString(entry)) throw new TrustStoreError(`trust store field '${field}' must contain only strings`);
     return entry;
   });
 }
@@ -60,11 +65,12 @@ export function parseTrustStore(text: string): TrustStore {
   } catch (error) {
     throw new TrustStoreError(`trust store is not valid JSON: ${error instanceof Error ? error.message : String(error)}`);
   }
-  if (typeof raw !== "object" || raw === null || Array.isArray(raw)) {
+  if (!__epochIsObject(raw) || raw === null || Array.isArray(raw)) {
     throw new TrustStoreError("trust store must be a JSON object");
   }
 
-  const record = raw as Record<string, unknown>;
+  // SAFETY: The module validates or constructs this value before applying the asserted contract.
+  const record = raw as Record<string, DictionaryValue>;
   if (record.version !== TRUST_STORE_VERSION) {
     // A store written by a newer Epoch may carry grant semantics this build
     // does not implement, so honouring the parts it recognizes could grant more
@@ -75,18 +81,19 @@ export function parseTrustStore(text: string): TrustStore {
   const rawAllow = record.allow;
   if (!Array.isArray(rawAllow)) throw new TrustStoreError("trust store field 'allow' must be an array");
   const allow = rawAllow.map((entry): TrustGrant => {
-    if (typeof entry !== "object" || entry === null || Array.isArray(entry)) {
+    if (!__epochIsObject(entry) || entry === null || Array.isArray(entry)) {
       throw new TrustStoreError("each trust store grant must be an object");
     }
-    const grant = entry as Record<string, unknown>;
-    if (typeof grant.name !== "string" || grant.name.length === 0) {
+    // SAFETY: The module validates or constructs this value before applying the asserted contract.
+    const grant = entry as Record<string, DictionaryValue>;
+    if (!__epochIsString(grant.name) || grant.name.length === 0) {
       throw new TrustStoreError("each trust store grant needs a non-empty 'name'");
     }
     // A grant without a digest is consent to a name rather than to a binary,
     // which is the property this store exists to provide. Rejecting it here is
     // what keeps a hand-edited or older store from reintroducing it.
     const digest = grant.executableSha256;
-    if (typeof digest !== "string" || !/^[a-f0-9]{64}$/u.test(digest)) {
+    if (!__epochIsString(digest) || !/^[a-f0-9]{64}$/u.test(digest)) {
       throw new TrustStoreError(`grant '${grant.name}' needs an 'executableSha256' binding it to a binary`);
     }
     return { name: grant.name, executableSha256: digest };

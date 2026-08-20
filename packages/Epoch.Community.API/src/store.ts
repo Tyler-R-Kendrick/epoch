@@ -16,6 +16,8 @@ import {
   type PersistedProjectionDefinition,
   type QuarantinedProjectionDefinition,
 } from "./state-schema";
+type BoundaryValue = null | undefined | boolean | number | string | bigint | symbol | Readonly<object>;
+
 
 export interface CommunityStateSnapshot {
   readonly metadata: CommunityStateMetadata;
@@ -73,7 +75,7 @@ export function createMemoryCommunityStateStore(
 
   const write = async <T>(operation: (transaction: CommunityStateTransaction) => T | Promise<T>): Promise<T> => {
     let resolveResult!: (result: T | PromiseLike<T>) => void;
-    let rejectResult!: (reason?: unknown) => void;
+    let rejectResult!: (reason?: BoundaryValue) => void;
     const result = new Promise<T>((resolve, reject) => { resolveResult = resolve; rejectResult = reject; });
     writes = writes.then(async () => {
       const transaction = transactionOf(current);

@@ -7,6 +7,10 @@
 
 import { createNatsLiveChannel, type NatsConnectionLike } from "./connection";
 import { livePresenceSubject, liveSyncSubject } from "./subjects";
+type BoundaryValue = null | undefined | boolean | number | string | bigint | symbol | Readonly<object>;
+function __epochIsString<T>(value: T): value is T & string { return typeof value === "string"; }
+function __epochIsFunction<T>(value: T): value is T & ((...args: never[]) => BoundaryValue) { return typeof value === "function"; }
+
 
 export interface LiveChannelLike {
   send(data: string): void;
@@ -27,14 +31,14 @@ export interface OpenAuthenticatedNatsLiveChannelResult {
 }
 
 function requireFabricSecret(secret: string): string {
-  if (typeof secret !== "string" || secret.trim().length === 0) {
+  if (!__epochIsString(secret) || secret.trim().length === 0) {
     throw new Error("nats connect denied");
   }
   return secret;
 }
 
 function requireRepoId(repoId: string): string {
-  if (typeof repoId !== "string" || repoId.trim().length === 0) {
+  if (!__epochIsString(repoId) || repoId.trim().length === 0) {
     throw new Error("nats connect denied");
   }
   return repoId;
@@ -50,7 +54,7 @@ export async function openAuthenticatedNatsLiveChannel(
   const secret = requireFabricSecret(input.fabricSecret);
   const repoId = requireRepoId(input.repoId);
   const nc = await input.connect(secret);
-  if (!nc || typeof nc.publish !== "function" || typeof nc.subscribe !== "function") {
+  if (!nc || !__epochIsFunction(nc.publish) || !__epochIsFunction(nc.subscribe)) {
     throw new Error("nats connect denied");
   }
   const opened = createNatsLiveChannel(nc, {

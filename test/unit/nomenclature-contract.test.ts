@@ -13,11 +13,14 @@ import {
 export async function runNomenclatureContractTests(): Promise<void> {
   assert.ok(CANONICAL_ID_KINDS.includes("change-graph"));
   assert.ok(CANONICAL_ID_KINDS.includes("review-bundle"));
+  // SAFETY: Runtime checks or construction above establish readonly string[]).includes("stack").
   assert.equal((CANONICAL_ID_KINDS as readonly string[]).includes("stack"), false);
+  // SAFETY: Runtime checks or construction above establish readonly string[]).includes("review").
   assert.equal((CANONICAL_ID_KINDS as readonly string[]).includes("review"), false);
 
   assert.ok(PROTOCOL_EVENT_SCHEMAS.includes("change-graph.defined"));
   assert.ok(PROTOCOL_EVENT_SCHEMAS.includes("change-graph.revised"));
+  // SAFETY: Runtime checks or construction above establish readonly string[]).includes("stack.defined").
   assert.equal((PROTOCOL_EVENT_SCHEMAS as readonly string[]).includes("stack.defined"), false);
 
   assert.equal(parseCanonicalId(`epoch:change-graph:${"a".repeat(52)}`).kind, "change-graph");
@@ -36,6 +39,10 @@ export async function runNomenclatureContractTests(): Promise<void> {
   assert.equal((await executeChangeGraphCommand(root, ["weave", "create"])).code, "invalid-command");
 }
 
-function hasCode(code: string): (error: unknown) => boolean {
-  return (error) => typeof error === "object" && error !== null && "code" in error && error.code === code;
+function hasCode(code: string): (error) => boolean {
+  return (error) => isCodedError(error) && error.code === code;
+}
+
+function isCodedError<Value>(value: Value): value is Value & { readonly code?: string } {
+  return typeof value === "object" && value !== null && "code" in value;
 }

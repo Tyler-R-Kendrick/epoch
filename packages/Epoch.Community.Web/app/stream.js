@@ -19,7 +19,7 @@
   }
 
   function readWorkspaceText(name) {
-    if (window.CW_APP && typeof window.CW_APP.readWorkspaceText === "function") {
+    if (window.CW_APP && globalThis.CW_VALUE.isFunction(window.CW_APP.readWorkspaceText)) {
       var text = window.CW_APP.readWorkspaceText(name);
       if (text) return String(text);
     }
@@ -30,8 +30,8 @@
     for (var i = 0; i < candidates.length; i++) {
       var buf = buffers[candidates[i]];
       if (!buf) continue;
-      if (typeof buf.text === "function") return String(buf.text() || "");
-      if (typeof buf === "string") return buf;
+      if (globalThis.CW_VALUE.isFunction(buf.text)) return String(buf.text() || "");
+      if (globalThis.CW_VALUE.isString(buf)) return buf;
     }
     return "";
   }
@@ -54,7 +54,7 @@
 
   function emit(actionId, args, path) {
     var api = runtime();
-    if (typeof api.sanitizeStreamCommand !== "function") return { kind: "drop", reason: "unavailable" };
+    if (!globalThis.CW_VALUE.isFunction(api.sanitizeStreamCommand)) return { kind: "drop", reason: "unavailable" };
     loadWorkspacePolicy();
     if (!policy.ignore && !policy.rewrite) fetchWorkspacePolicy();
     var result = api.sanitizeStreamCommand({
@@ -91,7 +91,7 @@
   function toggleMute() {
     muted = !muted;
     var line = muted ? "STREAM MUTE · inputs" : "stream inputs live";
-    if (window.CW_APP && typeof window.CW_APP.status === "function") window.CW_APP.status(line);
+    if (window.CW_APP && globalThis.CW_VALUE.isFunction(window.CW_APP.status)) window.CW_APP.status(line);
     paint();
     return muted;
   }
@@ -101,13 +101,13 @@
     var field = target.closest("input, textarea, [contenteditable=''], [contenteditable='true']");
     var dialog = target.closest("[data-auth-dialog], [data-stream-protect]");
     var api = runtime();
-    if (typeof api.isProtectedStreamTarget !== "function") {
+    if (!globalThis.CW_VALUE.isFunction(api.isProtectedStreamTarget)) {
       return !!(dialog || (field && field.getAttribute("type") === "password"));
     }
     var active = window.CW_APP && window.CW_APP.state && window.CW_APP.state.editor &&
       window.CW_APP.state.editor.active;
     var path = (field && (field.getAttribute("data-path") || field.getAttribute("name"))) ||
-      (typeof active === "string" ? active : (active && active.path)) ||
+      (globalThis.CW_VALUE.isString(active) ? active : (active && active.path)) ||
       "";
     return api.isProtectedStreamTarget({
       path: path,
@@ -123,7 +123,7 @@
     if (next.ignore != null) policy.ignore = String(next.ignore);
     if (next.rewrite != null) policy.rewrite = String(next.rewrite);
     if (next.sessionSalt != null) salt = String(next.sessionSalt);
-    if (typeof next.spectatorCanReadPath === "function") spectatorCanReadPath = next.spectatorCanReadPath;
+    if (globalThis.CW_VALUE.isFunction(next.spectatorCanReadPath)) spectatorCanReadPath = next.spectatorCanReadPath;
     return { ignore: policy.ignore, rewrite: policy.rewrite };
   }
 
@@ -141,8 +141,8 @@
 
   function replayDecision(envelope) {
     var api = runtime();
-    if (typeof api.replayStreamCommand === "function") return api.replayStreamCommand(envelope);
-    if (typeof api.isSpectatorViewPreference === "function" && api.isSpectatorViewPreference(envelope.actionId)) {
+    if (globalThis.CW_VALUE.isFunction(api.replayStreamCommand)) return api.replayStreamCommand(envelope);
+    if (globalThis.CW_VALUE.isFunction(api.isSpectatorViewPreference) && api.isSpectatorViewPreference(envelope.actionId)) {
       return { kind: "skip", reason: "view-preference" };
     }
     return { kind: "apply", envelope: envelope };
@@ -158,7 +158,7 @@
         skipped.push({ actionId: envelope.actionId, reason: decision.reason || "skip" });
         return;
       }
-      if (!window.CW_ACTIONS || typeof window.CW_ACTIONS.invoke !== "function") return;
+      if (!window.CW_ACTIONS || !globalThis.CW_VALUE.isFunction(window.CW_ACTIONS.invoke)) return;
       jobs.push(window.CW_ACTIONS.invoke(envelope.actionId, envelope.args || {}, {
         origin: "stream-replay",
         replay: true,
@@ -171,7 +171,7 @@
   }
 
   function slabHtml(raw, formatChunk) {
-    var format = typeof formatChunk === "function" ? formatChunk : function (chunk) {
+    var format = globalThis.CW_VALUE.isFunction(formatChunk) ? formatChunk : function (chunk) {
       return String(chunk == null ? "" : chunk).replace(/[&<>"]/g, function (c) {
         return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c];
       });
@@ -201,7 +201,7 @@
     var host = root && root.querySelectorAll ? root : document;
     var nodes = host.querySelectorAll("[data-stream-slab]");
     var fx = window.CW_FX || window.CW_CANVASUI;
-    if (!fx || typeof fx.createDecryptReveal !== "function") return;
+    if (!fx || !globalThis.CW_VALUE.isFunction(fx.createDecryptReveal)) return;
     for (var i = 0; i < nodes.length; i++) {
       if (nodes[i].dataset.streamSlabReady) continue;
       nodes[i].dataset.streamSlabReady = "true";
@@ -222,7 +222,7 @@
         return /^\s*</.test(text) ? "" : text;
       });
     }
-    var load = typeof window.fetch === "function" ? window.fetch.bind(window) : null;
+    var load = globalThis.CW_VALUE.isFunction(window.fetch) ? window.fetch.bind(window) : null;
     if (!load) return Promise.resolve({ ignore: policy.ignore, rewrite: policy.rewrite });
     return Promise.all([
       load("/.epochstreamignore").then(okText).catch(function () { return ""; }),

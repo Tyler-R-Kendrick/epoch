@@ -39,6 +39,8 @@ function conferenceRoutingJid(channelId: string, destServer: string): string {
 
 /** Default-off: no-op unless a test or host injects `globalThis.epochXmppFanout`. */
 export async function federateComposedChannelIfEnabled(event: LiveChannelComposeResult): Promise<void> {
+  // SAFETY: This optional host extension is read from the process-wide global;
+  // hosts install the exported InjectedXmppFanout contract as one atomic value.
   const fanout = (globalThis as FanoutGlobal).epochXmppFanout;
   if (fanout === undefined) return;
   fanout.assertPublic(event.body.visibility);

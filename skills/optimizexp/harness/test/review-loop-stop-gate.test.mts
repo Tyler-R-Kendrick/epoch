@@ -16,6 +16,7 @@ import path from "node:path";
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
+import type { JsonObject } from "../lib/value-types.mts";
 
 // harness/test → harness → optimizexp → skills → .agents → repo root
 const REPO = path.resolve(
@@ -30,7 +31,7 @@ const RL = path.join(
 function runRl(
 	root: string,
 	args: string[],
-): { code: number | null; json: Record<string, unknown>; stdout: string } {
+) {
 	const r = spawnSync(
 		process.execPath,
 		["--import", "tsx", RL, "--root", root, ...args],
@@ -38,7 +39,7 @@ function runRl(
 	);
 	const stdout = r.stdout || "";
 	const stderr = r.stderr || "";
-	let json: Record<string, unknown> = {};
+	let json: JsonObject = {};
 	try {
 		// Parse last top-level JSON object via brace balance (stdout only)
 		let depth = 0;
@@ -121,10 +122,12 @@ describe("optimizexp stop gate", () => {
 				"dx",
 			]);
 			assert.equal(code, 0);
-			const scope = (json.scope ?? json) as Record<string, unknown>;
+			// SAFETY: The test fixture intentionally constructs this typed value to exercise the boundary.
+			const scope = (json.scope ?? json) as JsonObject;
 			// when nested under scope key
 			const s =
-				(json.scope as Record<string, unknown> | undefined) ??
+				// SAFETY: The test fixture intentionally constructs this typed value to exercise the boundary.
+				(json.scope as JsonObject | undefined) ??
 				JSON.parse(
 					readFileSync(
 						path.join(dir, ".optimizexp/runs/t-init/scope.json"),
@@ -208,6 +211,7 @@ describe("optimizexp stop gate", () => {
 			);
 			const copied = runRl(dir, ["--mode", "assert-complete", "--run", run]);
 			assert.notEqual(copied.code, 0);
+			// SAFETY: The test fixture intentionally constructs this typed value to exercise the boundary.
 			const missing = copied.json.missing as string[];
 			assert.ok(
 				missing.some((m) =>
@@ -229,6 +233,7 @@ describe("optimizexp stop gate", () => {
 			const justified = runRl(dir, ["--mode", "assert-complete", "--run", run]);
 			assert.notEqual(justified.code, 0);
 			assert.ok(
+				// SAFETY: The test fixture intentionally constructs this typed value to exercise the boundary.
 				!(justified.json.missing as string[]).some((m) =>
 					m.includes("copied_scores_without_justification"),
 				),
@@ -241,6 +246,7 @@ describe("optimizexp stop gate", () => {
 			);
 			const reMeasured = runRl(dir, ["--mode", "assert-complete", "--run", run]);
 			assert.ok(
+				// SAFETY: The test fixture intentionally constructs this typed value to exercise the boundary.
 				!(reMeasured.json.missing as string[]).some((m) =>
 					m.includes("copied_scores_without_justification"),
 				),
@@ -262,6 +268,7 @@ describe("optimizexp stop gate", () => {
 			]);
 			assert.notEqual(code, 0);
 			assert.equal(json.ok, false);
+			// SAFETY: The test fixture intentionally constructs this typed value to exercise the boundary.
 			const missing = json.missing as string[];
 			assert.ok(missing.includes("no_iterations"));
 			assert.ok(missing.includes("bus_complete_triples_lt_1"));
@@ -343,6 +350,7 @@ describe("optimizexp stop gate", () => {
 			]);
 			assert.notEqual(code, 0);
 			assert.equal(json.ok, false);
+			// SAFETY: The test fixture intentionally constructs this typed value to exercise the boundary.
 			const missing = json.missing as string[];
 			// delight entered via should-stop, but still no equilibrium/bus/etc
 			assert.ok(missing.includes("no_equilibrium_stop") || missing.includes("bus_complete_triples_lt_1"));
@@ -606,6 +614,7 @@ describe("optimizexp artifact-truth gates", () => {
 				}) + "\n",
 			);
 			const { json } = runRl(dir, ["--mode", "assert-complete", "--run", run]);
+			// SAFETY: The test fixture intentionally constructs this typed value to exercise the boundary.
 			const missing = json.missing as string[];
 			assert.ok(missing.includes("standing_defect_open:D-OPEN"), JSON.stringify(missing));
 			assert.ok(!missing.includes("standing_defect_open:D-CLOSED"));
@@ -633,6 +642,7 @@ describe("optimizexp artifact-truth gates", () => {
 				JSON.stringify({ summary: { "undefined-token": 1, "near-miss-palette": 40 } }) + "\n",
 			);
 			const failing = runRl(dir, ["--mode", "assert-complete", "--run", run]);
+			// SAFETY: The test fixture intentionally constructs this typed value to exercise the boundary.
 			const failingMissing = failing.json.missing as string[];
 			assert.ok(failingMissing.includes("token_audit_failing:undefined-token"));
 			assert.ok(!failingMissing.some((m) => m.includes("near-miss-palette")));
@@ -642,6 +652,7 @@ describe("optimizexp artifact-truth gates", () => {
 				JSON.stringify({ summary: { "near-miss-palette": 40 } }) + "\n",
 			);
 			const clean = runRl(dir, ["--mode", "assert-complete", "--run", run]);
+			// SAFETY: The test fixture intentionally constructs this typed value to exercise the boundary.
 			const cleanMissing = clean.json.missing as string[];
 			assert.ok(!cleanMissing.some((m) => m.startsWith("token_audit")));
 		} finally {
@@ -666,12 +677,14 @@ describe("optimizexp artifact-truth gates", () => {
 			);
 			const blocked = runRl(dir, ["--mode", "assert-complete", "--run", run]);
 			assert.ok(
+				// SAFETY: The test fixture intentionally constructs this typed value to exercise the boundary.
 				(blocked.json.missing as string[]).includes("council_verdict_missing:craft"),
 			);
 
 			writeFileSync(path.join(runDir, "design-council.md"), "# Verdict\npass\n");
 			const allowed = runRl(dir, ["--mode", "assert-complete", "--run", run]);
 			assert.ok(
+				// SAFETY: The test fixture intentionally constructs this typed value to exercise the boundary.
 				!(allowed.json.missing as string[]).includes("council_verdict_missing:craft"),
 			);
 		} finally {
@@ -698,6 +711,7 @@ describe("optimizexp artifact-truth gates", () => {
 			);
 			const bad = runRl(dir, ["--mode", "assert-complete", "--run", run]);
 			assert.ok(
+				// SAFETY: The test fixture intentionally constructs this typed value to exercise the boundary.
 				(bad.json.missing as string[]).some((m) => m.startsWith("backlog_malformed:")),
 				JSON.stringify(bad.json.missing),
 			);
@@ -718,6 +732,7 @@ describe("optimizexp artifact-truth gates", () => {
 			);
 			const good = runRl(dir, ["--mode", "assert-complete", "--run", run]);
 			assert.ok(
+				// SAFETY: The test fixture intentionally constructs this typed value to exercise the boundary.
 				!(good.json.missing as string[]).some((m) => m.startsWith("backlog_malformed:")),
 			);
 		} finally {
@@ -744,6 +759,7 @@ describe("optimizexp artifact-truth gates", () => {
 				}) + "\n",
 			);
 			const { json } = runRl(dir, ["--mode", "assert-complete", "--run", run]);
+			// SAFETY: The test fixture intentionally constructs this typed value to exercise the boundary.
 			const missing = json.missing as string[];
 			assert.ok(!missing.includes("dimension_empty_evidence:gap"), JSON.stringify(missing));
 			assert.ok(!missing.includes("dimension_empty_evidence:blocked"));
@@ -772,6 +788,7 @@ describe("optimizexp artifact-truth gates", () => {
 			);
 			const { json } = runRl(dir, ["--mode", "assert-complete", "--run", run]);
 			assert.ok(
+				// SAFETY: The test fixture intentionally constructs this typed value to exercise the boundary.
 				!(json.missing as string[]).includes("mobile_evidence_missing"),
 				JSON.stringify(json.missing),
 			);
@@ -812,6 +829,7 @@ describe("optimizexp criticism gates", () => {
 			// No detector.json at all: the loop cannot claim a UX pass without one.
 			const bare = runRl(dir, ["--mode", "assert-complete", "--run", run]);
 			assert.ok(
+				// SAFETY: The test fixture intentionally constructs this typed value to exercise the boundary.
 				(bare.json.missing as string[]).includes("detector_report_missing"),
 				"a UX run with no detector pass must not complete",
 			);
@@ -826,6 +844,7 @@ describe("optimizexp criticism gates", () => {
 			);
 			const open = runRl(dir, ["--mode", "assert-complete", "--run", run]);
 			assert.ok(
+				// SAFETY: The test fixture intentionally constructs this typed value to exercise the boundary.
 				(open.json.missing as string[]).some((m) => m.startsWith("detector_finding_unadjudicated")),
 				"an unadjudicated finding must block",
 			);
@@ -838,6 +857,7 @@ describe("optimizexp criticism gates", () => {
 			);
 			const stamped = runRl(dir, ["--mode", "assert-complete", "--run", run]);
 			assert.ok(
+				// SAFETY: The test fixture intentionally constructs this typed value to exercise the boundary.
 				(stamped.json.missing as string[]).some((m) => m.startsWith("detector_waiver_unreasoned")),
 				"a waiver without a real reason must not clear a finding",
 			);
@@ -855,6 +875,7 @@ describe("optimizexp criticism gates", () => {
 			);
 			const cleared = runRl(dir, ["--mode", "assert-complete", "--run", run]);
 			assert.ok(
+				// SAFETY: The test fixture intentionally constructs this typed value to exercise the boundary.
 				!(cleared.json.missing as string[]).some((m) => m.startsWith("detector_")),
 				"a reasoned waiver must clear the finding",
 			);
@@ -881,6 +902,7 @@ describe("optimizexp criticism gates", () => {
 			);
 			const unanimous = runRl(dir, ["--mode", "assert-complete", "--run", run]);
 			assert.ok(
+				// SAFETY: The test fixture intentionally constructs this typed value to exercise the boundary.
 				(unanimous.json.missing as string[]).some((m) => m.startsWith("scores_unanimous_across_personas")),
 				JSON.stringify(unanimous.json.missing),
 			);
@@ -893,6 +915,7 @@ describe("optimizexp criticism gates", () => {
 			);
 			const diverged = runRl(dir, ["--mode", "assert-complete", "--run", run]);
 			assert.ok(
+				// SAFETY: The test fixture intentionally constructs this typed value to exercise the boundary.
 				!(diverged.json.missing as string[]).some((m) => m.startsWith("scores_unanimous_across_personas")),
 			);
 
@@ -905,6 +928,7 @@ describe("optimizexp criticism gates", () => {
 			);
 			const atFloor = runRl(dir, ["--mode", "assert-complete", "--run", run]);
 			assert.ok(
+				// SAFETY: The test fixture intentionally constructs this typed value to exercise the boundary.
 				!(atFloor.json.missing as string[]).some((m) => m.startsWith("scores_unanimous_across_personas")),
 				"a converged harm floor must not be flagged as a fabricated panel",
 			);
@@ -921,6 +945,7 @@ describe("optimizexp criticism gates", () => {
 			seedUxWebRun(dir, run);
 			const missingCritique = runRl(dir, ["--mode", "assert-complete", "--run", run]);
 			assert.ok(
+				// SAFETY: The test fixture intentionally constructs this typed value to exercise the boundary.
 				(missingCritique.json.missing as string[]).includes("design_critique_missing"),
 				JSON.stringify(missingCritique.json.missing),
 			);
@@ -929,6 +954,7 @@ describe("optimizexp criticism gates", () => {
 			const runDir = path.join(dir, ".optimizexp/runs", run);
 			writeFileSync(path.join(runDir, "design-critique.md"), "# Notes\nThe screens look nice.\n");
 			const noVerdict = runRl(dir, ["--mode", "assert-complete", "--run", run]);
+			// SAFETY: The test fixture intentionally constructs this typed value to exercise the boundary.
 			const noVerdictMissing = noVerdict.json.missing as string[];
 			assert.ok(noVerdictMissing.includes("design_critique_has_no_verdict"));
 			assert.ok(noVerdictMissing.includes("design_critique_missing_persona"));
@@ -938,6 +964,7 @@ describe("optimizexp criticism gates", () => {
 				"# Critique\nPersona: designer\nVerdict: FAIL — three row components.\n",
 			);
 			const judged = runRl(dir, ["--mode", "assert-complete", "--run", run]);
+			// SAFETY: The test fixture intentionally constructs this typed value to exercise the boundary.
 			const judgedMissing = judged.json.missing as string[];
 			assert.ok(!judgedMissing.some((m) => m.startsWith("design_critique")));
 		} finally {

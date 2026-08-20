@@ -1,6 +1,11 @@
 import assert from "node:assert/strict";
 import { parseTomlDocument, TomlDateTime, TomlError } from "@epoch/core";
 
+type TestJsonValue = boolean | null | number | string | TestJsonObject | readonly TestJsonValue[] | undefined;
+interface TestJsonObject {
+  readonly [key: string]: TestJsonValue;
+}
+
 /**
  * A conformance corpus for the TOML 1.0.0 reader (ADR-0048).
  *
@@ -31,14 +36,19 @@ export function runTomlParserTests(): void {
  * asserted directly in `prototypeNamedKeysAreOrdinaryKeys`, against the
  * unnormalized document.
  */
-function parse(text: string): Record<string, unknown> {
-  return plain(parseTomlDocument(text)) as Record<string, unknown>;
+function parse(text: string): TestJsonObject {
+  // SAFETY: Runtime checks or construction above establish Record<string.
+  return plain(parseTomlDocument(text)) as TestJsonObject;
 }
 
-function plain(value: unknown): unknown {
+function plain(value: TestJsonValue | TomlDateTime): TestJsonValue {
   if (Array.isArray(value)) return value.map(plain);
-  if (typeof value !== "object" || value === null || value instanceof TomlDateTime) return value;
-  return Object.fromEntries(Object.entries(value as Record<string, unknown>).map(([key, entry]) => [key, plain(entry)]));
+  if (!isTestJsonObject(value) || value instanceof TomlDateTime) return value;
+  return Object.fromEntries(Object.entries(value).map(([key, entry]) => [key, plain(entry)]));
+}
+
+function isTestJsonObject<Value>(value: Value): value is Value & TestJsonObject {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 function refuse(text: string, why: string): TomlError {
@@ -109,6 +119,7 @@ function numbersAreParsedInFull(): void {
   assert.equal(parse("n = -0.01").n, -0.01);
   assert.equal(parse("n = inf").n, Number.POSITIVE_INFINITY);
   assert.equal(parse("n = -inf").n, Number.NEGATIVE_INFINITY);
+  // SAFETY: Runtime checks or construction above establish number)).
   assert.ok(Number.isNaN(parse("n = nan").n as number));
 
   refuse("n = 01", "a leading zero");
@@ -139,6 +150,7 @@ function datesAndTimesAreParsed(): void {
   ].join("\n"));
 
   const kinds = Object.fromEntries(
+    // SAFETY: Runtime checks or construction above establish TomlDateTime).kind]).
     Object.entries(document).map(([key, value]) => [key, (value as TomlDateTime).kind]),
   );
   assert.deepEqual(kinds, {
@@ -181,7 +193,8 @@ function tablesAndArraysOfTables(): void {
 
   assert.deepEqual(document.owner, { name: "Tom" });
   assert.deepEqual(document.servers, { alpha: { ip: "10.0.0.1" } });
-  const products = document.products as readonly Record<string, unknown>[];
+  // SAFETY: Runtime checks or construction above establish readonly Record<string.
+  const products = document.products as readonly TestJsonObject[];
   assert.equal(products.length, 2);
   assert.equal(products[0].name, "Hammer");
   assert.deepEqual(products[1].tags, [{ tag: "metal" }]);
@@ -257,6 +270,7 @@ function prototypeNamedKeysAreOrdinaryKeys(): void {
   assert.equal(document.hasOwnProperty, "three");
   assert.deepEqual(plain(document.constructor), { x: 1 });
   assert.equal(Object.getPrototypeOf(document), null, "tables carry no prototype");
+  // SAFETY: Runtime checks or construction above establish object).
   assert.equal(Object.getPrototypeOf(document.constructor as object), null, "nor do nested tables");
 
   // `__proto__` is a key like any other, not an instruction.

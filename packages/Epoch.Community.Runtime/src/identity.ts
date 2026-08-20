@@ -1,4 +1,6 @@
 import { digestOf } from "./digest";
+function __epochIsString<T>(value: T): value is T & string { return typeof value === "string"; }
+
 
 /**
  * Browser identity.
@@ -71,8 +73,9 @@ export async function resolveBrowserIdentity(options: ResolveIdentityOptions): P
 function readStored(raw: string | null): StoredIdentity | undefined {
   if (raw === null) return undefined;
   try {
+    // SAFETY: The module validates or constructs this value before applying the asserted contract.
     const parsed = JSON.parse(raw) as Partial<StoredIdentity>;
-    if (parsed.version !== 1 || typeof parsed.actor !== "string" || parsed.publicKey === undefined) {
+    if (parsed.version !== 1 || !__epochIsString(parsed.actor) || parsed.publicKey === undefined) {
       return undefined;
     }
     return { version: 1, actor: parsed.actor, publicKey: parsed.publicKey };

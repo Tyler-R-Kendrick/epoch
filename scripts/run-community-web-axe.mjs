@@ -55,9 +55,7 @@ const axeSource = readFileSync("node_modules/axe-core/axe.min.js", "utf8");
 const browser = await chromium.launch({
   headless: true,
   args: ["--no-sandbox"],
-  ...(process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH
-    ? { executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH }
-    : {}),
+  ...(process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH && { executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH }),
 });
 const runs = [];
 

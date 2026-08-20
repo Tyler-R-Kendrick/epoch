@@ -112,6 +112,6 @@ class SupersetSqlitePort implements SqliteIndexPort {
 if (require.main === module) {
   runCommunitySearchBackendConformance().then(
     () => console.log("community search backend conformance passed"),
-    (error: unknown) => { console.error(error); process.exitCode = 1; },
+    (error) => { console.error(error); process.exitCode = 1; },
   );
 }

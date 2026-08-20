@@ -72,6 +72,7 @@ function storePath(root: string): string {
   return join(root, ".epoch", "ext", "trust.json");
 }
 
+// SAFETY: Runtime checks or construction above establish readonly string[] }.
 const isolated = { pathEntries: [] as readonly string[] };
 
 /** Dispatch `greet` without launching anything, reporting whether it would run. */
@@ -96,7 +97,8 @@ function wouldRunNamed(root: string, name: string): boolean {
 function operationsOf(root: string): readonly (string | undefined)[] {
   return new EpochRepository(root).events()
     .filter((event) => event.type === "operation")
-    .map((event) => (event.payload as { command?: string }).command);
+    // SAFETY: Runtime checks or construction above establish { command?: string }).command).
+    .map((event) => (/* SAFETY: Assertion is justified by surrounding validation or construction. */ event.payload as { command?: string }).command);
 }
 
 function trustGrantsAndUntrustRevokesUnderEveryMode(): void {
@@ -181,7 +183,7 @@ function operatorConfigurationIsReadNeverRewritten(): void {
    * the half that permits — so the launch is refused with a reason rather than
    * allowed on an incomplete denial (ADR-0048).
    */
-  const shapes: readonly { readonly toml: string; readonly runs: boolean }[] = [
+  const fixtures: readonly { readonly toml: string; readonly runs: boolean }[] = [
     { toml: `[extensions]\nallow = ["mergiraf"]\n`, runs: true },
     { toml: `[extensions]  # policy\nallow = [\n  "mergiraf",\n]\n`, runs: true },
     { toml: `["extensions"]\nallow = ["mergiraf"]\n`, runs: true },
@@ -197,18 +199,18 @@ function operatorConfigurationIsReadNeverRewritten(): void {
     { toml: `[extensions]\nallow = ["mergiraf"]\nunknown_key = 1\n`, runs: true },
   ];
 
-  for (const shape of shapes) {
+  for (const fixture of fixtures) {
     const root = workspace();
     try {
-      const before = `[core]\ndefault_branch = "main"\n\n${shape.toml}`;
+      const before = `[core]\ndefault_branch = "main"\n\n${fixture.toml}`;
       writeFileSync(configPath(root), before, "utf8");
 
       runExtensionCommand(root, ["trust", "greet"], capture().io, isolated);
 
       // Whatever the operator wrote, Epoch leaves it exactly as found.
-      assert.equal(readFileSync(configPath(root), "utf8"), before, `must not rewrite: ${shape.toml}`);
+      assert.equal(readFileSync(configPath(root), "utf8"), before, `must not rewrite: ${fixture.toml}`);
       assert.ok(existsSync(storePath(root)), "consent is recorded beside the config, not inside it");
-      assert.equal(wouldRun(root), shape.runs, `wrong outcome for: ${shape.toml}`);
+      assert.equal(wouldRun(root), fixture.runs, `wrong outcome for: ${fixture.toml}`);
     } finally {
       rmSync(root, { force: true, recursive: true });
     }

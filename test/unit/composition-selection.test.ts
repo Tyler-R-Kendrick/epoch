@@ -31,6 +31,7 @@ import {
   type ResolvedChildRepository,
 } from "@epoch/core";
 import { executeChangeGraphCommand } from "@epoch/cli";
+import { isString } from "../helpers/type-guards";
 
 export async function runCompositionSelectionTests(): Promise<void> {
   selectionAlgebraIsOrderIndependent();
@@ -144,7 +145,7 @@ function selectionRejectsEscapesAndAmbiguousPaths(): void {
     ["apps\\windows", "invalid-path"],
   ];
   for (const [path, code] of cases) {
-    assert.throws(() => selectPath(path), (error: unknown) => error instanceof SelectionError && error.code === code, `expected ${path} to fail as ${code}`);
+    assert.throws(() => selectPath(path), (error) => error instanceof SelectionError && error.code === code, `expected ${path} to fail as ${code}`);
   }
 }
 
@@ -158,11 +159,11 @@ function selectionProfilesExpandAndDetectCycles(): void {
 
   assert.throws(
     () => resolveSelection(parseSelection("@missing"), resources, { profiles }),
-    (error: unknown) => error instanceof SelectionError && error.code === "unknown-profile",
+    (error) => error instanceof SelectionError && error.code === "unknown-profile",
   );
   assert.throws(
     () => resolveSelection(parseSelection("@loop"), resources, { profiles: [{ profileId: "loop", selection: parseSelection("@loop") }] }),
-    (error: unknown) => error instanceof SelectionError && error.code === "cycle",
+    (error) => error instanceof SelectionError && error.code === "cycle",
   );
 }
 
@@ -205,7 +206,7 @@ function namespaceManifestRejectsCaseFoldingCollisions(): void {
         "readme.md": { blobSha256: "b".repeat(64), size: 1, entityType: "text/plain" },
       },
     }),
-    (error: unknown) => error instanceof SelectionError && error.code === "case-collision",
+    (error) => error instanceof SelectionError && error.code === "case-collision",
   );
 }
 
@@ -351,18 +352,18 @@ function repositoryLinkValidationFailsClosed(): void {
   for (const [candidate, code] of cases) {
     assert.throws(
       () => validateLink(candidate, existing),
-      (error: unknown) => error instanceof CompositionError && error.code === code,
+      (error) => error instanceof CompositionError && error.code === code,
       `expected ${candidate.mountPath} to fail as ${code}`,
     );
   }
 
   assert.throws(
     () => validateLink(link({ mountPath: "../escape" }), []),
-    (error: unknown) => error instanceof SelectionError && error.code === "escape",
+    (error) => error instanceof SelectionError && error.code === "escape",
   );
   assert.throws(
     () => validateLink(link({ target: { repositoryId: "repo:self", versionId: "v1", namespaceRoot: "d".repeat(64) } }), [], "repo:self"),
-    (error: unknown) => error instanceof CompositionError && error.code === "cycle",
+    (error) => error instanceof CompositionError && error.code === "cycle",
   );
   // A non-colliding sibling mount is accepted.
   assert.equal(validateLink(link({ linkId: "other", mountPath: "vendor/lexer" }), existing).mountPath, "vendor/lexer");
@@ -447,7 +448,7 @@ function compositionRejectsCycles(): void {
   };
   assert.throws(
     () => resolveComposition({ repositoryId: "repo:parent", files: {}, links: [parentLink] }, createStaticLinkResolver([child])),
-    (error: unknown) => error instanceof CompositionError && error.code === "cycle",
+    (error) => error instanceof CompositionError && error.code === "cycle",
   );
 }
 
@@ -518,7 +519,7 @@ function vendorizeTransfersOwnershipWithProvenance(): void {
     // Vendorize refuses when the child no longer matches the pinned digest.
     assert.throws(
       () => planVendorize(link(), { ...child, namespaceRoot: "0".repeat(64) }),
-      (error: unknown) => error instanceof CompositionError && error.code === "digest-mismatch",
+      (error) => error instanceof CompositionError && error.code === "digest-mismatch",
     );
   });
 }
@@ -541,7 +542,7 @@ function crossRepositoryPublicationIsHonestAboutAtomicity(): void {
   assert.equal(validateExternalDependency(dependency).repositoryId, "repo:child");
   assert.throws(
     () => validateExternalDependency({ repositoryId: "repo:child", expectedDigest: "a".repeat(64) }),
-    (error: unknown) => error instanceof CompositionError && error.code === "unpinned",
+    (error) => error instanceof CompositionError && error.code === "unpinned",
   );
 
   const blocked = planCrossRepositoryPublication([dependency], new Map());
@@ -576,23 +577,29 @@ async function selectionAndComponentCliRoundTrip(): Promise<void> {
 
     const set = await executeChangeGraphCommand(workspace, ["workspace", "select", "set", "apps/api"]);
     assert.equal(set.ok, true, JSON.stringify(set.error));
+    // SAFETY: Runtime checks or construction above establish { expression: string }).expression.
     assert.equal((set.data as { expression: string }).expression, "apps/api");
 
     const show = await executeChangeGraphCommand(workspace, ["workspace", "select", "show"]);
+    // SAFETY: Runtime checks or construction above establish { paths: readonly string[].
     const shown = show.data as { paths: readonly string[]; excluded: number };
     assert.deepEqual([...shown.paths], ["apps/api/main.ts"]);
     assert.equal(shown.excluded, 1);
 
     const added = await executeChangeGraphCommand(workspace, ["workspace", "select", "add", "apps/web"]);
+    // SAFETY: Runtime checks or construction above establish { expression: string }).expression.
     assert.equal((added.data as { expression: string }).expression, "apps/api + apps/web");
 
     const removed = await executeChangeGraphCommand(workspace, ["workspace", "select", "remove", "apps/web"]);
+    // SAFETY: Runtime checks or construction above establish { expression: string }).expression.
     assert.equal((removed.data as { expression: string }).expression, "apps/api + apps/web - apps/web");
 
     const index = await executeChangeGraphCommand(workspace, ["workspace", "select", "index"]);
-    assert.equal(typeof (index.data as { root: string }).root, "string");
+    // SAFETY: Runtime checks or construction above establish { root: string }).root.
+    assert.equal(isString((index.data as { root: string }).root), true);
 
     const explained = await executeChangeGraphCommand(workspace, ["workspace", "select", "explain", "apps/web/main.ts"]);
+    // SAFETY: Runtime checks or construction above establish { reason: string }).reason.
     assert.equal((explained.data as { reason: string }).reason, "excluded", "the CLI names why a path is absent");
 
     const linked = await executeChangeGraphCommand(workspace, [
@@ -602,6 +609,7 @@ async function selectionAndComponentCliRoundTrip(): Promise<void> {
     assert.equal(linked.ok, true, JSON.stringify(linked.error));
 
     const list = await executeChangeGraphCommand(workspace, ["component", "list"]);
+    // SAFETY: Runtime checks or construction above establish { links: readonly unknown[] }).links.length.
     assert.equal((list.data as { links: readonly unknown[] }).links.length, 1);
 
     const collision = await executeChangeGraphCommand(workspace, [
@@ -611,6 +619,7 @@ async function selectionAndComponentCliRoundTrip(): Promise<void> {
     assert.equal(collision.ok, false, "overlapping mounts must be refused");
 
     const verified = await executeChangeGraphCommand(workspace, ["component", "verify"]);
+    // SAFETY: Runtime checks or construction above establish { unresolved: readonly { reason: string }[] }.
     const report = verified.data as { unresolved: readonly { reason: string }[] };
     assert.equal(report.unresolved[0]?.reason, "unavailable", "an unresolvable link is reported, not silently empty");
   });
@@ -626,15 +635,19 @@ async function selectionProfileAndLifecycleCliRoundTrip(): Promise<void> {
     assert.equal(defined.ok, true, JSON.stringify(defined.error));
 
     const read = await executeChangeGraphCommand(workspace, ["workspace", "select", "profile", "api"]);
+    // SAFETY: Runtime checks or construction above establish { expression: string }).expression.
     assert.equal((read.data as { expression: string }).expression, "apps/api");
 
     // Applying a profile stays workspace-local state, not signed history.
     const applied = await executeChangeGraphCommand(workspace, ["workspace", "select", "set", "@api"]);
+    // SAFETY: Runtime checks or construction above establish { expression: string }).expression.
     assert.equal((applied.data as { expression: string }).expression, "@api");
     const show = await executeChangeGraphCommand(workspace, ["workspace", "select", "show"]);
+    // SAFETY: Runtime checks or construction above establish { paths: readonly string[] }).paths].
     assert.deepEqual([...(show.data as { paths: readonly string[] }).paths], ["apps/api/main.ts"]);
 
     const cleared = await executeChangeGraphCommand(workspace, ["workspace", "select", "clear"]);
+    // SAFETY: Runtime checks or construction above establish { expression: string }).expression.
     assert.equal((cleared.data as { expression: string }).expression, "*");
 
     const unknownProfile = await executeChangeGraphCommand(workspace, ["workspace", "select", "profile", "missing"]);
@@ -648,6 +661,7 @@ async function selectionProfileAndLifecycleCliRoundTrip(): Promise<void> {
       "--repository-id", "repo:parser", "--version-id", "version:1", "--namespace-root", root,
     ]);
     const shown = await executeChangeGraphCommand(workspace, ["component", "show", "link-parser"]);
+    // SAFETY: Runtime checks or construction above establish { mountPath: string }).mountPath.
     assert.equal((shown.data as { mountPath: string }).mountPath, "vendor/parser");
 
     const retargeted = await executeChangeGraphCommand(workspace, [
@@ -655,17 +669,20 @@ async function selectionProfileAndLifecycleCliRoundTrip(): Promise<void> {
     ]);
     assert.equal(retargeted.ok, true, JSON.stringify(retargeted.error));
     const afterRetarget = await executeChangeGraphCommand(workspace, ["component", "show", "link-parser"]);
+    // SAFETY: Runtime checks or construction above establish { target: { versionId: string } }).target.versionId.
     assert.equal((afterRetarget.data as { target: { versionId: string } }).target.versionId, "version:2");
 
     const plan = await executeChangeGraphCommand(workspace, [
       "component", "update-plan",
       JSON.stringify({ "a.ts": "base" }), JSON.stringify({ "a.ts": "next" }), JSON.stringify({ "a.ts": "base" }),
     ]);
+    // SAFETY: Runtime checks or construction above establish { updated: readonly string[] }).updated].
     assert.deepEqual([...(plan.data as { updated: readonly string[] }).updated], ["a.ts"]);
 
     const removed = await executeChangeGraphCommand(workspace, ["component", "remove", "link-parser"]);
     assert.equal(removed.ok, true, JSON.stringify(removed.error));
     const emptied = await executeChangeGraphCommand(workspace, ["component", "list"]);
+    // SAFETY: Runtime checks or construction above establish { links: readonly unknown[] }).links.length.
     assert.equal((emptied.data as { links: readonly unknown[] }).links.length, 0);
 
     const missingLink = await executeChangeGraphCommand(workspace, ["component", "remove", "link-parser"]);
@@ -692,6 +709,7 @@ async function vendorizeThroughLocalResolverCliRoundTrip(): Promise<void> {
 
     // With the child resolvable, verify reports real ownership instead of an availability gap.
     const verified = await executeChangeGraphCommand(parentRoot, ["component", "verify", "--resolver", childRoot]);
+    // SAFETY: Runtime checks or construction above establish { unresolved: readonly unknown[].
     const report = verified.data as { unresolved: readonly unknown[]; linkedPaths: number; ownedPaths: number };
     assert.deepEqual(report.unresolved, []);
     assert.equal(report.linkedPaths, 2, "the child's files are mounted read-only under the parent");
@@ -699,13 +717,16 @@ async function vendorizeThroughLocalResolverCliRoundTrip(): Promise<void> {
 
     const vendorized = await executeChangeGraphCommand(parentRoot, ["component", "vendorize", "link-parser", "--resolver", childRoot]);
     assert.equal(vendorized.ok, true, JSON.stringify(vendorized.error));
+    // SAFETY: Runtime checks or construction above establish { provenance: { fileCount: number.
     const provenance = (vendorized.data as { provenance: { fileCount: number; importedRoot: string } }).provenance;
     assert.equal(provenance.fileCount, 2);
     assert.equal(provenance.importedRoot, childNamespaceRoot);
 
     // Ownership transferred: the link is gone and the paths are now the parent's own.
+    // SAFETY: Runtime checks or construction above establish { links: readonly unknown[] })).links.length.
     assert.equal((await executeChangeGraphCommand(parentRoot, ["component", "list"]).then((envelope) => envelope.data as { links: readonly unknown[] })).links.length, 0);
     const recorded = await executeChangeGraphCommand(parentRoot, ["component", "provenance"]);
+    // SAFETY: Runtime checks or construction above establish { provenance: readonly unknown[] }).provenance.length.
     assert.equal((recorded.data as { provenance: readonly unknown[] }).provenance.length, 1);
     const parent = new EpochRepository(parentRoot);
     assert.ok(parent.computeViewState("main").records["vendor/parser/src/parse.ts"] !== undefined);

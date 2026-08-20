@@ -57,7 +57,7 @@
 
   function defaultLang() {
     try {
-      var nav = (typeof navigator !== "undefined" && navigator.language) || DEFAULT_LANG;
+      var nav = (!globalThis.CW_VALUE.isUndefined(navigator) && navigator.language) || DEFAULT_LANG;
       // Edge local STT currently documents en-US (+ a few others). Prefer en-US
       // when the browser language is English; otherwise pass through.
       if (/^en\b/i.test(nav)) return "en-US";
@@ -70,7 +70,7 @@
   /** Microsoft Edge (Chromium) — ships the on-device speech pack we target. */
   function isEdgeBrowser() {
     try {
-      var ua = (typeof navigator !== "undefined" && navigator.userAgent) || "";
+      var ua = (!globalThis.CW_VALUE.isUndefined(navigator) && navigator.userAgent) || "";
       return /\bEdg\//.test(ua);
     } catch {
       return false;
@@ -110,7 +110,7 @@
         reason: "no SpeechRecognition in this browser — on-device STT needs Edge Canary/Dev (local speech model)",
       };
     }
-    if (typeof Ctor.available !== "function" || typeof Ctor.install !== "function") {
+    if (!globalThis.CW_VALUE.isFunction(Ctor.available) || !globalThis.CW_VALUE.isFunction(Ctor.install)) {
       return {
         state: "unavailable",
         lang: lang,
@@ -168,7 +168,7 @@
     if (snap.state === "absent" || snap.state === "unavailable") return snap;
 
     var Ctor = RecognitionCtor();
-    if (!Ctor || typeof Ctor.install !== "function") {
+    if (!Ctor || !globalThis.CW_VALUE.isFunction(Ctor.install)) {
       return {
         state: "unavailable",
         lang: lang,

@@ -1,4 +1,8 @@
 import { isRecord, type LiveAction, type LiveStore, type LiveTarget } from "@epoch/live";
+type DictionaryValue = null | undefined | boolean | number | string | bigint | readonly DictionaryValue[] | { readonly [key: string]: DictionaryValue };
+function __epochIsString<T>(value: T): value is T & string { return typeof value === "string"; }
+function __epochIsNumber<T>(value: T): value is T & number { return typeof value === "number"; }
+
 
 /**
  * Structural single-store contract: plain-object actions in, `dispatch` returns
@@ -12,7 +16,7 @@ import { isRecord, type LiveAction, type LiveStore, type LiveTarget } from "@epo
 export interface CompatibleAction {
   readonly type: string;
   readonly payload?: unknown;
-  readonly [extra: string]: unknown;
+  readonly [extra: string]: DictionaryValue;
 }
 
 export interface CompatibleStore<TState extends object> {
@@ -74,7 +78,7 @@ export function applyCompatibleAction<TState extends object>(
       return;
     case LiveControlActionType.rollback: {
       const { target, reason } = controlPayload(action);
-      store.rollbackTo(target, typeof reason === "string" ? reason : undefined);
+      store.rollbackTo(target, __epochIsString(reason) ? reason : undefined);
       return;
     }
     case LiveControlActionType.rewind:
@@ -97,10 +101,10 @@ export function toLiveAction(action: CompatibleAction): LiveAction {
   return Object.keys(rest).length > 0 ? { type: action.type, payload: rest } : { type: action.type };
 }
 
-function controlPayload(action: CompatibleAction): { target: LiveTarget; reason?: unknown } {
+function controlPayload(action: CompatibleAction) {
   if (!isRecord(action.payload)) throw new Error(`Epoch Live control action '${action.type}' requires a payload.`);
   const target = action.payload.target;
-  if (typeof target !== "string" && typeof target !== "number") {
+  if (!__epochIsString(target) && !__epochIsNumber(target)) {
     throw new Error(`Epoch Live control action '${action.type}' requires a string or number target.`);
   }
   return { target, reason: action.payload.reason };

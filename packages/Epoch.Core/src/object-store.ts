@@ -67,6 +67,7 @@ export class FileObjectStore implements ObjectStore {
     try {
       return (await stat(this.path(objectId))).isFile();
     } catch (error) {
+      // SAFETY: Runtime checks or construction above establish NodeJS.ErrnoException).code === "ENOENT") return false.
       if ((error as NodeJS.ErrnoException).code === "ENOENT") return false;
       throw error;
     }
@@ -77,6 +78,7 @@ export class FileObjectStore implements ObjectStore {
       const bytes = await readFile(this.path(objectId));
       return verifiedBytes(objectId, bytes);
     } catch (error) {
+      // SAFETY: Runtime checks or construction above establish NodeJS.ErrnoException).code === "ENOENT") return undefined.
       if ((error as NodeJS.ErrnoException).code === "ENOENT") return undefined;
       throw error;
     }

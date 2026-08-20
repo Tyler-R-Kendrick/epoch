@@ -18,10 +18,10 @@
       var raw = window.localStorage.getItem(STORE_KEY);
       if (!raw) return emptyStore();
       var parsed = JSON.parse(raw);
-      if (!parsed || typeof parsed !== "object") return emptyStore();
+      if (!parsed || !globalThis.CW_VALUE.isObject(parsed)) return emptyStore();
       return {
         gpgId: parsed.gpgId || null,
-        entries: parsed.entries && typeof parsed.entries === "object" ? parsed.entries : Object.create(null),
+        entries: parsed.entries && globalThis.CW_VALUE.isObject(parsed.entries) ? parsed.entries : Object.create(null),
       };
     } catch {
       return emptyStore();

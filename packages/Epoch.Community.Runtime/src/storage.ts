@@ -1,4 +1,6 @@
 import type { EpochIntegrationStorage } from "@epoch/integration-core";
+type BoundaryValue = null | undefined | boolean | number | string | bigint | symbol | Readonly<object>;
+
 
 /**
  * Durable browser storage.
@@ -94,8 +96,9 @@ export async function openDurableStorage(options: DurableStorageOptions): Promis
   function queue(key: string, value: string | null): void {
     if (database === undefined) return;
     pending += 1;
+    // SAFETY: The module validates or constructs this value before applying the asserted contract.
     settled = settled.then(() => write(database as IDBDatabase, options.storeName ?? DEFAULT_STORE, key, value))
-      .then(() => { pending -= 1; }, (error: unknown) => {
+      .then(() => { pending -= 1; }, (error: BoundaryValue) => {
         pending -= 1;
         failure = message(error);
       });
@@ -186,6 +189,6 @@ function write(database: IDBDatabase, storeName: string, key: string, value: str
   });
 }
 
-function message(error: unknown): string {
+function message(error: BoundaryValue): string {
   return error instanceof Error ? error.message : String(error);
 }

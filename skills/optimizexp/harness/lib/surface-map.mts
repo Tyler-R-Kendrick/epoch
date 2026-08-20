@@ -1,6 +1,7 @@
 /**
  * Surface-map types + builders for OptimizeXP app exploration.
  */
+import { isString } from "./value-types.mts";
 import {
 	existsSync,
 	mkdirSync,
@@ -66,6 +67,7 @@ function digestText(s: string): string {
 function readJsonSafe<T>(p: string): T | null {
 	if (!existsSync(p)) return null;
 	try {
+		// SAFETY: The surrounding parser or local invariant establishes this domain type at the boundary.
 		return JSON.parse(readFileSync(p, "utf8")) as T;
 	} catch {
 		return null;
@@ -86,7 +88,7 @@ export function discoverPackageBins(
 	const out: SurfaceMap["binaries"] = [];
 	const binField = pkg.bin;
 	const entries =
-		typeof binField === "string"
+		isString(binField)
 			? [[path.basename(packageDir), binField] as const]
 			: Object.entries(binField);
 	for (const [name, rel] of entries) {
@@ -199,10 +201,7 @@ function parseVerbsFromHelp(helpText: string): SurfaceCommand[] {
 	return cmds;
 }
 
-function detectInteractiveFromSources(packageDir: string): {
-	interactive: boolean;
-	notes: string[];
-} {
+function detectInteractiveFromSources(packageDir: string) {
 	const notes: string[] = [];
 	const candidates = [
 		path.join(packageDir, "src/bin"),

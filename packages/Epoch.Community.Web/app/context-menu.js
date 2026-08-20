@@ -336,7 +336,7 @@
       synthTimer = null;
       synthesizeNow();
     };
-    if (typeof window.requestIdleCallback === "function") {
+    if (globalThis.CW_VALUE.isFunction(window.requestIdleCallback)) {
       synthTimer = setTimeout(function () {
         window.requestIdleCallback(function () { run(); }, { timeout: SYNTH_IDLE_MS });
       }, Math.min(2500, SYNTH_IDLE_MS));

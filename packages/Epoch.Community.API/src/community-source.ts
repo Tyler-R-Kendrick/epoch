@@ -53,7 +53,7 @@ export function createCanonicalStoreSource(reader: CommunityEntitySnapshotReader
       const last = page.at(-1);
       return Object.freeze({
         entities: Object.freeze(page),
-        ...(last === undefined || start + page.length >= entities.length ? {} : { next: sourceKeysetCursor(sourceId, last.ref.objectId) }),
+        ...(!(last === undefined || start + page.length >= entities.length) && { next: sourceKeysetCursor(sourceId, last.ref.objectId) }),
         checkpoint,
       });
     },
