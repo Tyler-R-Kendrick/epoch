@@ -71,10 +71,10 @@
     <textarea id="cw-compose-input" data-gen-ui-input rows="2"
       placeholder="A panel showing the three most recent proposals and who is reviewing them"></textarea>
     <div class="cw-compose-row">
-      <button type="button" data-gen-ui-run>Generate</button>
-      <button type="button" data-gen-ui-render>Render pasted source</button>
-      <button type="button" data-gen-ui-prompt>Copy system prompt</button>
-      <button type="button" data-gen-cancel hidden>Cancel</button>
+      <button type="button" class="cw-compose-btn" data-gen-ui-run>Generate</button>
+      <button type="button" class="cw-compose-btn" data-gen-ui-render>Render pasted source</button>
+      <button type="button" class="cw-compose-btn" data-gen-ui-prompt>Copy system prompt</button>
+      <button type="button" class="cw-compose-btn" data-gen-cancel hidden>Cancel</button>
     </div>
     <p class="cw-compose-status" data-gen-ui-status role="status" aria-live="polite"></p>
 
@@ -90,11 +90,11 @@
     <textarea id="cw-compose-theme-input" data-gen-input rows="2"
       placeholder="Denser rows, cooler accent"></textarea>
     <div class="cw-compose-row">
-      <button type="button" data-gen-run>Generate theme</button>
-      <button type="button" data-token-load>Load current tokens</button>
-      <button type="button" data-token-apply>Apply tokens</button>
-      <button type="button" data-export-prompt>Copy theme prompt</button>
-      <button type="button" data-export-design>Export to DESIGN.md</button>
+      <button type="button" class="cw-compose-btn" data-gen-run>Generate theme</button>
+      <button type="button" class="cw-compose-btn" data-token-load>Load current tokens</button>
+      <button type="button" class="cw-compose-btn" data-token-apply>Apply tokens</button>
+      <button type="button" class="cw-compose-btn" data-export-prompt>Copy theme prompt</button>
+      <button type="button" class="cw-compose-btn" data-export-design>Export to DESIGN.md</button>
     </div>
     <p class="cw-compose-status" data-gen-status role="status" aria-live="polite"></p>
 
@@ -105,10 +105,10 @@
     <span data-theme-name hidden></span>
 
     <div class="cw-compose-row">
-      <button type="button" data-compose-propose>Propose to my interface</button>
-      <button type="button" data-compose-accept hidden>Accept this change</button>
-      <button type="button" data-compose-discard hidden>Discard</button>
-      <button type="button" data-compose-close data-garden-close data-esc-dismiss>esc</button>
+      <button type="button" class="cw-compose-btn" data-compose-propose>Propose to my interface</button>
+      <button type="button" class="cw-compose-btn" data-compose-accept hidden>Accept this change</button>
+      <button type="button" class="cw-compose-btn" data-compose-discard hidden>Discard</button>
+      <button type="button" class="cw-compose-btn" data-compose-close data-garden-close data-esc-dismiss>esc</button>
     </div>
     <div class="cw-compose-diff" data-compose-diff aria-live="polite" hidden></div>
     <p class="cw-compose-receipt" data-compose-receipt hidden></p>
@@ -152,7 +152,7 @@
       placeholder="maya" aria-describedby="cw-auth-meta">
     <div class="cw-auth-row">
       <button type="button" class="cw-auth-esc" data-auth-cancel data-esc-dismiss title="Esc — cancel">esc</button>
-      <button type="button" data-auth-claim>Sign in to space</button>
+      <button type="button" class="cw-auth-claim" data-auth-claim>Sign in to space</button>
       <button type="button" class="primary" data-auth-atproto>Sign in with handle</button>
     </div>
     <p class="cw-auth-meta" id="cw-auth-meta" data-auth-meta>

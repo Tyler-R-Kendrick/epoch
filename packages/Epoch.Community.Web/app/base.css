@@ -783,11 +783,13 @@ body {
   background: var(--cw-surface); color: var(--cw-ink); font: inherit; padding: .35rem;
 }
 .cw-compose-row { display: flex; flex-wrap: wrap; gap: .4rem; }
-.cw-compose button {
+.cw-compose button,
+.cw-compose-btn {
   min-height: 2.75rem; padding: .3rem .6rem; border: 1px solid var(--cw-rule);
   border-radius: 0; background: transparent; color: inherit; font: inherit; cursor: pointer;
 }
-.cw-compose button:hover, .cw-compose button:focus-visible {
+.cw-compose button:hover, .cw-compose button:focus-visible,
+.cw-compose-btn:hover, .cw-compose-btn:focus-visible {
   background: var(--cw-accent); color: var(--cw-accent-ink);
 }
 .cw-compose-preview { border: 1px dashed var(--cw-rule); padding: .4rem; min-block-size: 2rem; }

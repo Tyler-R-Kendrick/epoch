@@ -3227,7 +3227,26 @@
     [data-exp="console"] .cn-anchor{color:var(--cw-ink-faint);font-size:.9em}
     [data-exp="console"] .cn-receipt{display:flex;align-items:baseline;gap:.35rem;font-size:.85em;
       color:var(--cw-ink-faint)}
-    [data-exp="console"] .cn-sig-text{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    /* Receipt locators: Bracket Rule chrome + signed mint — never native button chrome. */
+    [data-exp="console"] .cn-sig-text,
+    [data-exp="console"] button.cn-sig-text{
+      appearance:none;display:inline;max-width:100%;overflow:hidden;text-overflow:ellipsis;
+      white-space:nowrap;font:inherit;font-size:inherit;font-weight:700;color:var(--cw-signed);
+      background:none;border:0;border-radius:0;padding:0;min-height:0;cursor:pointer;
+      text-align:start;box-shadow:none}
+    [data-exp="console"] .cn-sig-text::before,
+    [data-exp="console"] button.cn-sig-text::before{content:"[";color:var(--cw-signed)}
+    [data-exp="console"] .cn-sig-text::after,
+    [data-exp="console"] button.cn-sig-text::after{content:"]";color:var(--cw-signed)}
+    [data-exp="console"] .cn-sig-text:hover,
+    [data-exp="console"] button.cn-sig-text:hover{color:var(--cw-ink);text-decoration:underline}
+    [data-exp="console"] .cn-sig-text:hover::before,
+    [data-exp="console"] .cn-sig-text:hover::after,
+    [data-exp="console"] button.cn-sig-text:hover::before,
+    [data-exp="console"] button.cn-sig-text:hover::after{color:var(--cw-ink)}
+    [data-exp="console"] .cn-sig-text:focus-visible,
+    [data-exp="console"] button.cn-sig-text:focus-visible{
+      outline:2px solid var(--cw-signed);outline-offset:2px}
     [data-exp="console"] .cn-activity{display:flex;flex-direction:column;gap:0;padding:.15rem .55rem .7rem}
     /* Activity + Following: dense TUI scrollback rows, not web cards. */
     [data-exp="console"] .cn-activity-card{display:grid;grid-template-columns:1.2rem minmax(0,1fr);gap:.35rem .55rem;
@@ -4084,9 +4103,11 @@
     [data-exp="console"] .cn-workbench>header{display:flex;align-items:start;justify-content:space-between;gap:1rem}
     [data-exp="console"] .cn-workbench>header>div{display:grid;gap:.15rem}
     [data-exp="console"] .cn-workbench>header span{color:var(--cw-ink-faint);font-size:.82em}
-    [data-exp="console"] .cn-workbench button{min-height:2rem;border:1px solid var(--cw-rule);background:transparent;
+    [data-exp="console"] .cn-workbench button,
+    [data-exp="console"] .cn-workbench-btn{min-height:2rem;border:1px solid var(--cw-rule);background:transparent;
       color:var(--cw-ink);font:inherit;padding:.25rem .55rem;cursor:pointer}
-    [data-exp="console"] .cn-workbench button:hover,[data-exp="console"] .cn-workbench button:focus-visible{
+    [data-exp="console"] .cn-workbench button:hover,[data-exp="console"] .cn-workbench button:focus-visible,
+    [data-exp="console"] .cn-workbench-btn:hover,[data-exp="console"] .cn-workbench-btn:focus-visible{
       border-color:var(--cw-accent);outline:2px solid transparent;color:var(--cw-accent)}
     [data-exp="console"] .cn-workbench-tabs{display:flex;flex-wrap:wrap;border-block-end:1px solid var(--cw-rule)}
     [data-exp="console"] .cn-workbench-tabs [role=tab]{border:0;border-block-end:2px solid transparent}

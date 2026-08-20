@@ -6,7 +6,7 @@ These instructions apply to the entire repository.
 
 - Use test-driven development for behavior changes: write or update a failing feature/test first, implement the smallest change, then make the full suite pass.
 - **GitHub Actions Quality Gates run on every pull request and push to `main`** (`.github/workflows/quality.yml`): docs, lint, konsistent, design, typecheck, test, coverage, Pact, and the Community Web/accessibility suites, each as its own job so failures are attributable. A fail-closed guard job keeps this on standard `ubuntu-latest` runners on this public repository, where they are free and unmetered; re-check that assumption (`docs/ai-automation-strategy.md` Finding 1) before touching runner selection or visibility.
-  - Local hooks are a **strengthened pre-flight** — CI plus branch protection remain authoritative for the full verify bar. After `npm install` / `prepare`, `core.hooksPath` points at `.githooks/`; both `pre-commit` and `pre-push` run `npm run gate:commit` (parallel `gate:fast` static checks + Community Web a11y lint). Prefer `npm run gate:push` (adds typecheck, build, unit) before opening a PR when that bar is green.
+  - Local hooks are a **strengthened pre-flight** — CI plus branch protection remain authoritative for the full verify bar. After `npm install` / `prepare`, `core.hooksPath` points at `.githooks/`; both `pre-commit` and `pre-push` run `npm run gate:commit` (parallel `gate:fast` static checks + Community Web a11y lint + board design chrome lint). Prefer `npm run gate:push` (adds typecheck, build, unit) before opening a PR when that bar is green.
   - Full bar remains `npm run verify` (adds feature/browser suite, coverage, Pact, a11y evidence, Community Web e2e). Agents must run **at least `gate:commit`** locally, and **`verify`** when changing browser-visible or contract behavior, before claiming done; CI re-verifies everything regardless.
 - Do not consider work complete until required quality gates pass:
   - `npm run gate:commit` — local commit/push hook gate
@@ -77,6 +77,6 @@ The `install-anti-slop` skill configures the vendored Oxlint plugin; product sou
 | `npm run gate:fast` | Parallel static pre-flight: konsistent, docs:check, design:lint, design:audit, lint, lint:oxlint (`scripts/run-gate-fast.mjs`). |
 | `npm run mutation:nats` | Kill listed NATS ACL/discovery source mutants (`@epoch/nats` package tests must fail). |
 | `npm run mutation:protocol` | Kill listed Protocol capability-manifest mutants (`@epoch/protocol` package tests must fail). |
-| `npm run gate:commit` | Hook gate: gate:fast + Community Web a11y lint. Wired to `.githooks/pre-commit` and `pre-push`. |
+| `npm run gate:commit` | Hook gate: gate:fast + Community Web a11y lint + board design chrome lint. Wired to `.githooks/pre-commit` and `pre-push`. |
 | `npm run gate:push` | Mid-tier: gate:commit + typecheck + build + unit tests. Run before PR when green; not hook-wired while typecheck debt remains. |
 | `npm run verify` | Full local gate: gate suite + coverage + pact. Matches what CI runs, job-by-job. |
