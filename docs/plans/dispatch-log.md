@@ -316,8 +316,8 @@ Append-only outcomes for SDLC coordinator runs. Newest entries appear at the bot
 | Initiative | [`sdlc-skill-expansion`](sdlc-skill-expansion/sdlc-state.md) |
 | Backend | Sequential fallback; coordinator inline |
 | Branch | `feat/sdlc-skill-expansion` |
-| PR | [#176](https://github.com/Tyler-R-Kendrick/epoch/pull/176) |
-| Result | **success** (merge SHA filled after squash-merge) |
+| PR | [#176](https://github.com/Tyler-R-Kendrick/epoch/pull/176) — squash-merged [`a4a4277`](https://github.com/Tyler-R-Kendrick/epoch/commit/a4a427703bf305604686f80209a134d007303665) |
+| Result | **success** |
 | Failure class | none — Quality Gates 18/18 success before merge |
 | Notes | Subcommand router, `.sdlc/` store, SkillOpt-on-init, evidence hard rule, Epoch `gate:commit` wording. |
 
