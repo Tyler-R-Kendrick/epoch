@@ -596,7 +596,7 @@
         "</div>" +
         '<div class="cn-comment-main">' +
         '<header class="cn-comment-head">' +
-        (isThread ? foldCtl : '<span class="cn-pm cn-pm-leaf" aria-hidden="true"> </span>') +
+        foldCtl +
         '<span data-c="actor"><b data-c="handle">' + esc(tombstone ? "unavailable" : p.who) + "</b>" +
         '<span data-c="role">' + esc(member.role) + "</span></span>" +
         '<span class="cn-head-sep" aria-hidden="true">·</span>' +
@@ -641,8 +641,8 @@
         renderReactions(key, p, reactions, reactPick === key) : "") +
         "</div>" + (isThread ? "" : "</article>");
 
-      // Channel feed stays flat (roots only). Nesting belongs in thread detail.
-      if (isThread && replies.length && !isFolded) {
+      // Nested replies render under parents in feed and thread; fold collapses.
+      if (replies.length && !isFolded) {
         html += '<div class="cn-replies" role="group"' +
           ' data-key="re-' + esc(key) + '">' +
           replies.map(function (c, index) {
@@ -673,7 +673,7 @@
     var tree = '<div class="cn-tree' + (opts.threadOf ? " cn-thread-tree" : " cn-feed-tree") + '" role="' +
       (opts.threadOf ? "tree" : "feed") + '" aria-label="' +
       (opts.threadOf ? "Conversation thread" : "Channel posts") + '"' +
-      (!opts.threadOf ? ' data-feed="roots" aria-busy="' + !!(window.CW_APP && window.CW_APP.state &&
+      (!opts.threadOf ? ' data-feed="nested" aria-busy="' + !!(window.CW_APP && window.CW_APP.state &&
         window.CW_APP.state.feedBusy) + '"' : "") + ' data-feed-sort="' + esc(sort) + '"' +
       (feedQuery ? ' data-query="true"' : "") + ">" +
       sortedRoots.map(function (p, index) {
@@ -2709,7 +2709,7 @@
   var CONSOLE = {
     id: "console",
     name: "Console",
-    thesis: "Board as a social workbench: channel list + roots-only feed (Reddit/X/Threads), single-column thread for replies, session CLI when useful. Breadcrumb/nav owns place; detail never nests inline replies in the channel feed.",
+    thesis: "Board as a social workbench: channel list + nested feed, single-column thread for focused conversation (no outline/reading split), session CLI when useful. Breadcrumb/nav owns place.",
     keys: "[←→] parent/child  [↑↓] preview  [Enter] activate  [Space] expand  [z] collapse nav  [:] command  ·  [Ctrl+Space] keys",
 
     css: `

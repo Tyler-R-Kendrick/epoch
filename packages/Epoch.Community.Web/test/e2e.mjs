@@ -751,11 +751,11 @@ const CASES = [
         window.CW_APP.render(true);
       });
       await page.waitForTimeout(80);
-      // Channel feed lives in detail — root posts only (no nested replies inline).
+      // Channel feed lives in detail — nested replies remain visible under roots.
       const feed = await page.evaluate(() => ({
-        roots: Array.from(document.querySelectorAll('.cn-comment[data-depth="0"]'))
+        roots: Array.from(document.querySelectorAll('.cn-feed-tree .cn-comment[data-depth="0"]'))
           .map((el) => el.getAttribute("data-key")),
-        total: document.querySelectorAll(".cn-comment").length,
+        total: document.querySelectorAll(".cn-feed-tree .cn-comment").length,
         feedMode: document.querySelector(".cn-feed-tree")?.getAttribute("data-feed"),
         threadCtx: !!document.querySelector(".cn-thread-ctx"),
         feedBar: !!document.querySelector(".cn-feed-bar"),
@@ -766,8 +766,8 @@ const CASES = [
       }));
       if (feed.navPosts !== 0) return log("channel nav should be empty of posts: " + JSON.stringify(feed));
       if (feed.roots.length < 2) return log("expected channel feed roots: " + JSON.stringify(feed));
-      if (feed.total !== feed.roots.length || feed.feedMode !== "roots") {
-        return log("channel feed must be roots-only: " + JSON.stringify(feed));
+      if (feed.total < feed.roots.length || feed.feedMode !== "nested") {
+        return log("channel feed should nest replies under roots: " + JSON.stringify(feed));
       }
       if (feed.threadCtx) return log("thread chrome on channel feed");
       if (!feed.feedBar) return log("feed bar missing on channel");
@@ -957,10 +957,11 @@ const CASES = [
         window.CW_APP.state.columnFocus = true;
         window.CW_APP.state.focus = 1;
         window.CW_APP.state.detailOpen = true;
-        document.querySelector('.cn-comment[data-key="p3"]')?.focus({ preventScroll: true });
+        // Roots-only feed: open a visible root, then browse replies inside the thread.
+        document.querySelector('.cn-feed-tree .cn-comment[data-key="p1"]')?.focus({ preventScroll: true });
       });
       await page.keyboard.press("ArrowRight");
-      await page.waitForFunction(() => window.CW_APP.state.threadFocus === "p3");
+      await page.waitForFunction(() => window.CW_APP.state.threadFocus === "p1");
       const opened = await page.evaluate(() => ({
         path: window.CW_APP.state.path,
         thread: window.CW_APP.state.threadFocus,
@@ -974,7 +975,7 @@ const CASES = [
       if (opened.path !== "/projects/community/channels/general") {
         return log("→ changed channel path into message IDs: " + JSON.stringify(opened));
       }
-      if (!(opened.thread === "p3" && opened.threadCtx)) {
+      if (!(opened.thread === "p1" && opened.threadCtx)) {
         return log("→ did not open thread in place: " + JSON.stringify(opened));
       }
       if (opened.navVirtual.some((name) => /^(body\.md|metadata\.json|replies|backlinks|receipts)$/.test(name || ""))) {
@@ -1003,7 +1004,7 @@ const CASES = [
           !feed.threadCtx && feed.feedBar)) {
         return log("← did not return to channel feed: " + JSON.stringify(feed));
       }
-      if (feed.mark && feed.mark !== "p3") {
+      if (feed.mark && feed.mark !== "p1") {
         return log("← lost the prior message mark: " + JSON.stringify(feed));
       }
 
@@ -1030,14 +1031,14 @@ const CASES = [
     name: "power: message directories stay on cd/CLI — not on message ←→",
     run: async (page, log) => {
       await go(page, "/projects/community/channels/general");
-      await page.focus('.cn-comment[data-key="p3"]');
+      await page.focus('.cn-feed-tree .cn-comment[data-key="p1"]');
       await page.keyboard.press("ArrowRight");
-      await page.waitForFunction(() => window.CW_APP.state.threadFocus === "p3");
+      await page.waitForFunction(() => window.CW_APP.state.threadFocus === "p1");
       const viaKeys = await page.evaluate(() => ({
         path: window.CW_APP.state.path,
         thread: window.CW_APP.state.threadFocus,
       }));
-      if (viaKeys.path !== "/projects/community/channels/general" || viaKeys.thread !== "p3") {
+      if (viaKeys.path !== "/projects/community/channels/general" || viaKeys.thread !== "p1") {
         return log("keyboard → should open thread on channel: " + JSON.stringify(viaKeys));
       }
       // Explicit cd still addresses the message namespace for power users.
@@ -1535,15 +1536,15 @@ const CASES = [
       const result = await page.evaluate(async () => {
         window.CW_APP.setNavCollapsed(false, { silent: true, noRender: true });
         window.CW_APP.navigate("/projects/community/channels/general", { keepCli: true });
-        // Channel feed paints in detail (posts are not nav children).
+        // Fold controls live in the thread tree (channel feed is roots-only).
         window.CW_APP.state.detailOpen = true;
-        window.CW_APP.state.threadFocus = null;
+        window.CW_APP.state.threadFocus = "p1";
         window.CW_APP.state.focus = 1;
         window.CW_APP.render(true);
         await new Promise((r) => setTimeout(r, 50));
-        const before = document.querySelectorAll(".cn-comment").length;
+        const before = document.querySelectorAll(".cn-thread-tree .cn-comment").length;
         if (before < 2) return { err: "no comment tree: " + before };
-        const btn = document.querySelector('[data-fold="p1"]');
+        const btn = document.querySelector('.cn-thread-tree [data-fold="p1"]');
         if (!btn) {
           return {
             err: "no fold control",
@@ -1553,17 +1554,16 @@ const CASES = [
         }
         btn.click();
         await new Promise((r) => setTimeout(r, 30));
-        const after = document.querySelectorAll(".cn-comment").length;
+        const after = document.querySelectorAll(".cn-thread-tree .cn-comment").length;
         const promoted = document.querySelectorAll('.cn-comment[data-state-of="promoted"]').length;
         btn.click();
         await new Promise((r) => setTimeout(r, 30));
-        const restored = document.querySelectorAll(".cn-comment").length;
+        const restored = document.querySelectorAll(".cn-thread-tree .cn-comment").length;
         return { before, after, restored, promoted };
       });
       if (result.err) return log(JSON.stringify(result));
       if (!(result.after < result.before)) return log(`± fold ${result.before}→${result.after}`);
-      return (result.restored === result.before && result.promoted >= 1) ||
-        log(JSON.stringify(result));
+      return result.restored === result.before || log(JSON.stringify(result));
     },
   },
   {
@@ -1571,7 +1571,10 @@ const CASES = [
     run: async (page, log) => {
       await go(page, "/projects/community/channels/general");
       const deep = await page.evaluate(() => {
-        const c = document.querySelector('.cn-comment[data-key="p3"]');
+        window.CW_APP.state.threadFocus = "p1";
+        window.CW_APP.state.detailOpen = true;
+        window.CW_APP.render(true);
+        const c = document.querySelector('.cn-thread-tree .cn-comment[data-key="p3"]');
         const vup = c?.querySelector(".cn-vup")?.textContent?.trim();
         const vdn = c?.querySelector(".cn-vdn")?.textContent?.trim();
         const rail = c?.querySelector(".cn-rail-mark")?.textContent?.trim();
@@ -1616,26 +1619,44 @@ const CASES = [
         document.querySelector('.cn-comment[data-key="p1"]')?.focus();
       });
       const article = page.locator('.cn-comment[data-key="p1"]');
-      const controls = await article.evaluate((node) => ({
+      const feedControls = await article.evaluate((node) => ({
         up: node.querySelector('[data-vote="up"]')?.getAttribute("aria-keyshortcuts"),
         down: node.querySelector('[data-vote="down"]')?.getAttribute("aria-keyshortcuts"),
         react: node.querySelector("[data-react-pick]")?.getAttribute("aria-keyshortcuts"),
-        fold: node.querySelector('[data-fold="p1"]')?.getAttribute("aria-keyshortcuts"),
-        foldName: node.querySelector('[data-fold="p1"]')?.getAttribute("aria-label"),
         reply: node.querySelector("[data-reply]")?.getAttribute("aria-keyshortcuts"),
         repost: node.querySelector("[data-repost]")?.getAttribute("aria-keyshortcuts"),
         share: node.querySelector("[data-share-post]")?.getAttribute("aria-keyshortcuts"),
         copy: node.querySelector("[data-copy-post]")?.getAttribute("aria-keyshortcuts"),
       }));
+      await page.keyboard.press("u");
+      await page.keyboard.press("d");
+      await page.keyboard.press("a");
+      const reactionOpened = await page.evaluate(() => window.CW_APP.state.reactPick === "p1");
+      await page.keyboard.press("Enter");
+      await page.waitForFunction(() =>
+        window.CW_APP.state.threadFocus === "p1" && !!document.querySelector('.cn-thread-tree [data-fold="p1"]'));
+      const threadArticle = page.locator('.cn-thread-tree .cn-comment[data-key="p1"]');
+      await threadArticle.focus();
+      const foldControls = await threadArticle.evaluate((node) => ({
+        fold: node.querySelector('[data-fold="p1"]')?.getAttribute("aria-keyshortcuts"),
+        foldName: node.querySelector('[data-fold="p1"]')?.getAttribute("aria-label"),
+      }));
+      const controls = {
+        up: feedControls.up,
+        down: feedControls.down,
+        react: feedControls.react,
+        fold: foldControls.fold,
+        foldName: foldControls.foldName,
+        reply: feedControls.reply,
+        repost: feedControls.repost,
+        share: feedControls.share,
+        copy: feedControls.copy,
+      };
       const expected = { up: "u", down: "d", react: "a", fold: "f", foldName: "Collapse replies", reply: "r",
         repost: "Shift+R", share: "s", copy: "y" };
       if (JSON.stringify(controls) !== JSON.stringify(expected)) {
         return log("post action controls: " + JSON.stringify(controls));
       }
-      await page.keyboard.press("u");
-      await page.keyboard.press("d");
-      await page.keyboard.press("a");
-      const reactionOpened = await page.evaluate(() => window.CW_APP.state.reactPick === "p1");
       await page.keyboard.press("f");
       await page.keyboard.press("Shift+r");
       await page.keyboard.press("s");

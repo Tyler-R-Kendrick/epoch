@@ -2,8 +2,10 @@
 
 Persona-visible Community Web changes from the 2026-08-20 session:
 
-1. **Standard social nav** — channel feeds show roots-only posts with reply counts; threads are a single-column APG tree (no outline/reading split).
+1. **Single-column threads** — thread detail is one APG tree (no outline/reading split).
 2. **Receipt locators** — `sig:…` / `intent://…` buttons keep Bracket Rule chrome + `--cw-signed` (never native UA button chrome), gated by `community-web:app:design-lint`.
+
+Channel feeds still nest replies under parents (roots-only feed deferred — e2e/product follow-up).
 
 ## Replay
 
@@ -11,8 +13,6 @@ Persona-visible Community Web changes from the 2026-08-20 session:
 npm run gate:commit
 npm run community-web:app:design-lint
 CW_E2E=NAV- npm run community-web:app:e2e
-# or broader:
-npm run community-web:app:parity
 ```
 
 ## Personas
@@ -23,7 +23,6 @@ npm run community-web:app:parity
 ## Artifacts
 
 - Adversarial critique (updated): [`../community-web-app-navigation-projection-parity/adversarial-critique.md`](../community-web-app-navigation-projection-parity/adversarial-critique.md)
-- Parity pack: [`../community-web-app-navigation-projection-parity/README.md`](../community-web-app-navigation-projection-parity/README.md)
 - Design gate: `scripts/lint-community-web-app-design.mjs`
 - Agent memory: `.cursor/rules/community-web-receipt-chips.mdc`
 
