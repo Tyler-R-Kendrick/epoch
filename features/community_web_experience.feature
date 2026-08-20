@@ -404,12 +404,12 @@ Feature: Community Web community-first experience
     Then the Projection Definition keeps its identity Search Expression and canonical Entity state
 
   @persona.screen_reader_power_user
-  Scenario: Screen-reader power user traverses explicit reply ancestry
+  Scenario: Screen-reader power user traverses an explicit reply thread
     Given Epoch Community is available
     When I open Epoch Community
     And I enter the community board
-    And I traverse a Community Web thread outline with tree keys
-    Then the thread outline and reading pane report the same selected object and topology
+    And I traverse a Community Web thread with tree keys
+    Then the selected Community Web thread message reports topology and one tab stop
 
   @persona.slack_power_user
   Scenario: Power user distinguishes namespace ascent thread ancestry and history

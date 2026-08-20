@@ -83,6 +83,9 @@ jobs:
       - name: Community Web a11y lint
         run: npm run community-web:app:a11y-lint
 
+      - name: Community Web design chrome lint
+        run: npm run community-web:app:design-lint
+
   konsistent:
     name: Konsistent
     needs: guard

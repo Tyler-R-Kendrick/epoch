@@ -1046,12 +1046,13 @@ Then("the selected Community Web message remains the single focused feed item", 
     // SAFETY: The scenario fixture establishes this test-only contract before the value is consumed.
     const app = ((window as { CW_APP: { state: { threadFocus: string; path: string } } })).CW_APP;
     const tree = document.querySelector('.cn-thread-tree [role="treeitem"][aria-selected="true"]');
-    const reading = document.querySelector('.cn-thread-reading article');
+    const body = tree?.querySelector(".cn-comment-body");
     return {
       threadFocus: app.state.threadFocus,
       path: app.state.path,
-      synchronized: tree?.getAttribute("data-object-id") === reading?.getAttribute("data-object-id") &&
-        tree?.getAttribute("data-key") === app.state.threadFocus,
+      synchronized: tree?.getAttribute("data-key") === app.state.threadFocus &&
+        !!(body && String(body.textContent || "").trim()) &&
+        !document.querySelector(".cn-thread-reading"),
       virtualNav: Array.from(document.querySelectorAll('.cn-blade[data-blade-kind="list"] .cn-item'))
         .map((el) => el.getAttribute("data-key"))
         .some((name) => /^(body\.md|metadata\.json|replies|backlinks|receipts)$/.test(name || "")),
@@ -1062,7 +1063,6 @@ Then("the selected Community Web message remains the single focused feed item", 
   assert.equal(location.synchronized, true);
   assert.equal(location.virtualNav, false, "opening a thread must not swap the navigator into message directories");
 });
-
 When("I navigate the Community Web VFS into general and return from messages by keyboard", async function () {
   const page = requirePage();
   const helpClose = page.locator("[data-help-close]:visible");
@@ -1376,7 +1376,7 @@ Then("the Projection Definition keeps its identity Search Expression and canonic
   assert.equal(new Set(savedResult.resultIds).size, savedResult.resultIds.length);
 });
 
-When("I traverse a Community Web thread outline with tree keys", async function () {
+When("I traverse a Community Web thread with tree keys", async function () {
   const page = requirePage();
   // SAFETY: The scenario fixture establishes this test-only contract before the value is consumed.
   await page.evaluate(() => ((window as { CW_APP: { navigate(path: string): void; openThread(id: string): void } })).CW_APP
@@ -1390,26 +1390,27 @@ When("I traverse a Community Web thread outline with tree keys", async function 
   await page.keyboard.press("ArrowDown");
   communityWebAppThreadA11yResult = await page.evaluate(() => {
     const selected = document.querySelector('.cn-thread-tree [role="treeitem"][aria-selected="true"]');
-    const reading = document.querySelector(".cn-thread-reading article");
     const items = Array.from(document.querySelectorAll('.cn-thread-tree [role="treeitem"]'));
+    const body = selected?.querySelector(".cn-comment-body");
     return {
       selected: selected?.getAttribute("data-object-id") ?? "",
-      reading: reading?.getAttribute("data-object-id") ?? "",
+      hasBody: !!(body && String(body.textContent || "").trim()),
       oneTabStop: items.filter((item) => item.getAttribute("tabindex") === "0").length === 1,
       topology: items.every((item) => Number(item.getAttribute("aria-level")) >= 1 &&
         Number(item.getAttribute("aria-posinset")) >= 1 && Number(item.getAttribute("aria-setsize")) >= 1),
+      singleColumn: !document.querySelector(".cn-thread-reading"),
     };
   });
 });
 
-Then("the thread outline and reading pane report the same selected object and topology", function () {
+Then("the selected Community Web thread message reports topology and one tab stop", function () {
   assert.ok(communityWebAppThreadA11yResult);
   assert.ok(communityWebAppThreadA11yResult.selected);
-  assert.equal(communityWebAppThreadA11yResult.reading, communityWebAppThreadA11yResult.selected);
+  assert.equal(communityWebAppThreadA11yResult.hasBody, true);
   assert.equal(communityWebAppThreadA11yResult.oneTabStop, true);
   assert.equal(communityWebAppThreadA11yResult.topology, true);
+  assert.equal(communityWebAppThreadA11yResult.singleColumn, true);
 });
-
 When("I invoke namespace parent thread parent browser back and previous location", async function () {
   communityWebAppNavigationActions = await requirePage().evaluate(async () => {
     // SAFETY: The scenario fixture establishes this test-only contract before the value is consumed.

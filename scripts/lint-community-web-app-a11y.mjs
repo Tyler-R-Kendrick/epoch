@@ -57,8 +57,8 @@ if (!/opts\.threadOf \? "tree" : "feed"/.test(consoleSrc) ||
 }
 if (!/cn-thread-tree/.test(consoleSrc) || !/role="group"/.test(consoleSrc) ||
     !/aria-level/.test(consoleSrc) || !/aria-selected/.test(consoleSrc) ||
-    !/cn-thread-reading/.test(consoleSrc)) {
-  errors.push("console.js: thread detail must expose a tree outline and synchronized reading pane");
+    !/cn-comment-op/.test(consoleSrc) || !/data-feed="roots"/.test(consoleSrc)) {
+  errors.push("console.js: thread must be a single-column APG tree; channel feed must be roots-only");
 }
 if (/cn-cand[^\n]+aria-current/.test(consoleSrc)) {
   errors.push("console.js: combobox options must use selection, not aria-current");

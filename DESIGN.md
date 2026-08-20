@@ -120,6 +120,11 @@ components:
     textColor: "{colors.ink-faint}"
     rounded: "{rounded.none}"
     padding: "2px 8px"
+  button-receipt:
+    backgroundColor: "{colors.surface}"
+    textColor: "{colors.signed}"
+    rounded: "{rounded.none}"
+    padding: "0px"
   button-intent:
     backgroundColor: "{colors.accent}"
     textColor: "{colors.accent-ink}"
@@ -291,7 +296,9 @@ the masthead, not a marketing serif. No Inter. No Helvetica Neue as product UI.
 weight and brightness carry hierarchy, not font family swaps.
 
 **The Bracket Rule.** Interactive chrome that is not a filled primary button
-wears `[label]` TTY brackets (sort chips, masthead actions, filters).
+wears `[label]` TTY brackets (sort chips, masthead actions, filters, receipt
+locators such as `sig:…` / `intent://…`). Native browser button chrome is a
+defect — reset it and apply brackets.
 
 ## Layout
 

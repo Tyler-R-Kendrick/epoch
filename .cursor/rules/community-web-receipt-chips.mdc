@@ -1,0 +1,27 @@
+---
+description: Never regress Bracket Rule / receipt locator (sig/intent) button chrome in Community Web
+globs: packages/Epoch.Community.Web/app/**/*.{js,css,html}
+alwaysApply: false
+---
+
+# Community Web receipt chips (sig / intent)
+
+`sig:…` and `intent://…` locators render as `button.cn-sig-text[data-receipt-locator]`.
+
+## Do not regress
+
+- Never leave these as bare native `<button>` chrome (UA gray fill, outset border).
+- Never strip `.cn-sig-text` / `button.cn-sig-text` rules down to ellipsis-only.
+- Required treatment (DESIGN.md `button-receipt` + Bracket Rule):
+  - `appearance: none`, `background: none`, `border: 0`, `font: inherit`
+  - `color: var(--cw-signed)`
+  - `::before` / `::after` with `[` / `]`
+  - focus-visible outline using `--cw-signed`
+
+## When editing console CSS
+
+Embedded CSS in `packages/Epoch.Community.Web/app/console.js` is the source of truth for board chrome. Large CSS rewrites often wipe receipt styles — after any CSS edit in that file, confirm `.cn-sig-text` still has the full Bracket Rule block.
+
+## Gate
+
+`npm run community-web:app:design-lint` (part of `gate:commit`) fails closed if receipt / Bracket Rule chrome is missing. Do not weaken or bypass that lint to land CSS changes.

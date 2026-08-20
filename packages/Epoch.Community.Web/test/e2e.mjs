@@ -751,11 +751,12 @@ const CASES = [
         window.CW_APP.render(true);
       });
       await page.waitForTimeout(80);
-      // Channel feed lives in detail — multiple root threads visible.
+      // Channel feed lives in detail — root posts only (no nested replies inline).
       const feed = await page.evaluate(() => ({
         roots: Array.from(document.querySelectorAll('.cn-comment[data-depth="0"]'))
           .map((el) => el.getAttribute("data-key")),
         total: document.querySelectorAll(".cn-comment").length,
+        feedMode: document.querySelector(".cn-feed-tree")?.getAttribute("data-feed"),
         threadCtx: !!document.querySelector(".cn-thread-ctx"),
         feedBar: !!document.querySelector(".cn-feed-bar"),
         navPosts: (window.CW_MAP.list(
@@ -765,6 +766,9 @@ const CASES = [
       }));
       if (feed.navPosts !== 0) return log("channel nav should be empty of posts: " + JSON.stringify(feed));
       if (feed.roots.length < 2) return log("expected channel feed roots: " + JSON.stringify(feed));
+      if (feed.total !== feed.roots.length || feed.feedMode !== "roots") {
+        return log("channel feed must be roots-only: " + JSON.stringify(feed));
+      }
       if (feed.threadCtx) return log("thread chrome on channel feed");
       if (!feed.feedBar) return log("feed bar missing on channel");
 
@@ -795,9 +799,11 @@ const CASES = [
       if (!(preview.roots >= 2 && preview.feedBar && !preview.threadCtx && preview.here && preview.mark)) {
         return log("feed browse should mark feed row: " + JSON.stringify(preview));
       }
-      // Open a specific reply's thread from the detail feed.
-      await page.click('.cn-blade[data-blade-kind="detail"] .cn-comment[data-key="p3"]');
-      await page.waitForTimeout(100);
+      // Roots-only feed: open the conversation that contains p3 (p1 root).
+      await page.evaluate(() => {
+        window.CW_APP.openThread("p3");
+      });
+      await page.waitForTimeout(80);
       const thread = await page.evaluate(() => ({
         focus: window.CW_APP.state.threadFocus,
         roots: Array.from(document.querySelectorAll('.cn-comment[data-depth="0"]'))
@@ -820,7 +826,7 @@ const CASES = [
       if (thread.here !== "p3") return log("selected message not marked: " + JSON.stringify(thread));
       if (!thread.threadCtx) return log("thread context missing");
       if (thread.feedBar) return log("channel feed bar should hide in thread view");
-      // Opening a thread from detail does not arm reply / steal the prompt.
+      // Opening a thread from the feed must not arm reply / steal the prompt.
       if (thread.replyTo || thread.prompt) {
         return log("thread open should not arm reply: " + JSON.stringify(thread));
       }
@@ -846,7 +852,20 @@ const CASES = [
     run: async (page, log) => {
       await go(page, "/projects/community/channels/general");
       await page.waitForTimeout(80);
-      await page.focus('.cn-comment[tabindex="0"]');
+      await page.evaluate(() => {
+        document.querySelector("[data-cli]")?.blur();
+        document.querySelector("[data-help-close]")?.click();
+        window.CW_APP.state.detailOpen = true;
+        window.CW_APP.state.threadFocus = null;
+        window.CW_APP.state.columnFocus = true;
+        window.CW_APP.state.focus = 1;
+        window.CW_APP.focusColumns();
+        window.CW_APP.render(true);
+      });
+      await page.waitForTimeout(80);
+      await page.focus('.cn-feed-tree .cn-comment[tabindex="0"]');
+      await page.keyboard.press("Home");
+      await page.waitForTimeout(40);
       const entered = await page.evaluate(() => {
         const active = document.activeElement?.closest?.(".cn-comment");
         return {
@@ -854,25 +873,28 @@ const CASES = [
           here: document.querySelector('.cn-comment[data-here="true"]')?.getAttribute("data-key") || null,
           current: active?.getAttribute("aria-current") || null,
           role: active?.getAttribute("role") || null,
-          tabbable: document.querySelectorAll('.cn-tree .cn-comment[tabindex="0"]').length,
+          tabbable: document.querySelectorAll('.cn-feed-tree .cn-comment[tabindex="0"]').length,
+          focus: window.CW_APP.state.focus,
+          count: document.querySelectorAll(".cn-feed-tree .cn-comment").length,
         };
       });
       if (!(entered.active && entered.active === entered.here && entered.current === "true" &&
-          entered.role === "article" && entered.tabbable === 1)) {
+          entered.role === "article" && entered.tabbable === 1 && entered.focus >= 1 &&
+          entered.count >= 2)) {
         return log("Tab did not enter one selected message: " + JSON.stringify(entered));
       }
 
       await page.keyboard.press("ArrowDown");
       await page.waitForFunction((previous) =>
-        document.activeElement?.closest?.(".cn-comment")?.getAttribute("data-key") !== previous,
-      entered.active);
+        document.activeElement?.closest?.(".cn-feed-tree .cn-comment")?.getAttribute("data-key") !== previous,
+      entered.active, { timeout: 5000 }).catch(() => null);
       const moved = await page.evaluate(() => {
-        const active = document.activeElement?.closest?.(".cn-comment");
+        const active = document.activeElement?.closest?.(".cn-feed-tree .cn-comment");
         return {
           active: active?.getAttribute("data-key") || null,
-          here: document.querySelector('.cn-comment[data-here="true"]')?.getAttribute("data-key") || null,
+          here: document.querySelector('.cn-feed-tree .cn-comment[data-here="true"]')?.getAttribute("data-key") || null,
           mark: window.CW_APP.state.feedMark,
-          tabbable: document.querySelectorAll('.cn-tree .cn-comment[tabindex="0"]').length,
+          tabbable: document.querySelectorAll('.cn-feed-tree .cn-comment[tabindex="0"]').length,
         };
       });
       if (!(moved.active && moved.active !== entered.active && moved.active === moved.here &&
@@ -881,34 +903,38 @@ const CASES = [
       }
 
       await page.keyboard.press("End");
-      await page.waitForFunction(() => {
-        const comments = Array.from(document.querySelectorAll(".cn-comment"));
-        return document.activeElement?.closest?.(".cn-comment") === comments.at(-1);
+      await page.waitForTimeout(40);
+      const end = await page.evaluate(() => {
+        const comments = Array.from(document.querySelectorAll(".cn-feed-tree .cn-comment"));
+        return {
+          active: document.activeElement?.closest?.(".cn-feed-tree .cn-comment")?.getAttribute("data-key") || null,
+          last: comments.at(-1)?.getAttribute("data-key") || null,
+        };
       });
-      await page.keyboard.press("ArrowDown");
-      await page.evaluate(() => new Promise((resolve) =>
-        window.requestAnimationFrame(() => window.requestAnimationFrame(resolve))));
-      const end = await page.evaluate(() => ({
-        active: document.activeElement?.closest?.(".cn-comment")?.getAttribute("data-key") || null,
-        last: Array.from(document.querySelectorAll(".cn-comment")).at(-1)?.getAttribute("data-key") || null,
-      }));
       if (!(end.active && end.active === end.last)) {
         return log("End/boundary did not retain the last message: " + JSON.stringify(end));
       }
+      await page.keyboard.press("ArrowDown");
+      await page.waitForTimeout(40);
+      const endHold = await page.evaluate(() => ({
+        active: document.activeElement?.closest?.(".cn-feed-tree .cn-comment")?.getAttribute("data-key") || null,
+        last: Array.from(document.querySelectorAll(".cn-feed-tree .cn-comment")).at(-1)?.getAttribute("data-key") || null,
+      }));
+      if (!(endHold.active && endHold.active === endHold.last)) {
+        return log("End/boundary did not retain the last message after ArrowDown: " + JSON.stringify(endHold));
+      }
       await page.keyboard.press("ArrowUp");
-      await page.waitForFunction((previous) =>
-        document.activeElement?.closest?.(".cn-comment")?.getAttribute("data-key") !== previous,
-      end.active);
+      await page.waitForTimeout(40);
       const recovered = await page.evaluate(() => ({
-        active: document.activeElement?.closest?.(".cn-comment")?.getAttribute("data-key") || null,
-        here: document.querySelector('.cn-comment[data-here="true"]')?.getAttribute("data-key") || null,
+        active: document.activeElement?.closest?.(".cn-feed-tree .cn-comment")?.getAttribute("data-key") || null,
+        here: document.querySelector('.cn-feed-tree .cn-comment[data-here="true"]')?.getAttribute("data-key") || null,
       }));
       if (!(recovered.active && recovered.active !== end.active && recovered.active === recovered.here)) {
         return log("ArrowUp did not recover from list end: " + JSON.stringify({ end, recovered }));
       }
 
       await page.keyboard.press("Enter");
-      await page.waitForFunction((expected) => window.CW_APP.state.threadFocus === expected, recovered.active);
+      await page.waitForTimeout(80);
       const opened = await page.evaluate(() => ({
         thread: window.CW_APP.state.threadFocus,
         active: document.activeElement?.closest?.(".cn-comment")?.getAttribute("data-key") || null,
@@ -8565,12 +8591,15 @@ const CASES = [
             Number(item.getAttribute("aria-posinset")),
             Number(item.getAttribute("aria-setsize")),
           ]),
-          reading: document.querySelector('.cn-thread-reading article')?.getAttribute("data-object-id"),
+          reading: document.querySelector('.cn-thread-tree [role="treeitem"][aria-selected="true"]')
+            ?.getAttribute("data-object-id"),
+          hasBody: !!(document.querySelector('.cn-thread-tree [role="treeitem"][aria-selected="true"] .cn-comment-body')
+            ?.textContent || "").trim(),
           active: document.activeElement?.closest?.('[role="treeitem"]')?.getAttribute("data-object-id"),
         };
       });
       if (before.count < 3 || !before.groupsOwned || before.tabbable !== 1 || before.selected !== 1 ||
-          before.levels.some((level) => level < 1) || before.reading !== "p3") {
+          before.levels.some((level) => level < 1) || before.reading !== "p3" || !before.hasBody) {
         return log("thread group parents " + before.groupParents.map((item) =>
           [item.className, item.key, item.parentRole, item.parentKey].join(":" )).join("|") +
           " · " + JSON.stringify(before));
@@ -8709,7 +8738,7 @@ const CASES = [
       await page.waitForSelector('.cn-menu:not([hidden]) [role="option"]');
       const narrow = await page.evaluate(() => {
         const targets = Array.from(document.querySelectorAll(
-          '.cn-thread-tree [role="treeitem"], .cn-thread-reading button, .cn-prompt button, .cn-menu [role="option"]',
+          '.cn-thread-tree [role="treeitem"], .cn-thread-tree .cn-act, .cn-prompt button, .cn-menu [role="option"]',
         )).filter((element) => {
           const style = getComputedStyle(element);
           const box = element.getBoundingClientRect();
@@ -8719,6 +8748,7 @@ const CASES = [
           overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
           tree: !!document.querySelector('.cn-thread-tree[role="tree"]'),
           reading: !!document.querySelector('.cn-thread-reading article'),
+          singleColumn: !document.querySelector(".cn-thread-layout"),
           navigator: !!document.querySelector('.cn-blade[data-nav="true"]'),
           composer: !!document.querySelector("[data-cli]"),
           chooser: !!document.querySelector('.cn-menu:not([hidden]) [role="option"]'),
@@ -8736,12 +8766,14 @@ const CASES = [
           }),
         };
       });
-      return (narrow.overflow <= 1 && narrow.tree && narrow.reading && narrow.navigator &&
+      return (narrow.overflow <= 1 && narrow.tree && narrow.singleColumn && !narrow.reading &&
+        narrow.navigator &&
         narrow.composer && narrow.chooser && narrow.focusOnScreen && narrow.small.length === 0) ||
         log("narrow contract failed: " + JSON.stringify({
           chooser: narrow.chooser, focusOnScreen: narrow.focusOnScreen,
           small: narrow.small.map((item) => item.className + ":" + Math.round(item.width) + "x" + Math.round(item.height)).join("|"),
           overflow: narrow.overflow, tree: narrow.tree, reading: narrow.reading,
+          singleColumn: narrow.singleColumn,
           navigator: narrow.navigator, composer: narrow.composer,
         }));
     },
@@ -9541,7 +9573,7 @@ const CASES = [
         exists: !!document.querySelector("[data-feed-query]"),
       }));
       await page.evaluate(() => window.CW_APP.openThread("p1"));
-      await page.click('.cn-thread-reading [data-react-pick="p1"]');
+      await page.click('.cn-thread-tree [data-react-pick="p1"]');
       const reactionBefore = await page.evaluate(() => ({
         thread: window.CW_APP.state.threadFocus,
         picker: window.CW_APP.state.reactPick,
@@ -9568,10 +9600,10 @@ const CASES = [
       await page.evaluate(() => window.CW_APP.openThread("p1"));
       await page.focus('.cn-thread-tree [role="treeitem"][data-key="p2"]');
       await page.keyboard.press("Enter");
-      await page.waitForFunction(() => document.activeElement?.matches?.('.cn-thread-reading article[data-object-id="p2"]'));
+      await page.waitForFunction(() => document.activeElement?.matches?.('.cn-thread-tree [role="treeitem"][data-key="p2"]'));
       const before = await page.evaluate(() => {
         const pane = document.querySelector('.cn-blade[data-blade-kind="detail"] .cn-blade-body');
-        const target = document.querySelector('.cn-thread-reading article[data-object-id="p2"]');
+        const target = document.querySelector('.cn-thread-tree [role="treeitem"][data-key="p2"]');
         pane.scrollTop = Math.max(1, target.offsetTop - 18);
         window.CW_APP.commitNavigation(true);
         return {
@@ -9579,29 +9611,30 @@ const CASES = [
           offset: target.getBoundingClientRect().top - pane.getBoundingClientRect().top,
         };
       });
-      if (before.state?.focusRegion !== "detail" || before.state?.readingAnchor?.objectId !== "p2") {
+      if (before.state?.focusRegion !== "thread-outline" || before.state?.readingAnchor?.objectId !== "p2") {
         return log("meaningful reading state not committed: " + JSON.stringify(before));
       }
       await page.reload({ waitUntil: "domcontentloaded" });
-      await page.waitForFunction(() => document.activeElement?.matches?.('.cn-thread-reading article[data-object-id="p2"]'));
+      await page.waitForFunction(() => document.activeElement?.matches?.('.cn-thread-tree [role="treeitem"][data-key="p2"]'));
       const wantedOffset = before.state?.readingAnchor?.pixelOffset;
       await page.waitForFunction((wanted) => {
         const pane = document.querySelector('.cn-blade[data-blade-kind="detail"] .cn-blade-body');
-        const target = document.querySelector('.cn-thread-reading article[data-object-id="p2"]');
+        const target = document.querySelector('.cn-thread-tree [role="treeitem"][data-key="p2"]');
         if (!pane || !target || wanted == null) return false;
         const offset = target.getBoundingClientRect().top - pane.getBoundingClientRect().top;
         return Math.abs(offset - wanted) <= 8;
       }, wantedOffset, { timeout: 2000 });
       const after = await page.evaluate(() => {
         const pane = document.querySelector('.cn-blade[data-blade-kind="detail"] .cn-blade-body');
-        const target = document.querySelector('.cn-thread-reading article[data-object-id="p2"]');
+        const target = document.querySelector('.cn-thread-tree [role="treeitem"][data-key="p2"]');
         return {
           focusRegion: window.CW_APP.navigationLocation().focusRegion,
-          active: document.activeElement?.getAttribute("data-object-id"),
+          active: document.activeElement?.getAttribute("data-key") ||
+            document.activeElement?.getAttribute("data-object-id"),
           offset: target.getBoundingClientRect().top - pane.getBoundingClientRect().top,
         };
       });
-      return (after.focusRegion === "detail" && after.active === "p2" &&
+      return (after.focusRegion === "thread-outline" && after.active === "p2" &&
         Math.abs(after.offset - before.offset) <= 8) || log("refresh reading restore drift: " + JSON.stringify({ before, after }));
     },
   },
