@@ -308,3 +308,15 @@ Append-only outcomes for SDLC coordinator runs. Newest entries appear at the bot
 | Result | **success** |
 | Failure class | Real CI: Prosody `apt-get install` hung twice on #158 after retargeting to `main`; cancelled and rerun green. Not billing. |
 | Notes | Restacked onto post-#166 `main` so Verify/mutation/docs keep both XMPP and Protocol lanes. Branch coverage floor is 80. |
+
+## 2026-08-20 — Anti-slop Oxlint + local gates (`/sdlc finish`)
+
+| Field | Value |
+|---|---|
+| Initiative | [`anti-slop-oxlint-gates`](anti-slop-oxlint-gates/sdlc-state.md) |
+| Backend | Sequential fallback; coordinator inline |
+| Branch | `feat/anti-slop-oxlint-gates` |
+| PR | [#170](https://github.com/Tyler-R-Kendrick/epoch/pull/170) — squash-merged [`ed14571`](https://github.com/Tyler-R-Kendrick/epoch/commit/ed14571f907235893a8a641b82bb15e7e71a894e) |
+| Result | **success** |
+| Failure class | Real CI on earlier heads: Schema-1 migration misuse on schema-2 state, non-string `validateProjectionId`, missing `CW_VALUE` in unit fixtures, TomlDateTime JSON round-trip, Live Redux flat-action mapping, and client runtime byte budget. Fixed on `50156f7`; Quality Gates green before merge. Not billing. |
+| Notes | Vendored anti-slop Oxlint (ADR-0056), parallel `gate:fast`, hooks on `gate:commit`. Independent review: approve-with-nits (follow-ups only). |
