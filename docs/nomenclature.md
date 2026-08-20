@@ -79,9 +79,8 @@ Native commands use nouns that match the model:
 - `epoch-community changes ...` creates and reviews Community Changes. It does not write `epoch change` IDs.
 
 New workflows do not add `stack`, `weave`, `frontier`, or `saved view` aliases.
-Persisted schema 1 and schema 2 data are migration inputs, not product language;
-migration preserves canonical IDs and quarantines invalid definitions without
-keeping duplicate Community search/projection runtime models. The older
+Community persistence accepts only schema version 3; there is no on-disk
+compatibility path for earlier bags. The older
 repository-event CLI still exposes intent-policy commands and is the remaining
 nomenclature inconsistency; it is not used by the Change Graph workflows.
 

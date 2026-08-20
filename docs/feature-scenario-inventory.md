@@ -93,7 +93,7 @@ Personas remain user context for real product behavior. Do not add persona-only 
 | `features/community_web_experience.feature` | `@persona.security_compliance_responder` | Scenario | Private Entities cannot influence observable search or paths | None | 0 |
 | `features/community_web_experience.feature` | `@persona.github_open_source_contributor` | Scenario | Browser falls back when persistent SQLite is unavailable | None | 0 |
 | `features/community_web_experience.feature` | `@persona.github_open_source_contributor` | Scenario | Two browser tabs contend without corrupting the search index | None | 0 |
-| `features/community_web_experience.feature` | `@persona.maintainer` | Scenario | Projection state survives reload and deterministic migration | None | 0 |
+| `features/community_web_experience.feature` | `@persona.maintainer` | Scenario | Projection state survives reload | None | 0 |
 | `features/community_web_experience.feature` | `@persona.github_open_source_contributor` | Scenario | GraphQL and text frontends share one Search Expression | None | 0 |
 | `features/community_web_experience.feature` | `@persona.github_open_source_contributor` | Scenario | CLI user validates and previews a Projection Definition | None | 0 |
 | `features/community_web_experience.feature` | `@persona.github_open_source_contributor` | Scenario | Contributor splits a change graph atomically and reconstructs the exact snapshot | None | 0 |

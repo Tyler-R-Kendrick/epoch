@@ -27,7 +27,8 @@ export interface CommunityStateMetadata {
   readonly updatedAt: string;
   readonly migratedAt: string;
   readonly migrationTimestamp: string;
-  readonly sourceSchemaVersion: 1 | 2 | 3;
+  /** Always the current Community state schema; older on-disk schemas are refused. */
+  readonly sourceSchemaVersion: typeof COMMUNITY_STATE_SCHEMA_VERSION;
   readonly migrationId: string;
 }
 
@@ -87,15 +88,15 @@ export function validateCommunityStateV3(input: BoundaryValue): CommunityStateV3
 }
 
 function validateMetadata(input: BoundaryValue): CommunityStateMetadata {
-  // SAFETY: Runtime checks or construction above establish number)) invalid("Community state migration metadata is invalid").
-  if (!record(input) || ![1, 2, 3].includes(input.sourceSchemaVersion as number)) invalid("Community state migration metadata is invalid");
-  // SAFETY: The module validates or constructs this value before applying the asserted contract.
+  if (!record(input) || input.sourceSchemaVersion !== COMMUNITY_STATE_SCHEMA_VERSION) {
+    invalid("Community state metadata must use schema version 3");
+  }
   return Object.freeze({
     createdAt: validateIsoDateTime(input.createdAt, "metadata.createdAt"),
     updatedAt: validateIsoDateTime(input.updatedAt, "metadata.updatedAt"),
     migratedAt: validateIsoDateTime(input.migratedAt, "metadata.migratedAt"),
     migrationTimestamp: validateIsoDateTime(input.migrationTimestamp, "metadata.migrationTimestamp"),
-    sourceSchemaVersion: input.sourceSchemaVersion as 1 | 2 | 3,
+    sourceSchemaVersion: COMMUNITY_STATE_SCHEMA_VERSION,
     migrationId: bounded(input.migrationId, "metadata.migrationId"),
   });
 }

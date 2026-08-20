@@ -156,11 +156,11 @@ Feature: Community Web community-first experience
     And reopening the replica returns the same authorized Entities and checkpoint
 
   @persona.maintainer
-  Scenario: Projection state survives reload and deterministic migration
-    Given persisted schema 2 contains stable Entity IDs and a saved query record
-    When Community migrates and reloads the state
+  Scenario: Projection state survives reload
+    Given persisted schema 3 contains stable Entity IDs and a saved Projection Definition
+    When Community reloads the state
     Then one current Projection Definition preserves the IDs timestamps query semantics and aliases
-    And rerunning migration produces the same state without a compatibility API
+    And reloading again produces the same state
 
   @persona.github_open_source_contributor
   Scenario: GraphQL and text frontends share one Search Expression

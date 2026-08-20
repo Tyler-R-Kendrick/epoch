@@ -174,19 +174,25 @@ test("Community facade derives repository views from schema-v3 canonical state",
   assert.equal((await malformed.json()).error.code, "QUERY_SYNTAX");
 });
 
-test("Community facade migrates schema 1 once and persists schema 3 deterministically", async () => {
+test("Community facade refuses schema 1 and seeds schema 3 deterministically", async () => {
   const directory = mkdtempSync(join(tmpdir(), "epoch-api-v3-"));
+  const olderSchemaPath = join(directory, "schema-1.json");
   const persistencePath = join(directory, "state.json");
   try {
-    writeFileSync(persistencePath, JSON.stringify({ schemaVersion: 1, repositories: [{ slug: "epoch/migrated", displayName: "Migrated", description: "", visibility: "public", defaultView: "main", maintainers: ["alice"], topics: [], issues: [], changeProposals: [], discussions: [] }] }));
+    writeFileSync(olderSchemaPath, JSON.stringify({ schemaVersion: 1, repositories: [{ slug: "epoch/refused", displayName: "Refused", description: "", visibility: "public", defaultView: "main", maintainers: ["alice"], topics: [], issues: [], changeProposals: [], discussions: [] }] }));
+    assert.throws(() => createInMemoryCommunityApi({ persistencePath: olderSchemaPath, runtime }), /schema version 3/i);
     sequence = 0;
-    const first = createInMemoryCommunityApi({ persistencePath, runtime });
-    const id = (await first.getRepository("epoch/migrated")).ref.objectId;
+    const first = createInMemoryCommunityApi({
+      persistencePath,
+      runtime,
+      repositories: [{ slug: "epoch/seeded", displayName: "Seeded", description: "", visibility: "public", defaultView: "main", maintainers: ["alice"], topics: [], issues: [], changeProposals: [], discussions: [] }],
+    });
+    const id = (await first.getRepository("epoch/seeded")).ref.objectId;
     const persisted = JSON.parse(readFileSync(persistencePath, "utf8"));
     assert.equal(persisted.schemaVersion, 3);
-    assert.equal(persisted.metadata.migrationTimestamp, instant);
+    assert.equal(persisted.metadata.sourceSchemaVersion, 3);
     const second = createInMemoryCommunityApi({ persistencePath, runtime });
-    assert.equal((await second.getRepository("epoch/migrated")).ref.objectId, id);
+    assert.equal((await second.getRepository("epoch/seeded")).ref.objectId, id);
   } finally { rmSync(directory, { recursive: true, force: true }); }
 });
 

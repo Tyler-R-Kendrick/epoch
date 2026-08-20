@@ -104,10 +104,9 @@ the comparison without inventing a DeltaDB codec.
 - The architecture costs more explicit metadata, cursor binding, migration,
   backend conformance, and privacy non-interference testing.
 
-Persisted schema 1 and schema 2 inputs are migrated deterministically into the
-canonical state schema. This is a data migration boundary, not a promise to
-preserve pre-release APIs or duplicate domain models. Invalid definitions are
-quarantined for export and recovery.
+Persisted Community state accepts only schema version 3. Earlier bags are
+refused at the persistence boundary. Invalid definitions are quarantined for
+export and recovery when seeding current Projection Definitions.
 
 ## Primary References
 

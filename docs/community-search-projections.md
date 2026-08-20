@@ -206,18 +206,11 @@ Backend conformance and browser persistence status are recorded in the
 [evidence index](evidence/community-search-projection/README.md). A dependency
 pin or interface alone is not evidence that a backend passed.
 
-## Persistence Migration And Recovery
+## Persistence And Recovery
 
-The current authoritative schema stores stable IDs and timestamps. Schema 1
-and schema 2 inputs migrate transactionally. Missing historical timestamps use
-one deterministic migration timestamp recorded in metadata, never ambient time
-on each read. Normalized query versions and pre-release saved-query records are
-converted into current Search Expressions and Projection Definitions.
-
-These are **data migrations**, not supported old APIs. There is one runtime
-domain model after migration. Conflicting duplicates fail with an exportable
-recovery report; invalid definitions enter a quarantined collection. Migration
-is idempotent and interrupted writes recover to the old or new complete state.
+The authoritative schema stores stable IDs and timestamps as schema version 3
+only. Earlier on-disk bags are refused. Seed helpers may quarantine invalid
+Projection Definitions while building current state for tests and fixtures.
 
 Recovery procedure:
 

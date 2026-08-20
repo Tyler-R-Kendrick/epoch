@@ -1,7 +1,7 @@
 import { closeSync, existsSync, fsyncSync, mkdirSync, openSync, readFileSync, renameSync, unlinkSync, writeFileSync } from "node:fs";
 import path from "node:path";
-import { CommunityError, isCommunityError, type CommunityErrorDetails } from "@epoch/community-core";
-import { migrateCommunityState, type CommunityMigrationContext } from "./migrations";
+import { CommunityError, isCommunityError } from "@epoch/community-core";
+import { type CommunityMigrationContext } from "./migrations";
 import { createMemoryCommunityStateStore, type CommunityStateStore } from "./store";
 import { validateCommunityStateV3, type CommunityStateV3 } from "./state-schema";
 type BoundaryValue = null | undefined | boolean | number | string | bigint | symbol | Readonly<object>;
@@ -28,7 +28,7 @@ export function createJsonCommunityStateStore(
   let state: CommunityStateV3;
   if (existsSync(persistencePath)) {
     const contents = readFileSync(persistencePath, "utf8");
-    state = decodeState(contents, options.migrationContext);
+    state = decodeState(contents);
     if (!isCurrentSchema(contents)) publishSafely(persistencePath, pendingPath, state, options);
   } else if (initial !== undefined) {
     state = validateCommunityStateV3(initial);
@@ -60,15 +60,12 @@ function publishSafely(
   }
 }
 
-export function readCommunityStateFile(
-  persistencePath: string,
-  migrationContext?: CommunityMigrationContext,
-): CommunityStateV3 {
+export function readCommunityStateFile(persistencePath: string): CommunityStateV3 {
   recoverPending(persistencePath, `${persistencePath}.pending`);
   if (!existsSync(persistencePath)) throw new CommunityError("PERSISTENCE_MIGRATION", "Community state file does not exist", {
     recovery: { code: "STATE_MISSING" },
   });
-  return decodeState(readFileSync(persistencePath, "utf8"), migrationContext);
+  return decodeState(readFileSync(persistencePath, "utf8"));
 }
 
 function publishState(
@@ -107,10 +104,10 @@ function recoverPending(persistencePath: string, pendingPath: string): void {
 }
 
 
-function decodeState(contents: string, migrationContext?: CommunityMigrationContext): CommunityStateV3 {
+function decodeState(contents: string): CommunityStateV3 {
   let decoded: BoundaryValue;
   try {
-    // SAFETY: JSON.parse yields wire values validated by migration or schema validators below.
+    // SAFETY: JSON.parse yields wire values validated by schema validators below.
     decoded = JSON.parse(contents) as BoundaryValue;
   } catch (error) {
     throw new CommunityError("PERSISTENCE_MIGRATION", "Community state contains malformed JSON; export it before recovery", {
@@ -118,18 +115,15 @@ function decodeState(contents: string, migrationContext?: CommunityMigrationCont
     }, { cause: error });
   }
   if (isRecord(decoded) && decoded.schemaVersion === 3) return validateCommunityStateV3(/* SAFETY: Runtime validation immediately surrounding this expression establishes the asserted contract. */ decoded as BoundaryValue);
-  if (migrationContext === undefined) {
-    const recovery: CommunityErrorDetails = { code: "MIGRATION_CONTEXT_REQUIRED" };
-    if (isRecord(decoded) && __epochIsNumber(decoded.schemaVersion)) {
-      throw new CommunityError("PERSISTENCE_MIGRATION", "Earlier Community state requires an explicit migration runtime", {
-        recovery: { ...recovery, sourceSchemaVersion: decoded.schemaVersion },
-      });
-    }
-    throw new CommunityError("PERSISTENCE_MIGRATION", "Earlier Community state requires an explicit migration runtime", {
-      recovery,
+  const version = isRecord(decoded) && __epochIsNumber(decoded.schemaVersion) ? decoded.schemaVersion : undefined;
+  if (version === undefined) {
+    throw new CommunityError("PERSISTENCE_MIGRATION", "Unsupported Community state schema; only schema version 3 is accepted", {
+      recovery: { code: "UNSUPPORTED_SCHEMA" },
     });
   }
-  return migrateCommunityState(/* SAFETY: Runtime validation immediately surrounding this expression establishes the asserted contract. */ decoded as BoundaryValue, migrationContext);
+  throw new CommunityError("PERSISTENCE_MIGRATION", "Unsupported Community state schema; only schema version 3 is accepted", {
+    recovery: { code: "UNSUPPORTED_SCHEMA", sourceSchemaVersion: version },
+  });
 }
 
 function isCurrentSchema(contents: string): boolean {

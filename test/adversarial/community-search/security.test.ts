@@ -12,7 +12,7 @@ import {
   type ProjectionDefinition,
   type VfsPage,
 } from "@epoch/community-core";
-import { migrateCommunityState, migrateLocalSavedViews } from "../../../packages/Epoch.Community.API/src/migrations";
+import { migrateCommunityState, migrateLocalSavedViews, seedCommunityState } from "../../../packages/Epoch.Community.API/src/migrations";
 import { isString } from "../../helpers/type-guards";
 import { createMemoryCommunityStateStore } from "../../../packages/Epoch.Community.API/src/store";
 import { chooseSqliteStorage, mapSqlitePersistenceError } from "../../../packages/Epoch.Community.Web/src/search/persistence-coordinator";
@@ -135,10 +135,10 @@ async function workerCancellationAndMultiTabContentionFailClosed(): Promise<void
 
 async function migrationsAreIdempotentAndInterruptedWritesAreAtomic(): Promise<void> {
   const context = migrationContext();
-  const legacy = { schemaVersion: 1, repositories: [] };
-  const first = migrateCommunityState(legacy, context);
+  assert.throws(() => migrateCommunityState({ schemaVersion: 1, repositories: [] }, context), /schema version 3/i);
+  const first = seedCommunityState({ repositories: [] }, context);
   assert.deepEqual(migrateCommunityState(first, context), first);
-  const quarantined = migrateLocalSavedViews([{ id: "broken", query: "state:open", root: { kind: "script", source: "evil()" } }], context);
+  const quarantined = migrateLocalSavedViews([{ projectionId: "broken", label: "Broken", query: "state:open", root: { kind: "script", source: "evil()" }, version: 1 }], context);
   assert.equal(quarantined.quarantinedDefinitions.length, 1);
   let persistCalls = 0;
   const store = createMemoryCommunityStateStore(first, {

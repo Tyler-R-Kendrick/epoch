@@ -43,40 +43,6 @@ export interface LocalSavedViewMigrationResult {
   readonly quarantinedDefinitions: readonly QuarantinedProjectionDefinition[];
 }
 
-interface LegacyStateV1 { readonly schemaVersion: 1; readonly repositories: readonly unknown[] }
-interface LegacyStateV2 {
-  readonly schemaVersion: 2;
-  readonly repositories: readonly unknown[];
-  readonly objects: readonly unknown[];
-  readonly projections: readonly unknown[];
-}
-
-function legacyStateV1(input: BoundaryValue): LegacyStateV1 {
-  if (!record(input) || input.schemaVersion !== 1 || !Array.isArray(input.repositories)) {
-    fail("Schema 1 state collections are invalid");
-  }
-  return {
-    schemaVersion: 1,
-    // SAFETY: Schema version and repositories array shape validated above.
-    repositories: input.repositories as readonly unknown[],
-  };
-}
-
-function legacyStateV2(input: BoundaryValue): LegacyStateV2 {
-  if (!record(input) || input.schemaVersion !== 2 || !Array.isArray(input.objects) || !Array.isArray(input.projections) || !Array.isArray(input.repositories)) {
-    fail("Schema 2 state collections are invalid");
-  }
-  return {
-    schemaVersion: 2,
-    // SAFETY: Legacy repositories array validated above.
-    repositories: input.repositories as readonly unknown[],
-    // SAFETY: Legacy objects array validated above.
-    objects: input.objects as readonly unknown[],
-    // SAFETY: Legacy projections array validated above.
-    projections: input.projections as readonly unknown[],
-  };
-}
-
 function optionalProjectionId(value: BoundaryValue): string | undefined {
   if (!record(value) || !__epochIsString(value.projectionId)) return undefined;
   return value.projectionId;
@@ -87,23 +53,27 @@ const ALL_OBJECT_KINDS = [
   "member", "agent", "artifact", "tombstone",
 ] as const satisfies readonly CommunityObjectKind[];
 
-export function migrateCommunityState(input: BoundaryValue, context: CommunityMigrationContext): CommunityStateV3 {
-  if (record(input) && input.schemaVersion === 3) return validateCommunityStateV3(input);
-  if (!record(input) || (input.schemaVersion !== 1 && input.schemaVersion !== 2) || !Array.isArray(input.repositories)) {
-    fail("Unsupported Community state schema");
-  }
-  // SAFETY: The module validates or constructs this value before applying the asserted contract.
-  const sourceVersion = input.schemaVersion as 1 | 2;
+export interface SeedCommunityStateOptions {
+  readonly repositories?: readonly BoundaryValue[];
+  readonly messages?: readonly BoundaryValue[];
+  readonly projections?: readonly BoundaryValue[];
+}
+
+/**
+ * Build current (schema 3) Community state from in-memory seed bags.
+ * On-disk schemas older than 3 are refused — Epoch never shipped them.
+ */
+export function seedCommunityState(options: SeedCommunityStateOptions, context: CommunityMigrationContext): CommunityStateV3 {
   const runtime = createCommunityRuntimeContext(context);
-  const migratedAt = runtime.now();
+  const seededAt = runtime.now();
   const metadata = {
-    createdAt: migratedAt,
-    updatedAt: migratedAt,
-    migratedAt,
-    migrationTimestamp: migratedAt,
-    sourceSchemaVersion: sourceVersion,
-    migrationId: runtime.nextId("migration"),
-  } as const;
+    createdAt: seededAt,
+    updatedAt: seededAt,
+    migratedAt: seededAt,
+    migrationTimestamp: seededAt,
+    sourceSchemaVersion: 3 as const,
+    migrationId: runtime.nextId("seed"),
+  };
   const entities = new Map<string, CommunityEntity>();
   const conflicts: { readonly objectId: string; readonly firstSource: string; readonly secondSource: string }[] = [];
   const add = (entity: CommunityEntity, source: string, preferExisting = false): void => {
@@ -122,52 +92,36 @@ export function migrateCommunityState(input: BoundaryValue, context: CommunityMi
     conflicts.push({ objectId: valid.ref.objectId, firstSource: previous.provenance.sourceId, secondSource: source });
   };
 
-  if (sourceVersion === 2) {
-    const state = legacyStateV2(input);
-    for (const value of state.objects) {
-      // SAFETY: Legacy schema-2 object entries are validated by validateLegacyMessage.
-      const message = validateLegacyMessage(value as BoundaryValue);
-      // SAFETY: The module validates or constructs this value before applying the asserted contract.
-      add(communityMessageToEntity(message, {
-        provenance: { sourceId: "community-api-v2", nativeId: message.ref.objectId, observedAt: message.updatedAt ?? message.publishedAt },
-        visibility: message.context.kind === "dm" ? "private" : "public",
-        participantIds: message.context.kind === "dm" ? [message.authorId] : [],
-      }), "objects");
-    }
-    for (const value of state.repositories) {
-      // SAFETY: Legacy repository entries are migrated through migrateRepository validators.
-      for (const entity of migrateRepository(value as BoundaryValue, runtime, migratedAt)) add(entity, "repositories", true);
-    }
-  } else {
-    for (const value of legacyStateV1(input).repositories) {
-      // SAFETY: Legacy repository entries are migrated through migrateRepository validators.
-      for (const entity of migrateRepository(value as BoundaryValue, runtime, migratedAt)) add(entity, "repositories", false);
-    }
+  for (const value of options.messages ?? []) {
+    const message = validateSeedMessage(value);
+    add(communityMessageToEntity(message, {
+      provenance: { sourceId: "community-api-seed", nativeId: message.ref.objectId, observedAt: message.updatedAt ?? message.publishedAt },
+      visibility: message.context.kind === "dm" ? "private" : "public",
+      participantIds: message.context.kind === "dm" ? [message.authorId] : [],
+    }), "messages");
+  }
+  for (const value of options.repositories ?? []) {
+    for (const entity of seedRepository(value, runtime, seededAt)) add(entity, "repositories", true);
   }
   if (conflicts.length > 0) fail("Conflicting duplicate canonical objects require recovery", {
     recovery: { code: "DUPLICATE_CANONICAL_OBJECT", conflicts },
   });
 
   const projectionDefinitions: PersistedProjectionDefinition[] = [];
-  // SAFETY: The module validates or constructs this value before applying the asserted contract.
   const quarantinedDefinitions: QuarantinedProjectionDefinition[] = [];
-  if (sourceVersion === 2) {
-    for (const value of legacyStateV2(input).projections) {
-      try {
-        // SAFETY: Legacy projection entries are migrated through migrateProjection validators.
-        projectionDefinitions.push(migrateProjection(value as BoundaryValue, migratedAt));
-      } catch (error) {
-        // SAFETY: Quarantine path preserves the legacy projection wire value for recovery.
-        const projectionId = optionalProjectionId(value as BoundaryValue);
-        const quarantine: QuarantinedProjectionDefinition = {
-          reason: error instanceof Error ? error.message : String(error),
-          quarantinedAt: migratedAt,
-          input: structuredClone(value),
-        };
-        quarantinedDefinitions.push(
-          projectionId === undefined ? quarantine : { ...quarantine, projectionId },
-        );
-      }
+  for (const value of options.projections ?? []) {
+    try {
+      projectionDefinitions.push(seedProjection(value, seededAt));
+    } catch (error) {
+      const projectionId = optionalProjectionId(value);
+      const quarantine: QuarantinedProjectionDefinition = {
+        reason: error instanceof Error ? error.message : String(error),
+        quarantinedAt: seededAt,
+        input: structuredClone(value),
+      };
+      quarantinedDefinitions.push(
+        projectionId === undefined ? quarantine : { ...quarantine, projectionId },
+      );
     }
   }
 
@@ -184,14 +138,20 @@ export function migrateCommunityState(input: BoundaryValue, context: CommunityMi
   });
 }
 
+/** Load persisted Community state. Only schema version 3 is accepted. */
+export function migrateCommunityState(input: BoundaryValue, _context?: CommunityMigrationContext): CommunityStateV3 {
+  if (record(input) && input.schemaVersion === 3) return validateCommunityStateV3(input);
+  fail("Unsupported Community state schema; only schema version 3 is accepted");
+}
+
 export function migrateLocalSavedViews(input: BoundaryValue, context: CommunityMigrationContext): LocalSavedViewMigrationResult {
   const runtime = createCommunityRuntimeContext(context);
-  const migratedAt = runtime.now();
+  const seededAt = runtime.now();
   const source = Array.isArray(input) ? input : record(input) && Array.isArray(input.views) ? input.views : undefined;
   if (source === undefined) {
     return {
       projectionDefinitions: [],
-      quarantinedDefinitions: [{ reason: "Schema-1 saved-view state is malformed", quarantinedAt: migratedAt, input: structuredClone(input) }],
+      quarantinedDefinitions: [{ reason: "Saved-view import state is malformed", quarantinedAt: seededAt, input: structuredClone(input) }],
     };
   }
   const projectionDefinitions: PersistedProjectionDefinition[] = [];
@@ -199,29 +159,29 @@ export function migrateLocalSavedViews(input: BoundaryValue, context: CommunityM
   for (const value of source) {
     try {
       if (!record(value)) fail("Saved view must be an object");
-      projectionDefinitions.push(migrateProjection({
+      projectionDefinitions.push(seedProjection({
         ...value,
-        projectionId: value.projectionId ?? value.id,
-        label: value.label ?? value.name ?? "Saved view",
+        projectionId: value.projectionId,
+        label: value.label,
         visibility: value.visibility ?? "private",
         version: value.version ?? 1,
-      }, migratedAt));
+      }, seededAt));
     } catch (error) {
-      const projectionId = record(value)
-        ? __epochIsString(value.projectionId) ? value.projectionId : __epochIsString(value.id) ? value.id : undefined
-        : undefined;
-      quarantinedDefinitions.push({
-        ...(!(projectionId === undefined) && { projectionId }),
+      const projectionId = record(value) && __epochIsString(value.projectionId) ? value.projectionId : undefined;
+      const quarantine: QuarantinedProjectionDefinition = {
         reason: error instanceof Error ? error.message : String(error),
-        quarantinedAt: migratedAt,
+        quarantinedAt: seededAt,
         input: structuredClone(value),
-      });
+      };
+      quarantinedDefinitions.push(
+        projectionId === undefined ? quarantine : { ...quarantine, projectionId },
+      );
     }
   }
   return { projectionDefinitions, quarantinedDefinitions };
 }
 
-function migrateRepository(value: BoundaryValue, runtime: ReturnType<typeof createCommunityRuntimeContext>, migratedAt: string): readonly CommunityEntity[] {
+function seedRepository(value: BoundaryValue, runtime: ReturnType<typeof createCommunityRuntimeContext>, seededAt: string): readonly CommunityEntity[] {
   if (!record(value)) fail("Invalid persisted Community repository");
   const slug = text(value.slug, "repository.slug");
   const repositoryRef = optionalRef(value.ref) ?? nextRef(runtime, "project");
@@ -238,7 +198,7 @@ function migrateRepository(value: BoundaryValue, runtime: ReturnType<typeof crea
     maintainers,
     topics: strings(value.topics ?? [], "repository.topics"),
   }, { title: text(value.displayName, "repository.displayName"), description: text(value.description, "repository.description", true) },
-  visibility, maintainers, migratedAt, "repository", slug);
+  visibility, maintainers, seededAt, "repository", slug);
   const output: CommunityEntity[] = [repository];
 
   for (const rawIssueValue of array(value.issues ?? [], "repository.issues")) {
@@ -252,7 +212,7 @@ function migrateRepository(value: BoundaryValue, runtime: ReturnType<typeof crea
       authorId: author,
       title: text(issueValue.title, "issue.title"),
       body: text(issueValue.body, "issue.body", true),
-      publishedAt: timestamp(issueValue, migratedAt),
+      publishedAt: timestamp(issueValue, seededAt),
       threadRoot: issueRef,
       relations: [],
       state: text(issueValue.status, "issue.status"),
@@ -267,7 +227,7 @@ function migrateRepository(value: BoundaryValue, runtime: ReturnType<typeof crea
       const commentValue = asPersistedRecord(rawCommentValue, "Invalid persisted Community comment");
       const ref = optionalRef(commentValue.ref) ?? nextRef(runtime, "message");
       const commentId = __epochIsString(commentValue.id) ? commentValue.id : runtime.nextId("comment");
-      const publishedAt = timestamp(commentValue, migratedAt);
+      const publishedAt = timestamp(commentValue, seededAt);
       output.push(messageEntity({
         ref,
         context: repositoryRef,
@@ -293,7 +253,7 @@ function migrateRepository(value: BoundaryValue, runtime: ReturnType<typeof crea
       authorId: text(changeValue.author, "change.author"),
       title: text(changeValue.title, "change.title"),
       body: text(changeValue.body, "change.body", true),
-      publishedAt: timestamp(changeValue, migratedAt),
+      publishedAt: timestamp(changeValue, seededAt),
       threadRoot: ref,
       relations: [],
       state: text(changeValue.status, "change.status"),
@@ -328,7 +288,7 @@ function migrateRepository(value: BoundaryValue, runtime: ReturnType<typeof crea
       authorId: text(discussionValue.author, "discussion.author"),
       title: text(discussionValue.title, "discussion.title"),
       body: "",
-      publishedAt: timestamp(discussionValue, migratedAt),
+      publishedAt: timestamp(discussionValue, seededAt),
       threadRoot: ref,
       relations: [],
       state: "open",
@@ -343,7 +303,7 @@ function migrateRepository(value: BoundaryValue, runtime: ReturnType<typeof crea
         context: repositoryRef,
         authorId: text(commentValue.author, "comment.author"),
         body: text(commentValue.body, "comment.body", true),
-        publishedAt: timestamp(commentValue, migratedAt),
+        publishedAt: timestamp(commentValue, seededAt),
         inReplyTo: ref,
         threadRoot: ref,
         relations: [{ type: "reply", source: commentRef, target: ref }],
@@ -359,7 +319,7 @@ function migrateRepository(value: BoundaryValue, runtime: ReturnType<typeof crea
   return output;
 }
 
-function migrateProjection(value: BoundaryValue, migratedAt: string): PersistedProjectionDefinition {
+function seedProjection(value: BoundaryValue, seededAt: string): PersistedProjectionDefinition {
   if (!record(value)) fail("Saved projection must be an object");
   const projectionId = validateProjectionId(text(value.projectionId, "projection.projectionId"));
   const ownerId = text(value.ownerId, "projection.ownerId");
@@ -370,7 +330,7 @@ function migrateProjection(value: BoundaryValue, migratedAt: string): PersistedP
       : value.query as never,
   );
   if (query?.error !== undefined) fail(`Invalid saved projection query: ${query.error}`);
-  const createdAt = dateOr(value.createdAt, migratedAt);
+  const createdAt = dateOr(value.createdAt, seededAt);
   const updatedAt = dateOr(value.updatedAt, createdAt);
   const definition: ProjectionDefinition = {
     apiVersion: "epoch.dev/v1alpha1",
@@ -445,12 +405,12 @@ function enrichEntity(entity: CommunityEntity, fields: CommunityEntity["fields"]
   return validateCommunityEntity({ ...entity, fields: { ...entity.fields, ...fields } });
 }
 
-function validateLegacyMessage(value: BoundaryValue): CommunityMessage {
+function validateSeedMessage(value: BoundaryValue): CommunityMessage {
   if (!record(value)) fail("Invalid persisted Community object");
-  const ref = migrateSchema2Ref(value.ref);
-  const context = migrateSchema2Ref(value.context);
-  const threadRoot = migrateSchema2Ref(value.threadRoot);
-  const inReplyTo = value.inReplyTo === undefined ? undefined : migrateSchema2Ref(value.inReplyTo);
+  const ref = validateObjectRef(value.ref);
+  const context = validateObjectRef(value.context);
+  const threadRoot = validateObjectRef(value.threadRoot);
+  const inReplyTo = value.inReplyTo === undefined ? undefined : validateObjectRef(value.inReplyTo);
   const authorId = text(value.authorId, "message.authorId");
   const body = text(value.body, "message.body", true);
   const publishedAt = validateIsoDateTime(value.publishedAt, "message.publishedAt");
@@ -466,8 +426,8 @@ function validateLegacyMessage(value: BoundaryValue): CommunityMessage {
     return {
       // SAFETY: Relation type validated against allowed persisted relation names.
       type: row.type as CommunityRelation["type"],
-      source: migrateSchema2Ref(row.source),
-      target: migrateSchema2Ref(row.target),
+      source: validateObjectRef(row.source),
+      target: validateObjectRef(row.target),
     };
   });
   const aliases = strings(value.aliases, "message.aliases");
@@ -485,11 +445,6 @@ function validateLegacyMessage(value: BoundaryValue): CommunityMessage {
     ...(updatedAt !== undefined && { updatedAt }),
     ...(inReplyTo !== undefined && { inReplyTo }),
   };
-}
-
-function migrateSchema2Ref(value: BoundaryValue): CommunityObjectRef {
-  if (record(value) && value.kind === "saved-view") return validateObjectRef({ ...value, kind: "projection" });
-  return validateObjectRef(value);
 }
 
 function deriveRelations(entities: readonly CommunityEntity[]) {

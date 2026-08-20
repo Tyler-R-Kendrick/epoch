@@ -4,7 +4,6 @@
 
   var HISTORY_KEY = "cw-search-history-v1";
   var DEFINITIONS_KEY = "cw-projection-definitions-v1";
-  var SCHEMA_INPUT_KEYS = ["cw-saved-views-v2", "cw-saved-views-v1"];
   var MOUNTS_KEY = "cw-namespace-mounts-v1";
   var TABS = ["query", "results", "explain", "history"];
   var PROJECTION_TABS = ["definition", "preview", "diff", "explain", "validation"];
@@ -94,48 +93,17 @@
   function definitions() {
     try {
       var current = window.localStorage.getItem(DEFINITIONS_KEY);
-      if (current) {
-        var parsed = JSON.parse(current);
-        if (!Array.isArray(parsed)) throw new Error("Projection Definition state must be an array");
-        return parsed;
-      }
-      return migrateSchemaInputs();
+      if (!current) return [];
+      var parsed = JSON.parse(current);
+      if (!Array.isArray(parsed)) throw new Error("Projection Definition state must be an array");
+      definitionRecovery = null;
+      return parsed;
     } catch (error) {
       var raw = null;
-      try { raw = recoverableDefinitionState(); } catch { /* storage can be unavailable */ }
+      try { raw = window.localStorage.getItem(DEFINITIONS_KEY); } catch { /* storage can be unavailable */ }
       definitionRecovery = { raw: raw, message: "Projection Definition recovery required: " + error.message };
       return [];
     }
-  }
-
-  function migrateSchemaInputs() {
-    var raw = recoverableDefinitionState();
-    if (!raw) return [];
-    var decoded = JSON.parse(raw);
-    var inputs = Array.isArray(decoded) ? decoded : decoded && Array.isArray(decoded.views) ? decoded.views : null;
-    if (!inputs) throw new Error("Saved query schema input is malformed");
-    var migrated = inputs.map(function (input) {
-      var normalized = window.CW_CORE.migrateNormalizedQuery({
-        query: input.query || input.canonical || "",
-        ast: input.ast,
-        sort: input.order,
-        queryLanguageVersion: input.queryLanguageVersion,
-      });
-      if (!normalized.ast || normalized.error) throw new Error(normalized.error || "Saved query has no Search Expression");
-      return definitionFromSearch(input.projectionId || input.id, input.label || input.name, normalized, input.version || 1);
-    });
-    window.localStorage.setItem(DEFINITIONS_KEY, JSON.stringify(migrated));
-    SCHEMA_INPUT_KEYS.forEach(function (key) { window.localStorage.removeItem(key); });
-    definitionRecovery = null;
-    return migrated;
-  }
-
-  function recoverableDefinitionState() {
-    for (var index = 0; index < SCHEMA_INPUT_KEYS.length; index += 1) {
-      var raw = window.localStorage.getItem(SCHEMA_INPUT_KEYS[index]);
-      if (raw) return raw;
-    }
-    return null;
   }
 
   function definitionFromSearch(projectionId, label, normalized, version) {
@@ -225,7 +193,6 @@
   function resetDefinitions() {
     try {
       window.localStorage.removeItem(DEFINITIONS_KEY);
-      SCHEMA_INPUT_KEYS.forEach(function (key) { window.localStorage.removeItem(key); });
       definitionRecovery = null;
       return true;
     } catch { return false; }
@@ -309,7 +276,7 @@
     return '<div role="tablist" aria-label="' + esc(prefix) + ' workbench sections" class="cn-workbench-tabs">' +
       items.map(function (tab) {
         var active = tab === selected;
-        return '<button type="button" role="tab" data-workbench-tab="' + esc(tab) + '" aria-selected="' + active +
+        return '<button type="button" class="cn-workbench-btn" role="tab" data-workbench-tab="' + esc(tab) + '" aria-selected="' + active +
           '" tabindex="' + (active ? "0" : "-1") + '">' + esc(tab.charAt(0).toUpperCase() + tab.slice(1)) + '</button>';
       }).join("") + "</div>";
   }
@@ -329,8 +296,8 @@
       body = '<label class="cn-workbench-field">Deterministic query<textarea data-search-expression="true" rows="4" ' +
         'aria-describedby="cn-search-guidance">' + esc(workbench.expression) + '</textarea></label>' +
         '<p id="cn-search-guidance">Lucene-like typed syntax. Ctrl+Enter runs. AI is never invoked.</p>' + diagnostic(workbench) +
-        '<div class="cn-workbench-actions"><button type="button" data-search-run>Run search</button>' +
-        '<button type="button" data-search-cancel' + (workbench.running ? "" : " disabled") + '>Cancel</button></div>';
+        '<div class="cn-workbench-actions"><button type="button" class="cn-workbench-btn" data-search-run>Run search</button>' +
+        '<button type="button" class="cn-workbench-btn" data-search-cancel' + (workbench.running ? "" : " disabled") + '>Cancel</button></div>';
     } else if (workbench.tab === "results") {
       var result = workbench.result || { hits: [], completeness: { status: "partial", sources: [] } };
       body = '<div class="cn-search-completeness" role="status" data-search-completeness>' + esc(result.completeness.status) +
@@ -340,32 +307,32 @@
         }).join("") + '</div><label>Filter these results<input data-search-local-filter value="' + esc(workbench.localFilter || "") + '"></label>' +
         '<ol class="cn-search-results">' + result.hits.map(function (hit) {
           var target = hit.objectId || (hit.target && hit.target.objectId) || (hit.post && hit.post.id) || hit.where || hit.path || "unknown";
-          return '<li data-search-target="' + esc(target) + '"><button type="button" data-search-open-target="' + esc(target) +
+          return '<li data-search-target="' + esc(target) + '"><button type="button" class="cn-workbench-btn" data-search-open-target="' + esc(target) +
             '" data-goto="' + esc(hit.path || "/") + '"><b>' + esc(hit.label || target) + '</b><span>' + esc(hit.hint || hit.path || "") + '</span></button></li>';
         }).join("") + '</ol>';
     } else if (workbench.tab === "explain") {
       body = '<pre data-search-explanation tabindex="0">' + esc(JSON.stringify(workbench.explanation || {
         message: "Run Explain after a search to inspect pushdown, residual evaluation, authorization, and ordering.",
-      }, null, 2)) + '</pre><button type="button" data-search-explain>Refresh explanation</button>';
+      }, null, 2)) + '</pre><button type="button" class="cn-workbench-btn" data-search-explain>Refresh explanation</button>';
     } else {
       body = '<ol class="cn-search-history">' + history().map(function (entry) {
-        return '<li><button type="button" data-search-history-query="' + esc(entry.canonical) + '">' + esc(entry.canonical) +
+        return '<li><button type="button" class="cn-workbench-btn" data-search-history-query="' + esc(entry.canonical) + '">' + esc(entry.canonical) +
           '</button>' + (entry.favorite ? '<span aria-label="Favorite">★</span>' : "") + '</li>';
       }).join("") + '</ol>';
     }
     return '<section class="cn-workbench" data-search-workbench aria-label="Search workbench">' +
-      '<header><div><b>Search</b><span>cross-source · deterministic</span></div><button type="button" data-workbench-close aria-label="Close search workbench">×</button></header>' +
+      '<header><div><b>Search</b><span>cross-source · deterministic</span></div><button type="button" class="cn-workbench-btn" data-workbench-close aria-label="Close search workbench">×</button></header>' +
       tabs(TABS, workbench.tab, "Search") + '<div role="tabpanel">' + body + '</div></section>';
   }
 
   function renderProjection(workbench) {
     var body = workbench.tab === "definition"
       ? '<label class="cn-workbench-field">Projection definition<textarea data-projection-definition rows="18">' + esc(workbench.source) + '</textarea></label>' +
-        '<button type="button" data-projection-validate>Validate</button><button type="button" data-projection-preview>Preview</button>'
+        '<button type="button" class="cn-workbench-btn" data-projection-validate>Validate</button><button type="button" class="cn-workbench-btn" data-projection-preview>Preview</button>'
       : '<pre tabindex="0">' + esc(JSON.stringify(workbench[workbench.tab] || workbench.diagnostics || [], null, 2)) + '</pre>' +
         (workbench.error ? '<p role="alert">' + esc(workbench.error) + '</p>' : '');
     return '<section class="cn-workbench" data-projection-workbench aria-label="Projection workbench"><header><div><b>Projection</b>' +
-      '<span>definition · preview before mount</span></div><button type="button" data-workbench-close aria-label="Close projection workbench">×</button></header>' +
+      '<span>definition · preview before mount</span></div><button type="button" class="cn-workbench-btn" data-workbench-close aria-label="Close projection workbench">×</button></header>' +
       tabs(PROJECTION_TABS, workbench.tab, "Projection") + '<div role="tabpanel">' + body + '</div></section>';
   }
 

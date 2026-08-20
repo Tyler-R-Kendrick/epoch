@@ -40,7 +40,7 @@ import {
   type CommunityGraphQLServices,
 } from "@epoch/community-graphql";
 import { createJsonCommunityStateStore } from "./persistence";
-import { migrateCommunityState } from "./migrations";
+import { seedCommunityState } from "./migrations";
 import { createCommunityServiceApis, type CommunityServiceApis } from "./service-host";
 import { createMemoryCommunityStateStore, type CommunityStateSnapshot, type CommunityStateStore } from "./store";
 import type { CommunityStateV3 } from "./state-schema";
@@ -64,7 +64,8 @@ export * from "./state-schema";
 export * from "./store";
 
 export interface CreateInMemoryCommunityApiOptions {
-  readonly repositories?: readonly CreateCommunityRepositoryInput[];
+  /** Optional seed repositories; may include nested issues/changes for fixtures. */
+  readonly repositories?: readonly BoundaryValue[];
   readonly messages?: readonly CommunityMessage[];
   readonly authorizeObject?: (message: CommunityMessage, authorization: CommunityAuthorizationContext) => boolean;
   readonly persistencePath?: string;
@@ -416,7 +417,11 @@ export function createCommunityRepository(input: CreateCommunityRepositoryInput,
 }
 
 function initialState(options: CreateInMemoryCommunityApiOptions, runtime: CommunityRuntimeContext): CommunityStateV3 {
-  return migrateCommunityState({ schemaVersion: 2, repositories: options.repositories ?? [], objects: options.messages ?? [], projections: [] }, { clock: runtime.clock, idGenerator: runtime.idGenerator, timezone: runtime.timezone, locale: runtime.locale });
+  return seedCommunityState({
+    repositories: options.repositories ?? [],
+    messages: options.messages ?? [],
+    projections: [],
+  }, { clock: runtime.clock, idGenerator: runtime.idGenerator, timezone: runtime.timezone, locale: runtime.locale });
 }
 function defaultRuntime(): CommunityRuntimeContext {
   const clock: Clock = { now: () => new Date() };

@@ -90,8 +90,8 @@ function rewindActionPreviewsWithoutCommitting(): void {
 function actionPayloadMappingVariants(): void {
   assert.deepEqual(toLiveAction({ type: "a", payload: { x: 1 } }), { type: "a", payload: { x: 1 } });
   assert.deepEqual(toLiveAction({ type: "a", payload: 5 }), { type: "a", payload: { value: 5 } });
-  // SAFETY: Legacy Redux actions carry payload fields as own properties under test.
-  // SAFETY: Legacy Redux actions carry payload fields as own properties under test.
+  // Flat Redux actions may carry payload fields as own properties under test.
+  // SAFETY: Fixture matches the flat-action branch of toLiveAction (own props besides type/payload).
   assert.deepEqual(toLiveAction({ type: "a", x: 1, y: "z" } as Parameters<typeof toLiveAction>[0]), { type: "a", payload: { x: 1, y: "z" } });
   assert.deepEqual(toLiveAction({ type: "a" }), { type: "a" });
 

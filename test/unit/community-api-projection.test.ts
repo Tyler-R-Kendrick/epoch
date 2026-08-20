@@ -7,12 +7,11 @@ import type { CommunityMessage } from "@epoch/community-core";
 import { isFunction } from "../helpers/type-guards";
 
 export async function runCommunityApiProjectionTests(): Promise<void> {
-  await test("NAV-MIGRATE-001 API schema migration preserves data", apiMigrationPreservesDataAndAssignsIdsOnce);
-  await test("NAV-PROJ-002 schema-2 saved-view data migrates to canonical projection identity", savedViewIdentityMigratesOnce);
+  await test("NAV-SEED-001 API seed preserves repository graph identity across reload", apiSeedPersistsAcrossReload);
   await test("unshipped flat projection methods are absent from the repository facade", flatProjectionFacadeIsAbsent);
   await test("Community facade exposes canonical Change vocabulary only", changeVocabularyIsCanonical);
   await test("NAV-ACTION-002 PATCH object state requires explicit write authorization", objectStateMutationRequiresWriteAuthorization);
-  await test("Community API persistence rejects malformed scalar and graph records", malformedPersistenceFailsAtBoundary);
+  await test("Community API persistence rejects malformed scalar and unsupported schemas", malformedPersistenceFailsAtBoundary);
   await test("Community API persistence replaces files atomically", persistenceWritesAtomically);
   await test("Community API state vocabulary is bounded and updates timestamps", objectStateIsBoundedAndTimestamped);
   await test("NAV-QUERY-003 private repository canonical objects use repository authorization", privateRepositoryObjectsFailClosed);
@@ -55,12 +54,12 @@ async function test(name: string, run: () => void | Promise<void>): Promise<void
   }
 }
 
-async function apiMigrationPreservesDataAndAssignsIdsOnce(): Promise<void> {
-  const directory = mkdtempSync(join(tmpdir(), "epoch-api-migration-"));
+async function apiSeedPersistsAcrossReload(): Promise<void> {
+  const directory = mkdtempSync(join(tmpdir(), "epoch-api-seed-"));
   const persistencePath = join(directory, "state.json");
   try {
-    writeFileSync(persistencePath, JSON.stringify({
-      schemaVersion: 1,
+    const first = createInMemoryCommunityApi({
+      persistencePath,
       repositories: [{
         slug: "epoch/epoch",
         displayName: "Epoch",
@@ -71,25 +70,23 @@ async function apiMigrationPreservesDataAndAssignsIdsOnce(): Promise<void> {
         topics: [],
         issues: [{
           id: "ISSUE-1",
-          title: "Migrated",
+          title: "Seeded",
           author: "bob",
           body: "body",
           labels: [],
           status: "open",
           comments: [{ author: "alice", body: "reply" }],
         }],
-        changes: [],
+        changeProposals: [],
         discussions: [],
       }],
-    }));
-
-    const first = createInMemoryCommunityApi({ persistencePath });
-    const migrated = await first.getRepository("epoch/epoch");
-    const issueObjectId = migrated.issues[0]?.ref?.objectId;
-    const commentObjectId = migrated.issues[0]?.comments[0]?.ref?.objectId;
+    });
+    const seeded = await first.getRepository("epoch/epoch");
+    const issueObjectId = seeded.issues[0]?.ref?.objectId;
+    const commentObjectId = seeded.issues[0]?.comments[0]?.ref?.objectId;
     assert.ok(issueObjectId);
     assert.ok(commentObjectId);
-    assert.equal((await first.getObject(issueObjectId)).title, "Migrated");
+    assert.equal((await first.getObject(issueObjectId)).title, "Seeded");
     assert.equal((await first.listThreadRelations(commentObjectId)).parent?.objectId, issueObjectId);
     assert.equal(JSON.parse(readFileSync(persistencePath, "utf8")).schemaVersion, 3);
 
@@ -98,37 +95,6 @@ async function apiMigrationPreservesDataAndAssignsIdsOnce(): Promise<void> {
     assert.equal(reloaded.issues[0]?.ref?.objectId, issueObjectId);
     assert.equal(reloaded.issues[0]?.comments[0]?.ref?.objectId, commentObjectId);
     assert.equal(reloaded.issues[0]?.comments[0]?.body, "reply");
-  } finally {
-    rmSync(directory, { recursive: true, force: true });
-  }
-}
-
-async function savedViewIdentityMigratesOnce(): Promise<void> {
-  const directory = mkdtempSync(join(tmpdir(), "epoch-api-projection-kind-"));
-  const persistencePath = join(directory, "state.json");
-  try {
-    const projectionRef = { objectId: "projection-old", kind: "saved-view" };
-    writeFileSync(persistencePath, JSON.stringify({
-      schemaVersion: 2,
-      repositories: [],
-      objects: [{
-        ref: projectionRef,
-        context: { objectId: "channel-general", kind: "channel" },
-        authorId: "alice",
-        body: "projection definition",
-        publishedAt: "2026-08-11T00:00:00.000Z",
-        threadRoot: projectionRef,
-        relations: [],
-        state: "read",
-        aliases: ["old-projection"],
-      }],
-      projections: [],
-    }));
-    const first = createInMemoryCommunityApi({ persistencePath });
-    assert.equal((await first.getObject("projection-old")).ref.kind, "projection");
-    const persisted = JSON.parse(readFileSync(persistencePath, "utf8"));
-    assert.equal(persisted.entities[0].ref.kind, "projection");
-    assert.equal((await createInMemoryCommunityApi({ persistencePath }).getObject("projection-old")).ref.kind, "projection");
   } finally {
     rmSync(directory, { recursive: true, force: true });
   }
@@ -151,39 +117,10 @@ async function malformedPersistenceFailsAtBoundary(): Promise<void> {
   const directory = mkdtempSync(join(tmpdir(), "epoch-api-invalid-"));
   const persistencePath = join(directory, "state.json");
   try {
-    for (const malformed of [null, 7, [], {}]) {
+    for (const malformed of [null, 7, [], {}, { schemaVersion: 1, repositories: [] }, { schemaVersion: 2, repositories: [], objects: [], projections: [] }]) {
       writeFileSync(persistencePath, JSON.stringify(malformed));
       assert.throws(() => createInMemoryCommunityApi({ persistencePath }), /persistence|schema/u);
     }
-    for (const invalidMessage of [
-      { ...sampleMessage(), context: undefined },
-      { ...sampleMessage(), threadRoot: { objectId: "bad/id", kind: "message" } },
-      { ...sampleMessage(), inReplyTo: { objectId: "bad/id", kind: "message" } },
-    ]) {
-      writeFileSync(persistencePath, JSON.stringify({
-        schemaVersion: 2, repositories: [], objects: [invalidMessage], projections: [],
-      }));
-      assert.throws(() => createInMemoryCommunityApi({ persistencePath }), /persistence|reference|objectId/u);
-    }
-    writeFileSync(persistencePath, JSON.stringify({
-      schemaVersion: 2,
-      repositories: [{
-        ref: { objectId: "project-invalid", kind: "project" },
-        slug: "epoch/invalid",
-        displayName: "Invalid",
-        description: "",
-        visibility: "unexpected",
-        defaultView: "main",
-        maintainers: ["alice"],
-        topics: [],
-        issues: [],
-        changes: [],
-        discussions: [],
-      }],
-      objects: [],
-      projections: [],
-    }));
-    assert.throws(() => createInMemoryCommunityApi({ persistencePath }), /visibility/u);
   } finally {
     rmSync(directory, { recursive: true, force: true });
   }
@@ -266,6 +203,6 @@ function sampleMessage(): CommunityMessage {
     threadRoot: ref,
     relations: [],
     state: "needs-review",
-    aliases: ["legacy-message"],
+    aliases: ["seed-message"],
   };
 }
