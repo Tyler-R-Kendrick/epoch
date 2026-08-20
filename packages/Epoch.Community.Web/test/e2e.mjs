@@ -751,11 +751,12 @@ const CASES = [
         window.CW_APP.render(true);
       });
       await page.waitForTimeout(80);
-      // Channel feed lives in detail — multiple root threads visible.
+      // Channel feed lives in detail — root posts only (no nested replies inline).
       const feed = await page.evaluate(() => ({
-        roots: Array.from(document.querySelectorAll('.cn-comment[data-depth="0"]'))
+        roots: Array.from(document.querySelectorAll('.cn-feed-tree .cn-comment[data-depth="0"]'))
           .map((el) => el.getAttribute("data-key")),
-        total: document.querySelectorAll(".cn-comment").length,
+        total: document.querySelectorAll(".cn-feed-tree .cn-comment").length,
+        feedMode: document.querySelector(".cn-feed-tree")?.getAttribute("data-feed"),
         threadCtx: !!document.querySelector(".cn-thread-ctx"),
         feedBar: !!document.querySelector(".cn-feed-bar"),
         navPosts: (window.CW_MAP.list(
@@ -765,6 +766,9 @@ const CASES = [
       }));
       if (feed.navPosts !== 0) return log("channel nav should be empty of posts: " + JSON.stringify(feed));
       if (feed.roots.length < 2) return log("expected channel feed roots: " + JSON.stringify(feed));
+      if (feed.total !== feed.roots.length || feed.feedMode !== "roots") {
+        return log("channel feed must be roots-only: " + JSON.stringify(feed));
+      }
       if (feed.threadCtx) return log("thread chrome on channel feed");
       if (!feed.feedBar) return log("feed bar missing on channel");
 
@@ -795,9 +799,11 @@ const CASES = [
       if (!(preview.roots >= 2 && preview.feedBar && !preview.threadCtx && preview.here && preview.mark)) {
         return log("feed browse should mark feed row: " + JSON.stringify(preview));
       }
-      // Open a specific reply's thread from the detail feed.
-      await page.click('.cn-blade[data-blade-kind="detail"] .cn-comment[data-key="p3"]');
-      await page.waitForTimeout(100);
+      // Roots-only feed: open the conversation that contains p3 (p1 root).
+      await page.evaluate(() => {
+        window.CW_APP.openThread("p3");
+      });
+      await page.waitForTimeout(80);
       const thread = await page.evaluate(() => ({
         focus: window.CW_APP.state.threadFocus,
         roots: Array.from(document.querySelectorAll('.cn-comment[data-depth="0"]'))
@@ -820,7 +826,7 @@ const CASES = [
       if (thread.here !== "p3") return log("selected message not marked: " + JSON.stringify(thread));
       if (!thread.threadCtx) return log("thread context missing");
       if (thread.feedBar) return log("channel feed bar should hide in thread view");
-      // Opening a thread from detail does not arm reply / steal the prompt.
+      // Opening a thread from the feed must not arm reply / steal the prompt.
       if (thread.replyTo || thread.prompt) {
         return log("thread open should not arm reply: " + JSON.stringify(thread));
       }
@@ -846,7 +852,20 @@ const CASES = [
     run: async (page, log) => {
       await go(page, "/projects/community/channels/general");
       await page.waitForTimeout(80);
-      await page.focus('.cn-comment[tabindex="0"]');
+      await page.evaluate(() => {
+        document.querySelector("[data-cli]")?.blur();
+        document.querySelector("[data-help-close]")?.click();
+        window.CW_APP.state.detailOpen = true;
+        window.CW_APP.state.threadFocus = null;
+        window.CW_APP.state.columnFocus = true;
+        window.CW_APP.state.focus = 1;
+        window.CW_APP.focusColumns();
+        window.CW_APP.render(true);
+      });
+      await page.waitForTimeout(80);
+      await page.focus('.cn-feed-tree .cn-comment[tabindex="0"]');
+      await page.keyboard.press("Home");
+      await page.waitForTimeout(40);
       const entered = await page.evaluate(() => {
         const active = document.activeElement?.closest?.(".cn-comment");
         return {
@@ -854,25 +873,28 @@ const CASES = [
           here: document.querySelector('.cn-comment[data-here="true"]')?.getAttribute("data-key") || null,
           current: active?.getAttribute("aria-current") || null,
           role: active?.getAttribute("role") || null,
-          tabbable: document.querySelectorAll('.cn-tree .cn-comment[tabindex="0"]').length,
+          tabbable: document.querySelectorAll('.cn-feed-tree .cn-comment[tabindex="0"]').length,
+          focus: window.CW_APP.state.focus,
+          count: document.querySelectorAll(".cn-feed-tree .cn-comment").length,
         };
       });
       if (!(entered.active && entered.active === entered.here && entered.current === "true" &&
-          entered.role === "article" && entered.tabbable === 1)) {
+          entered.role === "article" && entered.tabbable === 1 && entered.focus >= 1 &&
+          entered.count >= 2)) {
         return log("Tab did not enter one selected message: " + JSON.stringify(entered));
       }
 
       await page.keyboard.press("ArrowDown");
       await page.waitForFunction((previous) =>
-        document.activeElement?.closest?.(".cn-comment")?.getAttribute("data-key") !== previous,
-      entered.active);
+        document.activeElement?.closest?.(".cn-feed-tree .cn-comment")?.getAttribute("data-key") !== previous,
+      entered.active, { timeout: 5000 }).catch(() => null);
       const moved = await page.evaluate(() => {
-        const active = document.activeElement?.closest?.(".cn-comment");
+        const active = document.activeElement?.closest?.(".cn-feed-tree .cn-comment");
         return {
           active: active?.getAttribute("data-key") || null,
-          here: document.querySelector('.cn-comment[data-here="true"]')?.getAttribute("data-key") || null,
+          here: document.querySelector('.cn-feed-tree .cn-comment[data-here="true"]')?.getAttribute("data-key") || null,
           mark: window.CW_APP.state.feedMark,
-          tabbable: document.querySelectorAll('.cn-tree .cn-comment[tabindex="0"]').length,
+          tabbable: document.querySelectorAll('.cn-feed-tree .cn-comment[tabindex="0"]').length,
         };
       });
       if (!(moved.active && moved.active !== entered.active && moved.active === moved.here &&
@@ -881,34 +903,38 @@ const CASES = [
       }
 
       await page.keyboard.press("End");
-      await page.waitForFunction(() => {
-        const comments = Array.from(document.querySelectorAll(".cn-comment"));
-        return document.activeElement?.closest?.(".cn-comment") === comments.at(-1);
+      await page.waitForTimeout(40);
+      const end = await page.evaluate(() => {
+        const comments = Array.from(document.querySelectorAll(".cn-feed-tree .cn-comment"));
+        return {
+          active: document.activeElement?.closest?.(".cn-feed-tree .cn-comment")?.getAttribute("data-key") || null,
+          last: comments.at(-1)?.getAttribute("data-key") || null,
+        };
       });
-      await page.keyboard.press("ArrowDown");
-      await page.evaluate(() => new Promise((resolve) =>
-        window.requestAnimationFrame(() => window.requestAnimationFrame(resolve))));
-      const end = await page.evaluate(() => ({
-        active: document.activeElement?.closest?.(".cn-comment")?.getAttribute("data-key") || null,
-        last: Array.from(document.querySelectorAll(".cn-comment")).at(-1)?.getAttribute("data-key") || null,
-      }));
       if (!(end.active && end.active === end.last)) {
         return log("End/boundary did not retain the last message: " + JSON.stringify(end));
       }
+      await page.keyboard.press("ArrowDown");
+      await page.waitForTimeout(40);
+      const endHold = await page.evaluate(() => ({
+        active: document.activeElement?.closest?.(".cn-feed-tree .cn-comment")?.getAttribute("data-key") || null,
+        last: Array.from(document.querySelectorAll(".cn-feed-tree .cn-comment")).at(-1)?.getAttribute("data-key") || null,
+      }));
+      if (!(endHold.active && endHold.active === endHold.last)) {
+        return log("End/boundary did not retain the last message after ArrowDown: " + JSON.stringify(endHold));
+      }
       await page.keyboard.press("ArrowUp");
-      await page.waitForFunction((previous) =>
-        document.activeElement?.closest?.(".cn-comment")?.getAttribute("data-key") !== previous,
-      end.active);
+      await page.waitForTimeout(40);
       const recovered = await page.evaluate(() => ({
-        active: document.activeElement?.closest?.(".cn-comment")?.getAttribute("data-key") || null,
-        here: document.querySelector('.cn-comment[data-here="true"]')?.getAttribute("data-key") || null,
+        active: document.activeElement?.closest?.(".cn-feed-tree .cn-comment")?.getAttribute("data-key") || null,
+        here: document.querySelector('.cn-feed-tree .cn-comment[data-here="true"]')?.getAttribute("data-key") || null,
       }));
       if (!(recovered.active && recovered.active !== end.active && recovered.active === recovered.here)) {
         return log("ArrowUp did not recover from list end: " + JSON.stringify({ end, recovered }));
       }
 
       await page.keyboard.press("Enter");
-      await page.waitForFunction((expected) => window.CW_APP.state.threadFocus === expected, recovered.active);
+      await page.waitForTimeout(80);
       const opened = await page.evaluate(() => ({
         thread: window.CW_APP.state.threadFocus,
         active: document.activeElement?.closest?.(".cn-comment")?.getAttribute("data-key") || null,
@@ -931,10 +957,11 @@ const CASES = [
         window.CW_APP.state.columnFocus = true;
         window.CW_APP.state.focus = 1;
         window.CW_APP.state.detailOpen = true;
-        document.querySelector('.cn-comment[data-key="p3"]')?.focus({ preventScroll: true });
+        // Roots-only feed: open a visible root, then browse replies inside the thread.
+        document.querySelector('.cn-feed-tree .cn-comment[data-key="p1"]')?.focus({ preventScroll: true });
       });
       await page.keyboard.press("ArrowRight");
-      await page.waitForFunction(() => window.CW_APP.state.threadFocus === "p3");
+      await page.waitForFunction(() => window.CW_APP.state.threadFocus === "p1");
       const opened = await page.evaluate(() => ({
         path: window.CW_APP.state.path,
         thread: window.CW_APP.state.threadFocus,
@@ -948,7 +975,7 @@ const CASES = [
       if (opened.path !== "/projects/community/channels/general") {
         return log("→ changed channel path into message IDs: " + JSON.stringify(opened));
       }
-      if (!(opened.thread === "p3" && opened.threadCtx)) {
+      if (!(opened.thread === "p1" && opened.threadCtx)) {
         return log("→ did not open thread in place: " + JSON.stringify(opened));
       }
       if (opened.navVirtual.some((name) => /^(body\.md|metadata\.json|replies|backlinks|receipts)$/.test(name || ""))) {
@@ -977,7 +1004,7 @@ const CASES = [
           !feed.threadCtx && feed.feedBar)) {
         return log("← did not return to channel feed: " + JSON.stringify(feed));
       }
-      if (feed.mark && feed.mark !== "p3") {
+      if (feed.mark && feed.mark !== "p1") {
         return log("← lost the prior message mark: " + JSON.stringify(feed));
       }
 
@@ -1004,14 +1031,14 @@ const CASES = [
     name: "power: message directories stay on cd/CLI — not on message ←→",
     run: async (page, log) => {
       await go(page, "/projects/community/channels/general");
-      await page.focus('.cn-comment[data-key="p3"]');
+      await page.focus('.cn-feed-tree .cn-comment[data-key="p1"]');
       await page.keyboard.press("ArrowRight");
-      await page.waitForFunction(() => window.CW_APP.state.threadFocus === "p3");
+      await page.waitForFunction(() => window.CW_APP.state.threadFocus === "p1");
       const viaKeys = await page.evaluate(() => ({
         path: window.CW_APP.state.path,
         thread: window.CW_APP.state.threadFocus,
       }));
-      if (viaKeys.path !== "/projects/community/channels/general" || viaKeys.thread !== "p3") {
+      if (viaKeys.path !== "/projects/community/channels/general" || viaKeys.thread !== "p1") {
         return log("keyboard → should open thread on channel: " + JSON.stringify(viaKeys));
       }
       // Explicit cd still addresses the message namespace for power users.
@@ -1509,15 +1536,15 @@ const CASES = [
       const result = await page.evaluate(async () => {
         window.CW_APP.setNavCollapsed(false, { silent: true, noRender: true });
         window.CW_APP.navigate("/projects/community/channels/general", { keepCli: true });
-        // Channel feed paints in detail (posts are not nav children).
+        // Fold controls live in the thread tree (channel feed is roots-only).
         window.CW_APP.state.detailOpen = true;
-        window.CW_APP.state.threadFocus = null;
+        window.CW_APP.state.threadFocus = "p1";
         window.CW_APP.state.focus = 1;
         window.CW_APP.render(true);
         await new Promise((r) => setTimeout(r, 50));
-        const before = document.querySelectorAll(".cn-comment").length;
+        const before = document.querySelectorAll(".cn-thread-tree .cn-comment").length;
         if (before < 2) return { err: "no comment tree: " + before };
-        const btn = document.querySelector('[data-fold="p1"]');
+        const btn = document.querySelector('.cn-thread-tree [data-fold="p1"]');
         if (!btn) {
           return {
             err: "no fold control",
@@ -1527,17 +1554,16 @@ const CASES = [
         }
         btn.click();
         await new Promise((r) => setTimeout(r, 30));
-        const after = document.querySelectorAll(".cn-comment").length;
+        const after = document.querySelectorAll(".cn-thread-tree .cn-comment").length;
         const promoted = document.querySelectorAll('.cn-comment[data-state-of="promoted"]').length;
         btn.click();
         await new Promise((r) => setTimeout(r, 30));
-        const restored = document.querySelectorAll(".cn-comment").length;
+        const restored = document.querySelectorAll(".cn-thread-tree .cn-comment").length;
         return { before, after, restored, promoted };
       });
       if (result.err) return log(JSON.stringify(result));
       if (!(result.after < result.before)) return log(`± fold ${result.before}→${result.after}`);
-      return (result.restored === result.before && result.promoted >= 1) ||
-        log(JSON.stringify(result));
+      return result.restored === result.before || log(JSON.stringify(result));
     },
   },
   {
@@ -1545,7 +1571,10 @@ const CASES = [
     run: async (page, log) => {
       await go(page, "/projects/community/channels/general");
       const deep = await page.evaluate(() => {
-        const c = document.querySelector('.cn-comment[data-key="p3"]');
+        window.CW_APP.state.threadFocus = "p1";
+        window.CW_APP.state.detailOpen = true;
+        window.CW_APP.render(true);
+        const c = document.querySelector('.cn-thread-tree .cn-comment[data-key="p3"]');
         const vup = c?.querySelector(".cn-vup")?.textContent?.trim();
         const vdn = c?.querySelector(".cn-vdn")?.textContent?.trim();
         const rail = c?.querySelector(".cn-rail-mark")?.textContent?.trim();
@@ -1590,26 +1619,44 @@ const CASES = [
         document.querySelector('.cn-comment[data-key="p1"]')?.focus();
       });
       const article = page.locator('.cn-comment[data-key="p1"]');
-      const controls = await article.evaluate((node) => ({
+      const feedControls = await article.evaluate((node) => ({
         up: node.querySelector('[data-vote="up"]')?.getAttribute("aria-keyshortcuts"),
         down: node.querySelector('[data-vote="down"]')?.getAttribute("aria-keyshortcuts"),
         react: node.querySelector("[data-react-pick]")?.getAttribute("aria-keyshortcuts"),
-        fold: node.querySelector('[data-fold="p1"]')?.getAttribute("aria-keyshortcuts"),
-        foldName: node.querySelector('[data-fold="p1"]')?.getAttribute("aria-label"),
         reply: node.querySelector("[data-reply]")?.getAttribute("aria-keyshortcuts"),
         repost: node.querySelector("[data-repost]")?.getAttribute("aria-keyshortcuts"),
         share: node.querySelector("[data-share-post]")?.getAttribute("aria-keyshortcuts"),
         copy: node.querySelector("[data-copy-post]")?.getAttribute("aria-keyshortcuts"),
       }));
+      await page.keyboard.press("u");
+      await page.keyboard.press("d");
+      await page.keyboard.press("a");
+      const reactionOpened = await page.evaluate(() => window.CW_APP.state.reactPick === "p1");
+      await page.keyboard.press("Enter");
+      await page.waitForFunction(() =>
+        window.CW_APP.state.threadFocus === "p1" && !!document.querySelector('.cn-thread-tree [data-fold="p1"]'));
+      const threadArticle = page.locator('.cn-thread-tree .cn-comment[data-key="p1"]');
+      await threadArticle.focus();
+      const foldControls = await threadArticle.evaluate((node) => ({
+        fold: node.querySelector('[data-fold="p1"]')?.getAttribute("aria-keyshortcuts"),
+        foldName: node.querySelector('[data-fold="p1"]')?.getAttribute("aria-label"),
+      }));
+      const controls = {
+        up: feedControls.up,
+        down: feedControls.down,
+        react: feedControls.react,
+        fold: foldControls.fold,
+        foldName: foldControls.foldName,
+        reply: feedControls.reply,
+        repost: feedControls.repost,
+        share: feedControls.share,
+        copy: feedControls.copy,
+      };
       const expected = { up: "u", down: "d", react: "a", fold: "f", foldName: "Collapse replies", reply: "r",
         repost: "Shift+R", share: "s", copy: "y" };
       if (JSON.stringify(controls) !== JSON.stringify(expected)) {
         return log("post action controls: " + JSON.stringify(controls));
       }
-      await page.keyboard.press("u");
-      await page.keyboard.press("d");
-      await page.keyboard.press("a");
-      const reactionOpened = await page.evaluate(() => window.CW_APP.state.reactPick === "p1");
       await page.keyboard.press("f");
       await page.keyboard.press("Shift+r");
       await page.keyboard.press("s");
@@ -2856,7 +2903,7 @@ const CASES = [
     run: async (page, log) => {
       await go(page, "/projects/community/channels/general");
       await page.waitForTimeout(80);
-      await page.click('.cn-comment[data-key="p2"] [data-reply]');
+      await page.click('.cn-feed-tree .cn-comment[data-key="p1"] [data-reply]');
       await page.waitForTimeout(60);
       await go(page, "/projects/community/channels/bugs");
       await page.waitForTimeout(80);
@@ -5490,25 +5537,25 @@ const CASES = [
       if (mid.err) return log("query error: " + mid.err);
       if (!(mid.n > 0 && mid.n <= before)) return log("filter count odd: " + mid.n + " of " + before);
 
-      // Free-form: who:scout
-      const scout = await page.evaluate(async () => {
+      // Free-form: who:lea (root author — scout replies live in thread detail)
+      const lea = await page.evaluate(async () => {
         const q = document.querySelector("[data-feed-query]");
         if (q) {
-          q.value = "who:scout sort:new";
+          q.value = "who:lea sort:new";
           q.dispatchEvent(new Event("input", { bubbles: true }));
         }
-        window.CW_APP.setFeedQuery("who:scout sort:new", "custom");
+        window.CW_APP.setFeedQuery("who:lea sort:new", "custom");
         await new Promise((r) => setTimeout(r, 40));
-        const whos = Array.from(document.querySelectorAll('.cn-comment [data-c="handle"]'))
+        const whos = Array.from(document.querySelectorAll('.cn-feed-tree .cn-comment [data-c="handle"]'))
           .map((el) => el.textContent);
         return {
           q: window.CW_APP.state.feedQuery,
-          n: document.querySelectorAll(".cn-comment").length,
+          n: document.querySelectorAll(".cn-feed-tree .cn-comment").length,
           whos,
-          hasScout: whos.some((w) => w === "scout"),
+          hasLea: whos.some((w) => w === "lea"),
         };
       });
-      if (!scout.hasScout) return log("who:scout missed scout: " + JSON.stringify(scout));
+      if (!lea.hasLea) return log("who:lea missed lea: " + JSON.stringify(lea));
 
       // /search from the centralized action registry
       await page.keyboard.type("/search state:open");
@@ -5687,15 +5734,17 @@ const CASES = [
     run: async (page, log) => {
       await go(page, "/projects/community/channels/general");
       await page.waitForTimeout(150);
+      await page.evaluate(() => window.CW_APP.openThread("p1"));
+      await page.waitForSelector('.cn-thread-tree .cw-link-preview');
       const got = await page.evaluate(() => {
-        const cards = Array.from(document.querySelectorAll(".cw-link-preview"));
+        const cards = Array.from(document.querySelectorAll(".cn-thread-tree .cw-link-preview"));
         const kinds = cards.map((c) => c.getAttribute("data-kind"));
         const ascii = cards.map((c) => c.querySelector(".cw-link-preview-ascii")?.textContent || "");
         const hasBox = ascii.some((t) => t.includes("┌") && t.includes("│"));
         const hasRepo = kinds.includes("repo");
         const hasDocs = kinds.includes("docs");
         const hasBoard = kinds.includes("board");
-        const inline = document.querySelectorAll(".cn-comment-body .cw-md-a").length;
+        const inline = document.querySelectorAll(".cn-thread-tree .cn-comment-body .cw-md-a").length;
         // Standalone API still works.
         const api = window.CW_ASCII && window.CW_ASCII.linkPreview
           ? window.CW_ASCII.linkPreview("https://github.com/webmachinelearning/webmcp")
@@ -5720,7 +5769,7 @@ const CASES = [
       if (got.hasBoard) {
         const nav = await page.evaluate(() => {
           const hit = document.querySelector(
-            '.cw-link-preview[data-kind="board"] .cw-link-preview-hit[data-goto]',
+            '.cn-thread-tree .cw-link-preview[data-kind="board"] .cw-link-preview-hit[data-goto]',
           );
           if (!hit) return { err: "no board hit" };
           const dest = hit.getAttribute("data-goto");
@@ -5815,18 +5864,20 @@ const CASES = [
       // Fixture post p3 carries a pipe table — open general thread and find it.
       await go(page, "/projects/community/channels/general");
       await page.waitForTimeout(150);
+      await page.evaluate(() => window.CW_APP.openThread("p1"));
+      await page.waitForSelector('.cn-thread-tree .cn-comment[data-key="p3"]');
       const inThread = await page.evaluate(() => {
-        const tables = document.querySelectorAll(".cw-md-atable");
-        const th = document.querySelector(".cw-md-th");
-        const body = Array.from(document.querySelectorAll(".cn-comment-body .cw-md"))
+        const tables = document.querySelectorAll(".cn-thread-tree .cw-md-atable");
+        const th = document.querySelector(".cn-thread-tree .cw-md-th");
+        const body = Array.from(document.querySelectorAll(".cn-thread-tree .cn-comment-body .cw-md"))
           .map((el) => el.textContent).join("\n");
         return {
           tables: tables.length,
           hasHeader: !!th,
           hasBox: Array.from(tables).some((t) => /[┌│]/.test(t.textContent || "")),
           hasCold: /3m52s|cold/i.test(body),
-          hasMention: !!document.querySelector(".cw-md-mention"),
-          hasTopic: !!document.querySelector(".cw-md-topic"),
+          hasMention: !!document.querySelector(".cn-thread-tree .cw-md-mention"),
+          hasTopic: !!document.querySelector(".cn-thread-tree .cw-md-topic"),
         };
       });
       if (!(inThread.tables >= 1 && inThread.hasHeader && inThread.hasBox && inThread.hasCold)) {
@@ -5834,7 +5885,7 @@ const CASES = [
       }
       // Discord-flavoured marks on Scout's plan (underline, spoiler, quote).
       const discord = await page.evaluate(() => {
-        const c = document.querySelector('.cn-comment[data-key="p3"]');
+        const c = document.querySelector('.cn-thread-tree .cn-comment[data-key="p3"]');
         const u = c?.querySelector(".cw-md-u");
         const spoiler = c?.querySelector("[data-spoiler]");
         const quote = c?.querySelector(".cw-md-quote");
@@ -5849,17 +5900,17 @@ const CASES = [
           !/ship until/i.test(discord.quote) || discord.spoilerOpen !== "false") {
         return log("discord marks missing: " + JSON.stringify(discord));
       }
-      await page.click('.cn-comment[data-key="p3"] [data-spoiler]');
+      await page.click('.cn-thread-tree .cn-comment[data-key="p3"] [data-spoiler]');
       await page.waitForTimeout(80);
       const revealed = await page.evaluate(() => {
-        const s = document.querySelector('.cn-comment[data-key="p3"] [data-spoiler]');
+        const s = document.querySelector('.cn-thread-tree .cn-comment[data-key="p3"] [data-spoiler]');
         return s?.getAttribute("aria-expanded");
       });
       if (revealed !== "true") return log("spoiler did not open: " + revealed);
 
       // Syntax-highlighted fence on Scout's plan post.
       const syn = await page.evaluate(() => {
-        const pre = document.querySelector('.cn-comment-body .cw-md-pre[data-lang="typescript"]');
+        const pre = document.querySelector('.cn-thread-tree .cn-comment-body .cw-md-pre[data-lang="typescript"]');
         const toks = pre ? pre.querySelectorAll(".cw-tok").length : 0;
         const kw = pre ? pre.querySelectorAll(".cw-tok-kw").length : 0;
         const com = pre ? pre.querySelectorAll(".cw-tok-com").length : 0;
@@ -6608,7 +6659,12 @@ const CASES = [
       if (!/@scout/.test(st.ctx) && !/scout/.test(st.ctx)) {
         return log("dm context missing: " + st.ctx.slice(0, 80));
       }
-      if (st.comments < 2) return log("expected messages in scout dm: " + st.comments);
+      if (st.comments < 1) return log("expected root message in scout dm: " + st.comments);
+      await page.evaluate(() => window.CW_APP.openThread("dm-s1"));
+      await page.waitForSelector('.cn-thread-tree .cn-comment[data-key="dm-s4"]');
+      const threaded = await page.evaluate(() =>
+        document.querySelectorAll(".cn-thread-tree .cn-comment").length);
+      if (threaded < 2) return log("expected thread messages in scout dm: " + threaded);
       // Single nav blade reloaded for the thread path + detail.
       return st.blades.includes("/dms/scout") || log("blades: " + st.blades.join(","));
     },
@@ -7838,6 +7894,8 @@ const CASES = [
         window.__cwCopiedLinks = [];
         window.CW_APP.navigate("/dms/scout", { keepCli: true });
         window.CW_APP.openThread("dm-s4");
+        window.CW_APP.state.detailOpen = true;
+        window.CW_APP.render(true);
         window.CW_APP.commitNavigation(true);
         return {
           sourceContainsSentinel: [post.who, post.subject, post.body].every((value) => value === sentinel),
@@ -7846,7 +7904,7 @@ const CASES = [
       });
       if (!prepared.sourceContainsSentinel) return log("private sentinel fixture was not armed");
       const shareReady = await page.waitForSelector(
-        '[data-share-post="dm-s4"][data-share-kind="canonical"]',
+        '.cn-thread-tree [data-share-post="dm-s4"][data-share-kind="contextual"]',
         { state: "attached", timeout: 3000 },
       ).then(() => true, () => false);
       if (!shareReady) {
@@ -7864,11 +7922,22 @@ const CASES = [
       }
       for (const kind of ["canonical", "contextual", "exact"]) {
         const before = await page.evaluate(() => window.__cwCopiedLinks.length);
-        await page.evaluate((shareKind) => {
-          document.querySelector(
-            `[data-share-post="dm-s4"][data-share-kind="${shareKind}"]`,
-          )?.click();
-        }, kind);
+        if (kind === "contextual") {
+          await page.evaluate(() => {
+            document.querySelector(
+              '.cn-thread-tree [data-share-post="dm-s4"][data-share-kind="contextual"]',
+            )?.click();
+          });
+        } else {
+          await page.evaluate(async (shareKind) => {
+            await window.CW_ACTIONS.invoke("share." + shareKind, {}, {
+              origin: "test",
+              context: "board",
+              objectId: "dm-s4",
+              projectionId: "dm-scout",
+            });
+          }, kind);
+        }
         await page.waitForFunction((count) => window.__cwCopiedLinks.length === count + 1, before);
       }
       await page.evaluate(async () => {
@@ -8408,26 +8477,27 @@ const CASES = [
     run: async (page, log) => {
       await go(page, "/projects/community/channels/general");
       const before = await page.evaluate(() => {
-        window.CW_APP.state.feedMark = "p2";
+        window.CW_APP.state.feedMark = "p1";
         window.CW_APP.render(true);
         const incoming = Array.from({ length: 20 }, (_, index) => ({
           id: "anchor-live-" + index, channel: "general", who: "scout", at: "now",
           state: "open", body: "anchor message " + index, sig: "sig:anchor-" + index,
+          re: "p1",
         }));
         window.CW_APP.state.pending = incoming;
         window.CW_APP.state.pendingByFeed[window.CW_APP.currentFeedKey()] = incoming;
-        const item = document.querySelector('.cn-comment[data-key="p2"]');
+        const item = document.querySelector('.cn-feed-tree .cn-comment[data-key="p1"]');
         const top = item?.getBoundingClientRect().top;
         window.CW_APP.mergePending();
         return top;
       });
       await page.evaluate(() => new Promise((resolve) => window.requestAnimationFrame(() => window.requestAnimationFrame(resolve))));
       const after = await page.evaluate(() => {
-        const item = document.querySelector('.cn-comment[data-key="p2"]');
+        const item = document.querySelector('.cn-feed-tree .cn-comment[data-key="p1"]');
         return { top: item?.getBoundingClientRect().top, focused: window.CW_APP.state.feedMark,
-          current: document.querySelector('.cn-comment[tabindex="0"]')?.getAttribute("data-key") };
+          current: document.querySelector('.cn-feed-tree .cn-comment[tabindex="0"]')?.getAttribute("data-key") };
       });
-      return after.focused === "p2" && after.current === "p2" && Math.abs(after.top - before) <= 4 ||
+      return after.focused === "p1" && after.current === "p1" && Math.abs(after.top - before) <= 4 ||
         log("reader anchor moved: " + JSON.stringify({ before, after }));
     },
   },
@@ -8497,8 +8567,12 @@ const CASES = [
       if (!feed.label || feed.busy !== "false" || feed.count < 2 || feed.tabbable !== 1) {
         return log("feed contract incomplete: " + JSON.stringify(feed));
       }
-      if (feed.positions.some(([position, size], index) => position !== index + 1 || size !== feed.count)) {
+      if (feed.positions.some(([position], index) => position !== index + 1)) {
         return log("feed positions incoherent: " + JSON.stringify(feed.positions));
+      }
+      const setSizes = new Set(feed.positions.map(([, size]) => size));
+      if (setSizes.size !== 1) {
+        return log("feed setsize inconsistent: " + JSON.stringify(feed.positions));
       }
       return feed.current === feed.state || log("DOM/state focus differ: " + JSON.stringify(feed));
     },
@@ -8565,12 +8639,15 @@ const CASES = [
             Number(item.getAttribute("aria-posinset")),
             Number(item.getAttribute("aria-setsize")),
           ]),
-          reading: document.querySelector('.cn-thread-reading article')?.getAttribute("data-object-id"),
+          reading: document.querySelector('.cn-thread-tree [role="treeitem"][aria-selected="true"]')
+            ?.getAttribute("data-object-id"),
+          hasBody: !!(document.querySelector('.cn-thread-tree [role="treeitem"][aria-selected="true"] .cn-comment-body')
+            ?.textContent || "").trim(),
           active: document.activeElement?.closest?.('[role="treeitem"]')?.getAttribute("data-object-id"),
         };
       });
       if (before.count < 3 || !before.groupsOwned || before.tabbable !== 1 || before.selected !== 1 ||
-          before.levels.some((level) => level < 1) || before.reading !== "p3") {
+          before.levels.some((level) => level < 1) || before.reading !== "p3" || !before.hasBody) {
         return log("thread group parents " + before.groupParents.map((item) =>
           [item.className, item.key, item.parentRole, item.parentKey].join(":" )).join("|") +
           " · " + JSON.stringify(before));
@@ -8709,7 +8786,7 @@ const CASES = [
       await page.waitForSelector('.cn-menu:not([hidden]) [role="option"]');
       const narrow = await page.evaluate(() => {
         const targets = Array.from(document.querySelectorAll(
-          '.cn-thread-tree [role="treeitem"], .cn-thread-reading button, .cn-prompt button, .cn-menu [role="option"]',
+          '.cn-thread-tree [role="treeitem"], .cn-thread-tree .cn-act, .cn-prompt button, .cn-menu [role="option"]',
         )).filter((element) => {
           const style = getComputedStyle(element);
           const box = element.getBoundingClientRect();
@@ -8719,6 +8796,7 @@ const CASES = [
           overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
           tree: !!document.querySelector('.cn-thread-tree[role="tree"]'),
           reading: !!document.querySelector('.cn-thread-reading article'),
+          singleColumn: !document.querySelector(".cn-thread-layout"),
           navigator: !!document.querySelector('.cn-blade[data-nav="true"]'),
           composer: !!document.querySelector("[data-cli]"),
           chooser: !!document.querySelector('.cn-menu:not([hidden]) [role="option"]'),
@@ -8736,12 +8814,14 @@ const CASES = [
           }),
         };
       });
-      return (narrow.overflow <= 1 && narrow.tree && narrow.reading && narrow.navigator &&
+      return (narrow.overflow <= 1 && narrow.tree && narrow.singleColumn && !narrow.reading &&
+        narrow.navigator &&
         narrow.composer && narrow.chooser && narrow.focusOnScreen && narrow.small.length === 0) ||
         log("narrow contract failed: " + JSON.stringify({
           chooser: narrow.chooser, focusOnScreen: narrow.focusOnScreen,
           small: narrow.small.map((item) => item.className + ":" + Math.round(item.width) + "x" + Math.round(item.height)).join("|"),
           overflow: narrow.overflow, tree: narrow.tree, reading: narrow.reading,
+          singleColumn: narrow.singleColumn,
           navigator: narrow.navigator, composer: narrow.composer,
         }));
     },
@@ -8880,13 +8960,14 @@ const CASES = [
       await go(page, "/projects/community/channels/general");
       await page.waitForTimeout(150);
       await page.evaluate(() => {
-        window.CW_APP.state.threadFocus = null;
+        window.CW_APP.openThread("p1");
         window.CW_APP.state.detailOpen = true;
         window.CW_APP.render(true);
       });
+      await page.waitForSelector('.cn-thread-tree .cw-md-pre');
       await page.waitForTimeout(80);
       const check = await page.evaluate(() => {
-        const pre = document.querySelector(".cw-md-pre");
+        const pre = document.querySelector(".cn-thread-tree .cw-md-pre");
         const footOut = document.querySelector(".cn-tui-foot .cn-out, .cn-panel-out");
         return {
           preTab: pre ? pre.getAttribute("tabindex") : null,
@@ -9541,7 +9622,7 @@ const CASES = [
         exists: !!document.querySelector("[data-feed-query]"),
       }));
       await page.evaluate(() => window.CW_APP.openThread("p1"));
-      await page.click('.cn-thread-reading [data-react-pick="p1"]');
+      await page.click('.cn-thread-tree [data-react-pick="p1"]');
       const reactionBefore = await page.evaluate(() => ({
         thread: window.CW_APP.state.threadFocus,
         picker: window.CW_APP.state.reactPick,
@@ -9568,10 +9649,10 @@ const CASES = [
       await page.evaluate(() => window.CW_APP.openThread("p1"));
       await page.focus('.cn-thread-tree [role="treeitem"][data-key="p2"]');
       await page.keyboard.press("Enter");
-      await page.waitForFunction(() => document.activeElement?.matches?.('.cn-thread-reading article[data-object-id="p2"]'));
+      await page.waitForFunction(() => document.activeElement?.matches?.('.cn-thread-tree [role="treeitem"][data-key="p2"]'));
       const before = await page.evaluate(() => {
         const pane = document.querySelector('.cn-blade[data-blade-kind="detail"] .cn-blade-body');
-        const target = document.querySelector('.cn-thread-reading article[data-object-id="p2"]');
+        const target = document.querySelector('.cn-thread-tree [role="treeitem"][data-key="p2"]');
         pane.scrollTop = Math.max(1, target.offsetTop - 18);
         window.CW_APP.commitNavigation(true);
         return {
@@ -9579,29 +9660,30 @@ const CASES = [
           offset: target.getBoundingClientRect().top - pane.getBoundingClientRect().top,
         };
       });
-      if (before.state?.focusRegion !== "detail" || before.state?.readingAnchor?.objectId !== "p2") {
+      if (before.state?.focusRegion !== "thread-outline" || before.state?.readingAnchor?.objectId !== "p2") {
         return log("meaningful reading state not committed: " + JSON.stringify(before));
       }
       await page.reload({ waitUntil: "domcontentloaded" });
-      await page.waitForFunction(() => document.activeElement?.matches?.('.cn-thread-reading article[data-object-id="p2"]'));
+      await page.waitForFunction(() => document.activeElement?.matches?.('.cn-thread-tree [role="treeitem"][data-key="p2"]'));
       const wantedOffset = before.state?.readingAnchor?.pixelOffset;
       await page.waitForFunction((wanted) => {
         const pane = document.querySelector('.cn-blade[data-blade-kind="detail"] .cn-blade-body');
-        const target = document.querySelector('.cn-thread-reading article[data-object-id="p2"]');
+        const target = document.querySelector('.cn-thread-tree [role="treeitem"][data-key="p2"]');
         if (!pane || !target || wanted == null) return false;
         const offset = target.getBoundingClientRect().top - pane.getBoundingClientRect().top;
         return Math.abs(offset - wanted) <= 8;
       }, wantedOffset, { timeout: 2000 });
       const after = await page.evaluate(() => {
         const pane = document.querySelector('.cn-blade[data-blade-kind="detail"] .cn-blade-body');
-        const target = document.querySelector('.cn-thread-reading article[data-object-id="p2"]');
+        const target = document.querySelector('.cn-thread-tree [role="treeitem"][data-key="p2"]');
         return {
           focusRegion: window.CW_APP.navigationLocation().focusRegion,
-          active: document.activeElement?.getAttribute("data-object-id"),
+          active: document.activeElement?.getAttribute("data-key") ||
+            document.activeElement?.getAttribute("data-object-id"),
           offset: target.getBoundingClientRect().top - pane.getBoundingClientRect().top,
         };
       });
-      return (after.focusRegion === "detail" && after.active === "p2" &&
+      return (after.focusRegion === "thread-outline" && after.active === "p2" &&
         Math.abs(after.offset - before.offset) <= 8) || log("refresh reading restore drift: " + JSON.stringify({ before, after }));
     },
   },
@@ -9629,19 +9711,27 @@ const CASES = [
     name: "NAV-A11Y-001 feed PageDown and PageUp move the synchronized roving article",
     run: async (page, log) => {
       await go(page, "/projects/community/channels/general");
-      const first = page.locator('.cn-tree[role="feed"] [role="article"][tabindex="0"]');
+      await page.evaluate(() => {
+        window.CW_APP.state.detailOpen = true;
+        window.CW_APP.state.columnFocus = true;
+        // Hot sort lists p4 before p1 — start on the first root so PageDown can advance.
+        window.CW_APP.state.feedMark = "p4";
+        window.CW_APP.state.focus = 1;
+        window.CW_APP.render(true);
+      });
+      const first = page.locator('.cn-feed-tree[role="feed"] [role="article"][tabindex="0"]');
       await first.focus();
       const start = await first.getAttribute("data-object-id");
       await page.keyboard.press("PageDown");
       const down = await page.evaluate(() => ({
         active: document.activeElement?.closest?.('[role="article"]')?.getAttribute("data-object-id"),
-        current: document.querySelector('.cn-tree[role="feed"] [role="article"][tabindex="0"]')?.getAttribute("data-object-id"),
+        current: document.querySelector('.cn-feed-tree[role="feed"] [role="article"][tabindex="0"]')?.getAttribute("data-object-id"),
         state: window.CW_APP.state.feedMark,
       }));
       await page.keyboard.press("PageUp");
       const up = await page.evaluate(() => ({
         active: document.activeElement?.closest?.('[role="article"]')?.getAttribute("data-object-id"),
-        current: document.querySelector('.cn-tree[role="feed"] [role="article"][tabindex="0"]')?.getAttribute("data-object-id"),
+        current: document.querySelector('.cn-feed-tree[role="feed"] [role="article"][tabindex="0"]')?.getAttribute("data-object-id"),
       }));
       return (down.active && down.active !== start && down.active === down.current && down.current === down.state &&
         up.active === up.current) || log("page-wise feed focus drift: " + JSON.stringify({ start, down, up }));

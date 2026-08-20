@@ -2,8 +2,8 @@
 set -eu
 
 # Strengthened local pre-commit gate (`npm run gate:commit`):
-#   - parallel static checks (konsistent, docs, design, ESLint, anti-slop Oxlint)
-#   - Community Web a11y lint (same check as the CI Lint job)
+#   - parallel static checks (konsistent, docs, designmd, design:audit, ESLint, Oxlint)
+#   - Community Web a11y lint + board design chrome lint (Bracket Rule / receipt chips)
 # Typecheck, build, unit, coverage, Pact, and e2e remain in `gate:push` /
 # `verify` and GitHub Actions until the anti-slop typecheck debt is cleared.
 #
@@ -14,5 +14,5 @@ fi
 
 git diff --cached --check
 
-echo "pre-commit: running gate:commit (parallel static + a11y lint)"
+echo "pre-commit: running gate:commit (design + a11y + design chrome lint)"
 npm run gate:commit

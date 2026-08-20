@@ -45,6 +45,7 @@ decisions, operations, or contribution workflow.
 | [Product Record](../PRODUCT.md) | Durable product truth — users (ranked), purpose, positioning, operating context, capabilities, constraints, and what must not be fabricated. Written by `impeccable init`; the input every design decision is checked against. |
 | [Community Web App Reference](community-web/README.md) | The one Community Web application ([ADR-0027](design-decisions/0027-community-visual-world.md)), built from `packages/Epoch.Community.Web`: CanvasUI creator landing at `/`, Tron/tmux-style keyboard-first board at `board.html`. Evidence under [`evidence/community-web-app/`](evidence/community-web-app/README.md). |
 | [Community Web Navigation/Projection Parity](evidence/community-web-app-navigation-projection-parity/README.md) | Executable evidence for stable object identity, mounted projections, explicit graph navigation, route restoration, shared actions, and APG feed/tree/combobox behavior. |
+| [Community Web Feed/Thread + Receipt Chrome](evidence/community-web-feed-thread-receipt/README.md) | Session evidence for roots-only feeds, single-column threads and Bracket Rule receipt locator gating. |
 | [Community Search/Projection Evidence](evidence/community-search-projection/README.md) | Status-indexed conformance, privacy, browser persistence, performance, and adversarial critique evidence; pending items are not pass claims. |
 | [Ten Directions (2026 redesign)](design-explorations/redesign-2026/README.md) | Ten candidate replacement design worlds for the product family, each a different information architecture, with a runtime picker for side-by-side review. |
 | [Design Explorations](design-explorations/00-foundation.md) | Ten candidate successor-experience design loops (philosophy, design system, hardened mockup, screenshot evidence) with the shared persona foundation and distinctness ledger. |
@@ -162,6 +163,7 @@ decisions, operations, or contribution workflow.
 | [XMPP Channel Fanout State](plans/xmpp-channel-fanout/sdlc-state.md) | Closed record for public-channel s2s fanout, Verify goldens, mutant kill, and chaos envelopes. |
 | [Test Lanes Honesty State](plans/test-lanes/sdlc-state.md) | Closed record for Verify goldens, Protocol mutant kill, honest lane inventory, and the 80% branch floor. |
 | [Anti-slop Oxlint Gates State](plans/anti-slop-oxlint-gates/sdlc-state.md) | Active record for vendored anti-slop Oxlint, clean baseline, and strengthened `gate:commit` hooks. |
+| [Community Web Feed/Thread Nav State](plans/community-web-feed-thread-nav/sdlc-state.md) | Session record for roots-only feeds, single-column threads and receipt chrome lint. |
 | [Epoch Skill](../skills/epoch/SKILL.md) | Compact wiki for agents operating on the repository. |
 | [Gauntlet Loop Skill](../skills/gauntlet-loop/README.md) | Durable, spec-grounded improvement campaigns with auditable promotion gates. |
 | [AI Subscription And Automation Strategy](ai-automation-strategy.md) | Audit of connected AI subscriptions versus what the repository actually uses, with a sequenced plan for CI, agent configuration, persona fan-out, and product telemetry. |

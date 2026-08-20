@@ -398,8 +398,11 @@ A Community Web, API, Core, CLI, or workflow change is not ready until it has:
   and portability;
 - **an adversarial persona design critique** (template above) with zero open
   automatic-fail conditions;
-- **DESIGN.md conformance** for any visual change (`npm run design:lint` when
-  tokens change; visual check against named rules when shell CSS changes);
+- **DESIGN.md conformance** for any visual change (`npm run design:lint` /
+  `npm run community-web:app:design-lint` — the latter fails closed on bare
+  native buttons and Bracket Rule gaps in board chrome; both run in
+  `gate:commit`);
+  visual check against named rules when shell CSS changes;
 - updated [agent instructions](../AGENTS.md), [documentation freshness](documentation-freshness.md), and [Epoch skill](../skills/epoch/SKILL.md) references when the design method or agent workflow changes.
 
 ## Definition Of Done For Feature Specs

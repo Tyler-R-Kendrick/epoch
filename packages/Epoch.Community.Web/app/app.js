@@ -2956,13 +2956,11 @@
   var navigationRevision = "";
 
   function readingAnchorTarget(objectId, focusRegion) {
-    var selector = focusRegion === "detail"
-      ? ".cn-thread-reading article[data-object-id], .cn-thread-reading [data-object-id]"
-      : focusRegion === "thread-outline"
-        ? '.cn-thread-tree [role="treeitem"][data-object-id]'
-        : focusRegion === "feed"
-          ? '.cn-tree[role="feed"] [role="article"][data-object-id]'
-          : "[data-object-id]";
+    var selector = focusRegion === "detail" || focusRegion === "thread-outline"
+      ? '.cn-thread-tree [role="treeitem"][data-object-id]'
+      : focusRegion === "feed"
+        ? '.cn-tree[role="feed"] [role="article"][data-object-id]'
+        : "[data-object-id]";
     return Array.prototype.find.call(document.querySelectorAll(selector), function (element) {
       return element.getAttribute("data-object-id") === objectId;
     });
@@ -2986,7 +2984,6 @@
   function activeFocusRegion() {
     var active = document.activeElement;
     if (active && active.closest) {
-      if (active.closest(".cn-thread-reading")) return "detail";
       if (active.closest(".cn-thread-tree")) return "thread-outline";
       if (active.closest('.cn-tree[role="feed"]')) return "feed";
       if (active.closest("[data-cli]")) return menuShouldOpen() ? "completion" : "composer";
@@ -3084,10 +3081,8 @@
         var focusedId = location.detailObjectId || location.objectId || location.threadRootId;
         var selector = location.focusRegion === "navigator"
           ? '.cn-blade[data-blade-kind="list"] .cn-item[aria-current="true"]'
-          : location.focusRegion === "thread-outline"
+          : location.focusRegion === "thread-outline" || location.focusRegion === "detail"
             ? '.cn-thread-tree [role="treeitem"][data-key="' + focusedId + '"]'
-            : location.focusRegion === "detail"
-              ? '.cn-thread-reading article[data-object-id="' + focusedId + '"]'
               : location.focusRegion === "composer" || location.focusRegion === "completion"
                 ? "[data-cli]"
                 : '.cn-tree[role="feed"] [role="article"][data-key="' + focusedId + '"]';
@@ -3962,13 +3957,12 @@
     }).map(function (entry) { return entry.post; }));
   }
 
-  function selectThreadMessage(id, focusReading) {
+  function selectThreadMessage(id) {
     if (!id) return false;
     state.feedMark = id;
     render(true);
-    var selector = focusReading
-      ? '.cn-thread-reading article[data-object-id="' + id + '"]'
-      : '.cn-thread-tree [role="treeitem"][data-key="' + id + '"]';
+    // Single-column thread: the treeitem is the readable message (no split pane).
+    var selector = '.cn-thread-tree [role="treeitem"][data-key="' + id + '"]';
     var target = document.querySelector(selector);
     if (target) try { target.focus({ preventScroll: true }); } catch { /* fine */ }
     return true;
@@ -3976,7 +3970,7 @@
 
   function handleThreadTreeKey(message, key) {
     var id = message.getAttribute("data-key");
-    if (key === "Enter") return selectThreadMessage(id, true);
+    if (key === "Enter") return selectThreadMessage(id);
     if (key === "ArrowRight" || key === "l") {
       if (message.getAttribute("aria-expanded") === "false") {
         invokeUiAction("post.fold", { objectId: id }, "keyboard", id);
@@ -7693,9 +7687,19 @@
     var mount = $("[data-mount]");
 
     // Clicking / focusing the prompt claims keyboard ownership from the VFS.
+    // Focusing a feed/thread message claims the detail blade (standard social UX).
     mount.addEventListener("focusin", function (ev) {
-      if (!ev.target || !ev.target.hasAttribute || !ev.target.hasAttribute("data-cli")) return;
-      claimPromptFocus({ focus: false });
+      if (!ev.target || !ev.target.closest) return;
+      if (ev.target.hasAttribute && ev.target.hasAttribute("data-cli")) {
+        claimPromptFocus({ focus: false });
+        return;
+      }
+      var msg = ev.target.closest(".cn-comment[data-key]");
+      if (msg && msg.closest('.cn-blade[data-blade-kind="detail"]')) {
+        state.detailOpen = true;
+        state.focus = detailBladeIndex();
+        state.columnFocus = true;
+      }
     });
     mount.addEventListener("pointerdown", function (ev) {
       if (!ev.target || !ev.target.closest) return;
@@ -8091,9 +8095,15 @@
           return status("pane · " + (bi === 0 ? "nav" : (bi === 1 ? "feed" : "session")));
         }
       }
+      var openThreadHit = ev.target.closest("[data-open-thread]");
+      if (openThreadHit) {
+        try { ev.preventDefault(); ev.stopPropagation(); } catch { /* fine */ }
+        var openId = openThreadHit.getAttribute("data-open-thread");
+        if (openId) return openThread(openId);
+      }
       var commentHit = ev.target.closest(".cn-comment");
       if (commentHit && !ev.target.closest(
-        "button, a, [data-vote-id], [data-reply], [data-repost], [data-share-post], [data-copy-post], [data-fold], [data-react], [data-react-pick], [data-spoiler]",
+        "button, a, [data-vote-id], [data-reply], [data-repost], [data-share-post], [data-copy-post], [data-fold], [data-react], [data-react-pick], [data-spoiler], [data-open-thread]",
       )) {
         if (selectionOwnsPointer()) {
           try { ev.preventDefault(); } catch { /* fine */ }

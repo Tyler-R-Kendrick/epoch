@@ -130,7 +130,7 @@
         '<span class="cn-rail-mark">|</span></span>',
       ).join("")
       : "";
-    return '<article class="cn-comment cn-compose-draft" data-compose-draft data-pending="true"' +
+    return '<article class="cn-comment cn-compose-draft" data-key="compose-draft" data-compose-draft data-pending="true"' +
       ' data-status="' + esc(status) + '"' +
       (opts.inline ? ' data-inline="true"' : "") +
       ' aria-label="' + esc(pendingLabel + ": " + body.slice(0, 80)) + '">' +
@@ -423,9 +423,12 @@
   }
 
   /**
-   * Comment tree. Same visual grammar as Reddit: nest lines to trace depth,
-   * [−]/[+] fold a chain, vote column, reply on the action row. Always a tree
-   * — no graph/diff/raw costume changes.
+   * Comment / feed rendering (standard social pattern, Epoch Grid chrome):
+   *   - Channel / DM feed: root posts only (Reddit/X/Threads timeline) with a
+   *     reply-count affordance that opens the conversation.
+   *   - Thread detail: single-column nested replies (Reddit comments / X thread),
+   *     not a split outline + reading pane.
+   * Nest rails, [−]/[+], and votes stay; no graph/diff/raw costume changes.
    */
   function viewTree(entries, markId, folded, sort, votes, reactions, reposts, reactPick, feedQuery, opts) {
     opts = opts || {};
@@ -529,41 +532,6 @@
         (children === 1 ? " child" : " children") + detail;
     }
 
-    function readingHtml(p) {
-      if (!p) return "";
-      var objectId = objectIdOf(p);
-      var tombstone = p.tombstone;
-      return '<div class="cn-thread-reading" role="region" aria-label="Selected message">' +
-        '<article class="cn-reading-article" tabindex="-1" data-object-id="' + esc(objectId) + '"' +
-        (tombstone ? ' data-tombstone="true"' : "") + ' aria-label="' +
-        esc(tombstone ? ("Unavailable message: " + (tombstone.reason || "unavailable")) :
-          ("Message by " + p.who)) + '">' +
-        '<header class="cn-comment-head"><span data-c="actor"><b data-c="handle">' +
-        esc(tombstone ? "unavailable" : p.who) + '</b></span>' +
-        '<span class="cn-head-sep" aria-hidden="true">|</span><span data-c="meta">' +
-        '<time data-c="time">' + esc(p.at || "") + '</time><span class="cn-head-sep" aria-hidden="true">|</span>' +
-        '<span data-c="state">' + esc(tombstone ? tombstone.reason : p.state) + '</span></span></header>' +
-        (p.subject && !tombstone ? '<div class="cn-subject">' + esc(p.subject) + '</div>' : "") +
-        '<div class="cn-comment-body">' + (tombstone
-          ? esc("This ancestor is " + (tombstone.reason || "unavailable") + ". Thread topology is preserved.")
-          : formatBody(p.body)) + '</div>' +
-        (!tombstone ? '<div class="cn-actions">' +
-          '<button type="button" class="cn-act" data-reply="' + esc(objectId) + '" data-reply-who="' +
-          esc(p.who) + '" aria-keyshortcuts="r">reply</button>' +
-          '<button type="button" class="cn-act" data-repost="' + esc(objectId) +
-          '" aria-keyshortcuts="Shift+R">repost</button>' +
-          '<button type="button" class="cn-act" data-share data-share-kind="contextual" data-share-post="' + esc(objectId) +
-          '" aria-keyshortcuts="s">share contextual</button>' +
-          '<button type="button" class="cn-act" data-share data-share-kind="canonical" data-share-post="' + esc(objectId) +
-          '">copy canonical</button>' +
-          ((p.revision || p.cid) ? '<button type="button" class="cn-act" data-share data-share-kind="exact" data-share-post="' +
-            esc(objectId) + '">copy exact revision</button>' : "") +
-          '<button type="button" class="cn-act" data-mute-post="' + esc(objectId) + '">mute</button>' +
-          '<button type="button" class="cn-act" data-report-post="' + esc(objectId) + '">report</button></div>' +
-          renderReactions(objectId, p, reactions, reactPick === objectId) : "") +
-        '</article></div>';
-    }
-
     function nodeHtml(p, depth, ancestors, siblingPosition, siblingSetSize) {
       var key = objectIdOf(p);
       var replies = sortPosts(kids[key] || [], sort, votes);
@@ -597,7 +565,10 @@
           (isFolded ? "+" : "-") + "</button>"
         : '<span class="cn-pm cn-pm-leaf" aria-hidden="true"> </span>';
 
-      var html = '<article class="cn-comment" data-key="' + esc(key) + '"' +
+      var html = '<article class="cn-comment' +
+        (isThread && depth === 0 ? " cn-comment-op" : "") +
+        (!isThread ? " cn-feed-post" : "") + '"' +
+        ' data-key="' + esc(key) + '"' +
         ' data-object-id="' + esc(objectId) + '"' +
         (parentIdOf(p) ? ' data-parent-id="' + esc(parentIdOf(p)) + '"' : "") +
         (tombstone ? ' data-tombstone="true"' : "") +
@@ -625,12 +596,12 @@
         "</div>" +
         '<div class="cn-comment-main">' +
         '<header class="cn-comment-head">' +
-        foldCtl +
+        (isThread ? foldCtl : '<span class="cn-pm cn-pm-leaf" aria-hidden="true"> </span>') +
         '<span data-c="actor"><b data-c="handle">' + esc(tombstone ? "unavailable" : p.who) + "</b>" +
         '<span data-c="role">' + esc(member.role) + "</span></span>" +
-        '<span class="cn-head-sep" aria-hidden="true">|</span>' +
+        '<span class="cn-head-sep" aria-hidden="true">·</span>' +
         '<span data-c="meta"><time data-c="time">' + esc(p.at) + "</time>" +
-        '<span class="cn-head-sep" aria-hidden="true">|</span>' +
+        '<span class="cn-head-sep" aria-hidden="true">·</span>' +
         '<span data-c="state">' + esc(tombstone ? tombstone.reason : p.state) + "</span></span>" +
         "</header>" +
         (p.subject && !tombstone ? '<div class="cn-subject">' + esc(p.subject) + "</div>" : "") +
@@ -644,20 +615,25 @@
         (!tombstone ? '<div class="cn-actions">' +
         '<button type="button" class="cn-act" data-reply="' + esc(key) + '"' +
         ' data-reply-who="' + esc(p.who) + '" aria-keyshortcuts="r" title="Reply (r)">reply</button>' +
-        '<button type="button" class="cn-act" data-repost="' + esc(key) + '"' +
-        ' aria-pressed="' + reposted + '" aria-keyshortcuts="Shift+R" title="Repost (Shift+R)">' +
-        (reposted ? "reposted" : "repost") + '</button>' +
-        '<button type="button" class="cn-act" data-share data-share-kind="contextual" data-share-post="' + esc(key) + '"' +
-        ' aria-keyshortcuts="s" title="Share contextual link (s)">share contextual</button>' +
-        '<button type="button" class="cn-act" data-share data-share-kind="canonical" data-share-post="' + esc(key) +
-        '" title="Copy canonical link">copy canonical</button>' +
-        ((p.revision || p.cid) ? '<button type="button" class="cn-act" data-share data-share-kind="exact" data-share-post="' +
-          esc(key) + '" title="Copy exact revision link">copy exact revision</button>' : "") +
-        '<button type="button" class="cn-act" data-copy-post="' + esc(key) + '"' +
-        ' aria-keyshortcuts="y" title="Copy this thread in an optimized paste format (y)">copy</button>' +
-        '<button type="button" class="cn-act" data-mute-post="' + esc(key) + '" title="Mute this object">mute</button>' +
-        '<button type="button" class="cn-act" data-report-post="' + esc(key) + '" title="Report this object for legal hold">report</button>' +
-        (isFolded && below
+        (!isThread
+          ? '<button type="button" class="cn-act cn-act-open" data-open-thread="' + esc(key) + '"' +
+            ' aria-keyshortcuts="Enter" title="Open thread (Enter)">' +
+            (below
+              ? (below + (below === 1 ? " reply" : " replies"))
+              : "open thread") + "</button>"
+          : "") +
+        (isThread || key === keyboardId
+          ? ('<button type="button" class="cn-act" data-repost="' + esc(key) + '"' +
+            ' aria-pressed="' + reposted + '" aria-keyshortcuts="Shift+R" title="Repost (Shift+R)">' +
+            (reposted ? "reposted" : "repost") + '</button>' +
+            '<button type="button" class="cn-act" data-share data-share-kind="contextual" data-share-post="' + esc(key) + '"' +
+            ' aria-keyshortcuts="s" title="Share contextual link (s)">share</button>' +
+            '<button type="button" class="cn-act" data-copy-post="' + esc(key) + '"' +
+            ' aria-keyshortcuts="y" title="Copy this thread (y)">copy</button>' +
+            '<button type="button" class="cn-act" data-mute-post="' + esc(key) + '" title="Mute">mute</button>' +
+            '<button type="button" class="cn-act" data-report-post="' + esc(key) + '" title="Report">report</button>')
+          : "") +
+        (isThread && isFolded && below
           ? '<button type="button" class="cn-act cn-act-fold" data-fold="' + esc(key) + '">' +
             below + (below === 1 ? " more" : " more") + "</button>"
           : "") +
@@ -665,8 +641,9 @@
         renderReactions(key, p, reactions, reactPick === key) : "") +
         "</div>" + (isThread ? "" : "</article>");
 
-      if (replies.length && !isFolded) {
-        html += '<div class="cn-replies"' + (isThread ? ' role="group"' : "") +
+      // Channel feed stays flat (roots only). Nesting belongs in thread detail.
+      if (isThread && replies.length && !isFolded) {
+        html += '<div class="cn-replies" role="group"' +
           ' data-key="re-' + esc(key) + '">' +
           replies.map(function (c, index) {
             return nodeHtml(c, depth + 1, ancestors.concat([p]), index + 1, replies.length);
@@ -693,10 +670,10 @@
       matchNote = '<div class="cn-feed-match cn-feed-err" data-key="feed-match">' +
         "query error: " + esc(queryInfo.error) + "</div>";
     }
-    var tree = '<div class="cn-tree' + (opts.threadOf ? " cn-thread-tree" : "") + '" role="' +
+    var tree = '<div class="cn-tree' + (opts.threadOf ? " cn-thread-tree" : " cn-feed-tree") + '" role="' +
       (opts.threadOf ? "tree" : "feed") + '" aria-label="' +
-      (opts.threadOf ? "Thread outline" : "Channel messages") + '"' +
-      (!opts.threadOf ? ' aria-busy="' + !!(window.CW_APP && window.CW_APP.state &&
+      (opts.threadOf ? "Conversation thread" : "Channel posts") + '"' +
+      (!opts.threadOf ? ' data-feed="roots" aria-busy="' + !!(window.CW_APP && window.CW_APP.state &&
         window.CW_APP.state.feedBusy) + '"' : "") + ' data-feed-sort="' + esc(sort) + '"' +
       (feedQuery ? ' data-query="true"' : "") + ">" +
       sortedRoots.map(function (p, index) {
@@ -708,10 +685,6 @@
       tree += renderComposeDraftCard(feedDraft, { inline: true, depth: 0 });
     }
     tree += "</div>";
-    if (opts.threadOf) {
-      return matchNote + '<div class="cn-thread-layout">' + tree +
-        readingHtml(byId[keyboardId] || byId[opts.threadOf] || sortedRoots[0]) + '</div>';
-    }
     return matchNote + tree;
   }
 
@@ -2199,27 +2172,27 @@
     var posts = D.posts.concat(extra || []).filter(function (p) { return p.channel === chan.id; });
     var last = posts.length ? posts[posts.length - 1] : null;
     var spark = activityOf({ kind: "dir", name: label }, "/projects/community/channels");
-    return '<div class="cn-ctx" data-key="ctx-' + esc(label) + '">' +
+    return '<div class="cn-ctx" data-key="ctx-' + esc(label) + '" data-channel="true">' +
       '<b class="cn-ctx-name">#' + esc(label) + "</b>" +
-      '<span class="cn-ctx-kind" data-kind="' + esc(chan.kind) + '">' + esc(chan.kind) + "</span>" +
+      '<span class="cn-ctx-kind" data-kind="' + esc(chan.kind) + '">' + esc(chan.kind) + " channel</span>" +
       '<span class="cn-ctx-fact">' + posts.length + (posts.length === 1 ? " post" : " posts") + "</span>" +
       (chan.unread ? '<span class="cn-badge">' + chan.unread + " new</span>" : "") +
       (spark ? '<span class="cn-spark" aria-hidden="true">' + spark + "</span>" : "") +
-      (last ? '<span class="cn-ctx-fact">last ' + esc(last.at) + " by " + esc(last.who) + "</span>" : "") +
+      (last ? '<span class="cn-ctx-fact">last ' + esc(last.at) + " · " + esc(last.who) + "</span>" : "") +
       "</div>";
   }
 
   /** Thread detail chrome — one conversation, with a way back to the channel feed. */
   function threadContextStrip(channelLabel, focusId, rootWho) {
     return '<div class="cn-ctx cn-thread-ctx" data-key="ctx-thread" data-thread="true">' +
-      '<b class="cn-ctx-name">thread</b>' +
+      '<b class="cn-ctx-name">Thread</b>' +
       (channelLabel
-        ? '<span class="cn-ctx-kind">#' + esc(channelLabel) + "</span>"
+        ? '<span class="cn-ctx-kind">in #' + esc(channelLabel) + "</span>"
         : "") +
-      (rootWho ? '<span class="cn-ctx-fact">from ' + esc(rootWho) + "</span>" : "") +
-      (focusId ? '<span class="cn-ctx-fact" data-c="meta">' + esc(focusId) + "</span>" : "") +
+      (rootWho ? '<span class="cn-ctx-fact">started by ' + esc(rootWho) + "</span>" : "") +
       '<button type="button" class="cn-act" data-thread-back' +
-      ' title="Back to channel feed (Esc)">back</button>' +
+      ' title="Back to #' + esc(channelLabel || "channel") + ' feed (Esc)">← #' +
+      esc(channelLabel || "channel") + "</button>" +
       "</div>";
   }
 
@@ -2736,7 +2709,7 @@
   var CONSOLE = {
     id: "console",
     name: "Console",
-    thesis: "The board as a filesystem. One nav blade is the navbar — it reloads for the current path with one branch of subnodes. Detail is the content pane. Session is a dedicated CLI/AI chat blade when there is transcript. Breadcrumb owns depth; never stack cloned list blades.",
+    thesis: "Board as a social workbench: channel list + roots-only feed, single-column thread for replies (no outline/reading split), session CLI when useful. Breadcrumb/nav owns place.",
     keys: "[←→] parent/child  [↑↓] preview  [Enter] activate  [Space] expand  [z] collapse nav  [:] command  ·  [Ctrl+Space] keys",
 
     css: `
@@ -3123,15 +3096,23 @@
     [data-exp="console"] .cn-merge{font-variant-numeric:tabular-nums}
     [data-exp="console"] .cn-badge{background:var(--cw-accent);color:var(--cw-accent-ink);padding:0 .35rem;font-size:.8em}
 
-    /* Detail blade: terminal message log (Discord-rich body, ASCII chrome). */
+    /* Detail blade: channel feed + thread (social column, Grid chrome). */
     [data-exp="console"] .cn-blade[data-blade-kind=detail] .cn-blade-body,
     [data-exp="console"] .cn-pane > .cn-col-body{
       overflow:auto;padding:.2rem 0 3.25rem;scroll-padding-block-end:3.25rem}
     [data-exp="console"] .cn-empty{color:var(--cw-ink-faint);padding:.6rem .8rem}
 
+    [data-exp="console"] .cn-feed-tree{display:flex;flex-direction:column;gap:.15rem;padding:.15rem 0 .4rem}
+    [data-exp="console"] .cn-feed-post{border-block-end:1px solid var(--cw-rule);padding:.45rem .65rem .5rem .2rem;
+      gap:.45rem .55rem}
+    [data-exp="console"] .cn-feed-post .cn-comment-body{font-size:1em;line-height:1.45;max-width:72ch}
+    [data-exp="console"] .cn-feed-post .cn-subject{font-size:1.05em;font-weight:700;color:var(--cw-ink);
+      margin-block:.05rem .15rem}
+    [data-exp="console"] .cn-act-open{color:var(--cw-agent)!important;font-weight:700}
+
     [data-exp="console"] .cn-comment{display:grid;grid-template-columns:auto auto minmax(0,1fr);
       gap:0 .4rem;padding:.28rem .55rem .28rem 0;align-items:start;
-      border-block-end:1px dotted var(--cw-rule);cursor:pointer}
+      border-block-end:1px solid color-mix(in srgb,var(--cw-rule) 80%,transparent);cursor:pointer}
     [data-exp="console"] .cn-comment:hover{background:color-mix(in srgb,var(--cw-surface) 65%,transparent)}
     [data-exp="console"] .cn-comment[data-here=true]{background:var(--cw-surface);
       box-shadow:inset 2px 0 0 var(--cw-accent)}
@@ -3145,43 +3126,29 @@
     [data-exp="console"] .cn-comment[data-state-of=signed] .cn-comment-head [data-c=state]{color:var(--cw-signed)}
     [data-exp="console"] .cn-comment[data-kind=agent] [data-c=handle]{color:var(--cw-agent)}
 
-    /* Thread is an APG tree outline synchronized with a readable article. */
-    [data-exp="console"] .cn-thread-layout{display:grid;grid-template-columns:minmax(12rem,34%) minmax(0,1fr);
-      min-width:0;min-height:0;align-items:start}
-    [data-exp="console"] .cn-thread-tree{min-width:0;border-inline-end:1px solid var(--cw-rule)}
-    [data-exp="console"] .cn-thread-tree .cn-comment{grid-template-columns:auto minmax(0,1fr);
-      min-height:2rem;padding:.2rem .45rem .2rem .15rem}
-    [data-exp="console"] .cn-thread-tree .cn-comment > .cn-vote,
-    [data-exp="console"] .cn-thread-tree .cn-comment .cn-comment-body,
-    [data-exp="console"] .cn-thread-tree .cn-comment .cn-receipt,
-    [data-exp="console"] .cn-thread-tree .cn-comment .cn-actions,
-    [data-exp="console"] .cn-thread-tree .cn-comment .cn-reactions{display:none}
-    [data-exp="console"] .cn-thread-tree .cn-comment-head{font-size:.85em}
-    [data-exp="console"] .cn-thread-tree .cn-subject{font-size:.85em;overflow:hidden;text-overflow:ellipsis;
-      white-space:nowrap}
+    /* Thread: single column (Reddit / X / Threads), OP emphasized. */
+    [data-exp="console"] .cn-thread-tree{min-width:0;padding:.1rem 0 .5rem}
+    [data-exp="console"] .cn-thread-tree .cn-comment-op{padding-block:.55rem .65rem;
+      border-block-end:1px solid var(--cw-line-strong, var(--cw-rule));
+      background:color-mix(in srgb,var(--cw-surface) 45%,transparent);margin-block-end:.2rem}
+    [data-exp="console"] .cn-thread-tree .cn-comment-op .cn-comment-body{font-size:1.02em;line-height:1.5;max-width:72ch}
+    [data-exp="console"] .cn-thread-tree .cn-comment-op .cn-subject{font-size:1.1em;font-weight:700}
     [data-exp="console"] .cn-thread-tree [role=treeitem][aria-selected=true]{background:var(--cw-surface);
       box-shadow:inset 2px 0 0 var(--cw-accent)}
     [data-exp="console"] .cn-thread-tree [role=treeitem][data-tombstone=true]{color:var(--cw-ink-faint)}
-    [data-exp="console"] .cn-thread-reading{min-width:0;padding:.55rem .7rem .8rem}
-    [data-exp="console"] .cn-reading-article{display:grid;gap:.35rem;min-width:0;max-width:76ch}
-    [data-exp="console"] .cn-reading-article:focus-visible{outline:2px solid var(--cw-accent);outline-offset:2px}
-    [data-exp="console"] .cn-reading-article[data-tombstone=true]{color:var(--cw-ink-faint)}
-    @media (max-width:52rem){
-      [data-exp="console"] .cn-thread-layout{grid-template-columns:minmax(0,1fr)}
-      [data-exp="console"] .cn-thread-tree{border-inline-end:0;border-block-end:1px solid var(--cw-rule);
-        max-height:42vh;overflow:auto}
-      [data-exp="console"] .cn-thread-reading{padding:.5rem .55rem .75rem}
-    }
+    [data-exp="console"] .cn-thread-tree .cn-replies{display:flex;flex-direction:column;min-width:0}
 
-    /* Nest rails: literal | columns — no rounded bars. */
-    [data-exp="console"] .cn-rails{display:flex;align-self:stretch;flex:none;gap:0}
+    /* Nest rails: clearer thread lines (RES / Reddit-like). */
+    [data-exp="console"] .cn-rails{display:flex;align-self:stretch;flex:none;gap:0;padding-inline-start:.1rem}
     [data-exp="console"] .cn-rail{display:flex;align-items:stretch;justify-content:center;
-      width:1ch;min-width:1ch;padding:0;margin:0;background:none;border:0;
-      color:var(--cw-ink-faint);cursor:pointer;flex:none;font:inherit;line-height:1.2}
+      width:1.1ch;min-width:1.1ch;padding:0;margin:0;background:none;border:0;
+      color:color-mix(in srgb,var(--cw-agent) 55%,var(--cw-ink-faint));cursor:pointer;flex:none;font:inherit;line-height:1.2}
     [data-exp="console"] .cn-rail-mark{display:block;width:100%;text-align:center;
-      color:inherit;user-select:none}
+      color:inherit;user-select:none;opacity:.85}
     [data-exp="console"] .cn-rail:hover,[data-exp="console"] .cn-rail:focus-visible{
       color:var(--cw-accent);outline:none}
+    [data-exp="console"] .cn-rail:hover .cn-rail-mark,
+    [data-exp="console"] .cn-rail:focus-visible .cn-rail-mark{opacity:1}
 
     /* Votes as [+] n [-] — terminal brackets, never triangles or circles. */
     [data-exp="console"] .cn-vote{display:flex;flex-direction:column;align-items:center;gap:0;
@@ -3227,7 +3194,26 @@
     [data-exp="console"] .cn-anchor{color:var(--cw-ink-faint);font-size:.9em}
     [data-exp="console"] .cn-receipt{display:flex;align-items:baseline;gap:.35rem;font-size:.85em;
       color:var(--cw-ink-faint)}
-    [data-exp="console"] .cn-sig-text{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    /* Receipt locators: Bracket Rule chrome + signed mint — never native button chrome. */
+    [data-exp="console"] .cn-sig-text,
+    [data-exp="console"] button.cn-sig-text{
+      appearance:none;display:inline;max-width:100%;overflow:hidden;text-overflow:ellipsis;
+      white-space:nowrap;font:inherit;font-size:inherit;font-weight:700;color:var(--cw-signed);
+      background:none;border:0;border-radius:0;padding:0;min-height:0;cursor:pointer;
+      text-align:start;box-shadow:none}
+    [data-exp="console"] .cn-sig-text::before,
+    [data-exp="console"] button.cn-sig-text::before{content:"[";color:var(--cw-signed)}
+    [data-exp="console"] .cn-sig-text::after,
+    [data-exp="console"] button.cn-sig-text::after{content:"]";color:var(--cw-signed)}
+    [data-exp="console"] .cn-sig-text:hover,
+    [data-exp="console"] button.cn-sig-text:hover{color:var(--cw-ink);text-decoration:underline}
+    [data-exp="console"] .cn-sig-text:hover::before,
+    [data-exp="console"] .cn-sig-text:hover::after,
+    [data-exp="console"] button.cn-sig-text:hover::before,
+    [data-exp="console"] button.cn-sig-text:hover::after{color:var(--cw-ink)}
+    [data-exp="console"] .cn-sig-text:focus-visible,
+    [data-exp="console"] button.cn-sig-text:focus-visible{
+      outline:2px solid var(--cw-signed);outline-offset:2px}
     [data-exp="console"] .cn-activity{display:flex;flex-direction:column;gap:0;padding:.15rem .55rem .7rem}
     /* Activity + Following: dense TUI scrollback rows, not web cards. */
     [data-exp="console"] .cn-activity-card{display:grid;grid-template-columns:1.2rem minmax(0,1fr);gap:.35rem .55rem;
@@ -4084,9 +4070,11 @@
     [data-exp="console"] .cn-workbench>header{display:flex;align-items:start;justify-content:space-between;gap:1rem}
     [data-exp="console"] .cn-workbench>header>div{display:grid;gap:.15rem}
     [data-exp="console"] .cn-workbench>header span{color:var(--cw-ink-faint);font-size:.82em}
-    [data-exp="console"] .cn-workbench button{min-height:2rem;border:1px solid var(--cw-rule);background:transparent;
+    [data-exp="console"] .cn-workbench button,
+    [data-exp="console"] .cn-workbench-btn{min-height:2rem;border:1px solid var(--cw-rule);background:transparent;
       color:var(--cw-ink);font:inherit;padding:.25rem .55rem;cursor:pointer}
-    [data-exp="console"] .cn-workbench button:hover,[data-exp="console"] .cn-workbench button:focus-visible{
+    [data-exp="console"] .cn-workbench button:hover,[data-exp="console"] .cn-workbench button:focus-visible,
+    [data-exp="console"] .cn-workbench-btn:hover,[data-exp="console"] .cn-workbench-btn:focus-visible{
       border-color:var(--cw-accent);outline:2px solid transparent;color:var(--cw-accent)}
     [data-exp="console"] .cn-workbench-tabs{display:flex;flex-wrap:wrap;border-block-end:1px solid var(--cw-rule)}
     [data-exp="console"] .cn-workbench-tabs [role=tab]{border:0;border-block-end:2px solid transparent}
@@ -4147,7 +4135,6 @@
       [data-exp="console"] .cn-crumb{min-height:2.25rem;padding-inline:.45rem}
       [data-exp="console"] .cn-cand{min-height:2.5rem;align-items:center}
       [data-exp="console"] .cn-thread-tree [role=treeitem],
-      [data-exp="console"] .cn-thread-reading button,
       [data-exp="console"] .cn-prompt button{min-height:2rem;min-width:2rem}
       [data-exp="console"] .cn-path{gap:.25rem}
       [data-exp="console"] .cn-panel-act,[data-exp="console"] .cn-pane-act{min-width:2.25rem;min-height:2.25rem}

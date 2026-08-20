@@ -126,7 +126,7 @@ Personas remain user context for real product behavior. Do not add persona-only 
 | `features/community_web_experience.feature` | `@persona.github_open_source_contributor` | Scenario | Contributor expands and restores the focused panel by keyboard | None | 0 |
 | `features/community_web_experience.feature` | `@persona.github_open_source_contributor` | Scenario | Contributor shares one message with stable context choices | None | 0 |
 | `features/community_web_experience.feature` | `@persona.maintainer` | Scenario | Maintainer reopens a durable Projection Definition | None | 0 |
-| `features/community_web_experience.feature` | `@persona.screen_reader_power_user` | Scenario | Screen-reader power user traverses explicit reply ancestry | None | 0 |
+| `features/community_web_experience.feature` | `@persona.screen_reader_power_user` | Scenario | Screen-reader power user traverses an explicit reply thread | None | 0 |
 | `features/community_web_experience.feature` | `@persona.slack_power_user` | Scenario | Power user distinguishes namespace ascent thread ancestry and history | None | 0 |
 | `features/community_web_experience.feature` | `@persona.slack_power_user` | Scenario | Power user chooses global jump without weakening deterministic cd | None | 0 |
 | `features/community_web_experience.feature` | `@persona.github_open_source_contributor` | Scenario | Contributor opens Network Feed for cross-community discovery | None | 0 |

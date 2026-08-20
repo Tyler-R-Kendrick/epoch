@@ -196,9 +196,12 @@ const CASES = [
     check: async (page, log) => {
       const r = await page.evaluate(async () => {
         window.CW_APP.navigate("/projects/community/channels/general", { keepCli: true });
-        window.CW_APP.state.merged.push(Object.assign({}, window.CW_DATA.incoming[0], {
+        // Roots-only channel feeds: arrival must be a top-level post (no re/parent).
+        const incoming = Object.assign({}, window.CW_DATA.incoming[0], {
           id: "live-902", at: "23:59", channel: "general", sig: "sig-anim",
-        }));
+        });
+        delete incoming.re;
+        window.CW_APP.state.merged.push(incoming);
         window.CW_APP.render(true);
         await new Promise((resolve) => setTimeout(resolve, 50));
         const live = document.querySelector('[data-live="true"]');
