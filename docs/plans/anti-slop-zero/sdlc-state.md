@@ -18,9 +18,11 @@ drive findings to zero with stacked PRs, confirm a second clean run.
 
 | Layer | Branch | Scope |
 |---|---|---|
-| 01 | `sdlc/anti-slop-01-reinit` | Skill install, force re-vendor, config verify, clean baseline proof |
-| 02 | `sdlc/anti-slop-02-legacy-state` | Drop unshipped Community schema 1/2 migrate paths (parked WIP) |
-| 03 | `sdlc/anti-slop-03-design-chrome` | Receipt Bracket Rule + board design chrome lint in hooks (parked WIP) |
+| 01 | `sdlc/anti-slop-01-reinit` → [#172](https://github.com/Tyler-R-Kendrick/epoch/pull/172) | Skill install, force re-vendor, config verify, clean baseline proof |
+| 02 | `sdlc/anti-slop-02-legacy-state` → [#173](https://github.com/Tyler-R-Kendrick/epoch/pull/173) | Drop unshipped Community schema 1/2 migrate paths |
+| 03 | `sdlc/anti-slop-03-design-chrome` → [#174](https://github.com/Tyler-R-Kendrick/epoch/pull/174) | Receipt Bracket Rule + board design chrome lint in hooks |
+
+Submitted stack #175: [#172](https://github.com/Tyler-R-Kendrick/epoch/pull/172) → [#173](https://github.com/Tyler-R-Kendrick/epoch/pull/173) → [#174](https://github.com/Tyler-R-Kendrick/epoch/pull/174).
 
 ## Evidence
 
