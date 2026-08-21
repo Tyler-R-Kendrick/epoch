@@ -5447,6 +5447,8 @@ const CASES = [
         window.CW_APP.state.helpOpen = false;
         window.CW_APP.state.menuDismissed = false;
         window.CW_APP.state.columnFocus = false;
+        window.CW_APP.state.history = [];
+        window.CW_APP.state.histIndex = -1;
         window.CW_APP.render(true);
       });
       await page.focus("[data-cli]");
@@ -5463,18 +5465,21 @@ const CASES = [
       if (forward !== 1 || reversed !== 0) {
         return log("ArrowUp did not reverse candidate selection: " + JSON.stringify({ forward, reversed }));
       }
-      await page.focus("[data-cli]");
-      await page.keyboard.press("Enter");
+      await page.locator("[data-cli]").press("Enter");
       await page.waitForFunction(() => (document.querySelector("[data-cli]")?.value || "") !== "c");
       const accepted = await page.evaluate(() => document.querySelector("[data-cli]")?.value || "");
       if (!accepted) return log("Enter did not accept the selected candidate");
 
       // Shift+Tab yields back to the last board context and must preserve the draft.
+      // Wait until columns own DOM focus — Tab on the CLI restores panels instead.
       await page.evaluate(() => {
         window.CW_APP.state.columnFocus = true;
         window.CW_APP.focusColumns();
         window.CW_APP.render(true);
       });
+      await page.waitForFunction(() =>
+        window.CW_APP.state.columnFocus &&
+        document.activeElement !== document.querySelector("[data-cli]"));
       await page.keyboard.press("Tab");
       await page.waitForFunction(() => document.activeElement === document.querySelector("[data-cli]"));
       await page.fill("[data-cli]", "c");
