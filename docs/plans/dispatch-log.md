@@ -355,3 +355,15 @@ Append-only outcomes for SDLC coordinator runs. Newest entries appear at the bot
 | Result | **success** |
 | Failure class | Real CI fixed pre-merge (Activity feedMark seeded post vs notification; fold rail shortcuts; Tab-yield e2e race). Not billing. |
 | Notes | Honest lane inventory unchanged except Activity now has Verify + mutant kill. Production deploy kicked for `a249a51`. |
+
+## 2026-08-21 — Lua-scriptable generative UI customization (planned)
+
+| Field | Value |
+|---|---|
+| Initiative | [`lua-ui-customization`](lua-ui-customization/sdlc-state.md) |
+| Backend | Not dispatched; self-contained execution prompt authored for a future swarm run |
+| Branch | `claude/lua-ui-customization-g87ju7` |
+| PR | None yet |
+| Result | **planned** |
+| Failure class | n/a |
+| Notes | Authored `docs/plans/lua-ui-customization/master-instructions.md` (frozen resolutions, contracts C0–C12, swarms S1–S10, acceptance matrix REQ-1..10) and ADR-0058 (Proposed). No implementation dispatched. |
