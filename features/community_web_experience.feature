@@ -617,12 +617,23 @@ Feature: Community Web community-first experience
     Then the receipt search is empty and announces the channel
 
   @persona.maintainer
-  Scenario: Contributor sees unread only for channels with new activity
-    Given the Community Web live API has repository activity
-    And I open the Community Web channel experience
-    Then no channel shows an unread count on a first visit
-    When the ideas channel gains activity after I last read it
-    Then the ideas channel shows an unread count
+  Scenario: Maintainer reads who is active in each room from the channel nav
+    Given Epoch Community is available
+    When I open Epoch Community
+    And I enter the community board
+    Then each channel nav badge shows how many members are active in that room
+    When a member goes away in the ideas channel
+    Then the ideas channel nav badge counts one fewer active member
+
+  @persona.github_open_source_contributor
+  Scenario: Contributor sees online members first on the members roll
+    Given Epoch Community is available
+    When I open Epoch Community
+    And I enter the community board
+    When I open the board members roll
+    Then members who are here sort before members who are away
+    When I open the community project members roll
+    Then members who are here sort before members who are away
 
 
   @persona.security_compliance_responder
