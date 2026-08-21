@@ -10683,6 +10683,10 @@ for (const testCase of selected) {
     ok = (await testCase.run(page, (d) => { detail = String(d).slice(0, 90); return false; })) === true;
   } catch (err) {
     detail = "threw: " + err.message.split("\n")[0].slice(0, 80);
+    // Name the failing e2e.mjs line — CI-only failures are otherwise undebuggable.
+    const frame = String((err && err.stack) || "").split("\n")
+      .map((l) => l.trim()).filter((l) => l.indexOf("e2e.mjs") !== -1)[0];
+    if (frame) detail += " @ " + frame.replace(/^at\s+/, "").slice(0, 120);
   }
   if (errors.length) { ok = false; detail += " | pageerror: " + errors[0].slice(0, 60); }
   if (!ok) failed += 1;
