@@ -140,6 +140,7 @@ decisions, operations, or contribution workflow.
 | [ADR-0054: NATS Realtime Fabric](design-decisions/0054-nats-realtime-fabric.md) | Host nats-server with JetStream, WebSocket, and complementary Epoch auth callout (fabric credentials); Live/platform/community streams plus posture-gated `epoch.svc.>` discovery. |
 | [ADR-0055: Trust Posture Modes And Federation Topology](design-decisions/0055-trust-posture-modes-and-federation-topology.md) | Hosted / private / open postures, intra-community NATS, optional XMPP bridges, and rejected-by-default experiment gates. |
 | [ADR-0057: Community Channel Nav Badges Show Active Presence](design-decisions/0057-community-channel-nav-presence-badges.md) | Channel nav badges count active members per room from declared presence and live `channel.presence` events, never subscriber counts. |
+| [ADR-0058: Lua-Scriptable Generative UI Customization](design-decisions/0058-lua-scriptable-generative-ui-customization.md) | Proposed wasmoon pooled Lua runtime, extended OpenUI catalog and spec abstraction, DTCG `--cw-*` token overlays, three-tier CONTRACT amendment, advisory `view` extension distribution, and persisted GraphQL operations. |
 | [Fuzz Lanes And Corpora](../test/fuzz/README.md) | How smoke, fast-check, Jazzer.js, corpora, and regression promotion relate. |
 | [Dependency Exceptions](dependency-exceptions.md) | Security-sensitive dependency overrides and rationale. |
 
@@ -165,6 +166,8 @@ decisions, operations, or contribution workflow.
 | [Test Lanes Honesty State](plans/test-lanes/sdlc-state.md) | Closed record for Verify goldens, Protocol mutant kill, honest lane inventory, and the 80% branch floor. |
 | [Activity VFS Test Lanes State](plans/activity-vfs-test-lanes/sdlc-state.md) | Active stack for Activity terminal nav, Community Web mutant kill, and Verify golden. |
 | [Anti-slop Oxlint Gates State](plans/anti-slop-oxlint-gates/sdlc-state.md) | Active record for vendored anti-slop Oxlint, clean baseline, and strengthened `gate:commit` hooks. |
+| [Lua UI Customization State](plans/lua-ui-customization/sdlc-state.md) | Planned initiative for Lua-scriptable generative UI customization of Community Web. |
+| [Lua UI Customization Master Instructions](plans/lua-ui-customization/master-instructions.md) | Self-contained execution prompt for the delivery run: ground truth, adversarial critique record, frozen resolutions and contracts C0–C12, swarm ownership map, acceptance matrix, and reporting/merge protocol. |
 | [Community Web Feed/Thread Nav State](plans/community-web-feed-thread-nav/sdlc-state.md) | Session record for roots-only feeds, single-column threads and receipt chrome lint. |
 | [Epoch Skill](../skills/epoch/SKILL.md) | Compact wiki for agents operating on the repository. |
 | [Gauntlet Loop Skill](../skills/gauntlet-loop/README.md) | Durable, spec-grounded improvement campaigns with auditable promotion gates. |
