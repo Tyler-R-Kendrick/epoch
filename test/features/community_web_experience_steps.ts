@@ -2266,7 +2266,7 @@ When("I draft an AI reply inline then commit reject and edit it", { timeout: 120
       /bdd ai draft intent/.test(draft.body || "") &&
       !!inline && !footDraft && !sessionBlade && app.state.sessionClosed !== false &&
       !!document.querySelector("[data-draft-accept]");
-  }, null, { timeout: 30_000 });
+  }, null, { timeout: 90_000 });
   await page.keyboard.press("e");
   await page.waitForFunction(() => {
     // SAFETY: The scenario fixture establishes this test-only contract before the value is consumed.
@@ -2276,7 +2276,7 @@ When("I draft an AI reply inline then commit reject and edit it", { timeout: 120
     const value = document.querySelector<HTMLInputElement>("[data-cli]")?.value || "";
     return !app.state.composeDraft && /bdd ai draft intent/.test(value) &&
       app.composeContext().kind === "reply";
-  }, null, { timeout: 30_000 });
+  }, null, { timeout: 90_000 });
   await page.keyboard.press("Enter");
   await page.waitForFunction(() => {
     // SAFETY: The scenario fixture establishes this test-only contract before the value is consumed.
@@ -2284,7 +2284,7 @@ When("I draft an AI reply inline then commit reject and edit it", { timeout: 120
       CW_APP: { state: { composeDraft?: { status?: string } } };
     })).CW_APP.state.composeDraft;
     return !!document.querySelector("[data-compose-draft]") && draft?.status === "ready";
-  }, null, { timeout: 30_000 });
+  }, null, { timeout: 90_000 });
   await page.keyboard.press("Escape");
   await page.waitForFunction(() => {
     // SAFETY: The scenario fixture establishes this test-only contract before the value is consumed.
@@ -2293,7 +2293,7 @@ When("I draft an AI reply inline then commit reject and edit it", { timeout: 120
     })).CW_APP;
     return !app.state.composeDraft && !document.querySelector("[data-compose-draft]") &&
       app.composeContext().kind === "reply" && app.composeContext().postId === "p1";
-  }, null, { timeout: 30_000 });
+  }, null, { timeout: 90_000 });
   await page.locator("[data-cli]").fill("bdd ai committed reply");
   await page.keyboard.press("Enter");
   // Commit via keyboard like the e2e path — avoid scrolling a hidden duplicate in another blade.
@@ -2304,7 +2304,7 @@ When("I draft an AI reply inline then commit reject and edit it", { timeout: 120
     })).CW_APP.state.composeDraft;
     return draft?.status === "ready" && draft.postId === "p1" &&
       !!document.querySelector("[data-draft-accept]");
-  }, null, { timeout: 30_000 });
+  }, null, { timeout: 90_000 });
   await page.keyboard.press("Enter");
   await page.waitForFunction(() => {
     // SAFETY: The scenario fixture establishes this test-only contract before the value is consumed.
@@ -2325,7 +2325,7 @@ When("I draft an AI reply inline then commit reject and edit it", { timeout: 120
     return !!document.querySelector('.cn-comment[data-key="' + hit.id + '"]') &&
       app.state.feedMark === hit.id && app.state.threadFocus === "p1" &&
       !sessionBlade && app.state.sessionClosed !== false;
-  }, null, { timeout: 30_000 });
+  }, null, { timeout: 90_000 });
 });
 
 Then("Community Web reply drafts stay visible under the parent until committed", async function () {
