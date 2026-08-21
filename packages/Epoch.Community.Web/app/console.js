@@ -575,8 +575,8 @@
       var hasFeedKids = !isThread && below > 0;
       var branchRail = hasThreadKids
         ? ('<button type="button" class="cn-branch-rail" data-fold="' + esc(key) + '"' +
-          ' tabindex="-1" aria-expanded="' + !isFolded + '"' +
-          ' title="' + (isFolded ? "Expand replies (←)" : "Collapse replies (←)") + '"' +
+          ' tabindex="-1" aria-keyshortcuts="f" aria-expanded="' + !isFolded + '"' +
+          ' title="' + (isFolded ? "Expand replies (f)" : "Collapse replies (f)") + '"' +
           ' aria-label="' + (isFolded ? "Expand" : "Collapse") + ' replies">' +
           '<span class="cn-branch-rail-mark" aria-hidden="true"></span></button>')
         : "";

@@ -2811,13 +2811,16 @@
     paintSampleStream();
     if (!state.feedMark && !state.threadFocus) {
       var initialFeed = feedEntries();
-      var initialMessage = initialFeed.find(function (entry) { return entry && entry.post; });
-      if (initialMessage) state.feedMark = initialMessage.post.id;
+      // Activity cards carry both `notification` and a target `post` — prefer
+      // the notification id so dismiss/read mark the attention item, not the
+      // linked message.
+      var initialNotif = initialFeed.find(function (entry) {
+        return entry && entry.notification;
+      });
+      if (initialNotif) state.feedMark = initialNotif.notification.id;
       else {
-        var initialNotif = initialFeed.find(function (entry) {
-          return entry && entry.notification;
-        });
-        if (initialNotif) state.feedMark = initialNotif.notification.id;
+        var initialMessage = initialFeed.find(function (entry) { return entry && entry.post; });
+        if (initialMessage) state.feedMark = initialMessage.post.id;
       }
     }
     // Keep the active virtual worktree's snapshot current so tab labels and
@@ -3916,8 +3919,13 @@
 
   function selectedNotificationId() {
     if (onActivityPath()) {
-      if (state.feedMark) return state.feedMark;
       var feed = feedEntries().filter(function (e) { return e && e.notification; });
+      if (state.feedMark) {
+        var marked = feed.find(function (e) {
+          return e.notification.id === state.feedMark || e.name === state.feedMark;
+        });
+        if (marked) return marked.notification.id;
+      }
       if (feed[0]) return feed[0].notification.id;
     }
     var list = entries();

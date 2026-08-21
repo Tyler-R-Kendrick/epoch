@@ -5442,7 +5442,13 @@ const CASES = [
     name: "power: ArrowUp reverses candidates; Shift+Tab restores panels",
     run: async (page, log) => {
       await go(page, "/projects");
-      await page.evaluate(() => { window.CW_APP.state.ai = false; window.CW_APP.render(true); });
+      await page.evaluate(() => {
+        window.CW_APP.state.ai = false;
+        window.CW_APP.state.helpOpen = false;
+        window.CW_APP.state.menuDismissed = false;
+        window.CW_APP.state.columnFocus = false;
+        window.CW_APP.render(true);
+      });
       await page.focus("[data-cli]");
       await page.fill("[data-cli]", "");
       await page.keyboard.type("c", { delay: 20 });
@@ -5457,6 +5463,7 @@ const CASES = [
       if (forward !== 1 || reversed !== 0) {
         return log("ArrowUp did not reverse candidate selection: " + JSON.stringify({ forward, reversed }));
       }
+      await page.focus("[data-cli]");
       await page.keyboard.press("Enter");
       await page.waitForFunction(() => (document.querySelector("[data-cli]")?.value || "") !== "c");
       const accepted = await page.evaluate(() => document.querySelector("[data-cli]")?.value || "");
