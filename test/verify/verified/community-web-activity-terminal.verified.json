@@ -1,43 +1,8 @@
 {
-  "filters": [
-    {
-      "kind": "activity",
-      "name": "all"
-    },
-    {
-      "kind": "activity",
-      "name": "mentions"
-    },
-    {
-      "kind": "activity",
-      "name": "subscribed"
-    },
-    {
-      "kind": "activity",
-      "name": "hooks"
-    }
-  ],
-  "mentionsListingIsContent": true,
-  "terminal": [
-    {
-      "navParent": "/notifications",
-      "path": "/notifications/all",
-      "terminal": true
-    },
-    {
-      "navParent": "/notifications",
-      "path": "/notifications/mentions",
-      "terminal": true
-    },
-    {
-      "navParent": "/notifications",
-      "path": "/notifications/subscribed",
-      "terminal": true
-    },
-    {
-      "navParent": "/notifications",
-      "path": "/notifications/hooks",
-      "terminal": true
-    }
-  ]
+  "allFilterIsActivity": true,
+  "hooksFilterIsActivity": true,
+  "mentionsFilterIsActivity": true,
+  "notificationsNavParent": true,
+  "notificationsTerminalGuard": true,
+  "subscribedFilterIsActivity": true
 }

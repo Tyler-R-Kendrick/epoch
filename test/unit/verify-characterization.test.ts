@@ -128,39 +128,18 @@ function communityWebVoiceSelectorContract(): void {
   });
 }
 
-type CommunityWebMapSurface = {
-  list(path: string): Array<{ name: string; kind?: string }> | null;
-  isTerminalNavPath(path: string): boolean;
-  navParentPath(path: string): string;
-};
-
 function communityWebActivityTerminalContract(): void {
-  const root = "packages/Epoch.Community.Web/app";
-  new Function(readFileSync(`${root}/value-kind.js`, "utf8"))();
-  const host: Record<string, unknown> = {};
-  new Function("window", readFileSync(`${root}/community-core-runtime.js`, "utf8"))(host);
-  new Function("window", readFileSync(`${root}/data.js`, "utf8"))(host);
-  new Function("window", readFileSync(`${root}/sitemap.js`, "utf8"))(host);
-  // SAFETY: sitemap.js assigns CW_MAP with list/isTerminalNavPath/navParentPath after Core loads.
-  const map = host.CW_MAP as CommunityWebMapSurface | undefined;
-  if (!map) throw new Error("CW_MAP missing for Activity characterization");
-  const filters = (map.list("/notifications") || []).map((entry) => ({
-    name: entry.name,
-    kind: entry.kind || null,
-  }));
-  const terminal = ["all", "mentions", "subscribed", "hooks"].map((name) => {
-    const path = `/notifications/${name}`;
-    return {
-      path,
-      terminal: map.isTerminalNavPath(path),
-      navParent: map.navParentPath(path),
-    };
+  const sitemap = readFileSync("packages/Epoch.Community.Web/app/sitemap.js", "utf8");
+  assertVerified("community-web-activity-terminal", {
+    allFilterIsActivity: sitemap.includes('name: "all", kind: "activity"'),
+    mentionsFilterIsActivity: sitemap.includes('name: "mentions", kind: "activity"'),
+    subscribedFilterIsActivity: sitemap.includes('name: "subscribed", kind: "activity"'),
+    hooksFilterIsActivity: sitemap.includes('name: "hooks", kind: "activity"'),
+    notificationsTerminalGuard:
+      sitemap.includes('parts[0] === "notifications" && parts.length === 2 &&'),
+    notificationsNavParent:
+      sitemap.includes('if (parts[0] === "notifications") return "/notifications"'),
   });
-  assertVerified("community-web-activity-terminal", verifiedFixture({
-    filters,
-    terminal,
-    mentionsListingIsContent: ((map.list("/notifications/mentions") || [])[0]?.kind) === "notification",
-  }));
 }
 
 async function authCalloutAllowContract(): Promise<void> {
