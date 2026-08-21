@@ -428,3 +428,25 @@ jobs:
 
       - name: Kill Protocol capability mutants
         run: npm run mutation:protocol
+
+  community-web-mutants:
+    name: Community Web mutant kill
+    needs: guard
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: ".nvmrc"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Kill Community Web Activity terminal-nav mutants
+        run: npm run mutation:community-web

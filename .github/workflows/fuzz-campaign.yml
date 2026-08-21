@@ -104,6 +104,9 @@ jobs:
       - name: Kill Protocol mutants
         run: npm run mutation:protocol
 
+      - name: Kill Community Web Activity mutants
+        run: npm run mutation:community-web
+
   jazzer:
     name: Jazzer.js parsers
     needs: guard
