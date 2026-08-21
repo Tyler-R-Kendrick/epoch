@@ -14,7 +14,7 @@ Personas remain user context for real product behavior. Do not add persona-only 
 | `features/community_agent_sandboxes.feature` | 3 |
 | `features/community_channels.feature` | 4 |
 | `features/community_sandbox_workspaces.feature` | 3 |
-| `features/community_web_experience.feature` | 88 |
+| `features/community_web_experience.feature` | 89 |
 | `features/identity_bridge.feature` | 5 |
 | `features/crdt_log.feature` | 3 |
 | `features/ha_dr.feature` | 7 |
@@ -150,7 +150,8 @@ Personas remain user context for real product behavior. Do not add persona-only 
 | `features/community_web_experience.feature` | `@persona.github_open_source_contributor` | Scenario | Contributor sees an inviting empty state in a quiet channel | None | 0 |
 | `features/community_web_experience.feature` | `@persona.slack_power_user` | Scenario | Contributor searching with no matches sees the query named back | None | 0 |
 | `features/community_web_experience.feature` | `@persona.slack_power_user` | Scenario | Contributor clears receipt search with Escape | None | 0 |
-| `features/community_web_experience.feature` | `@persona.maintainer` | Scenario | Contributor sees unread only for channels with new activity | None | 0 |
+| `features/community_web_experience.feature` | `@persona.maintainer` | Scenario | Maintainer reads who is active in each room from the channel nav | None | 0 |
+| `features/community_web_experience.feature` | `@persona.github_open_source_contributor` | Scenario | Contributor sees online members first on the members roll | None | 0 |
 | `features/community_web_experience.feature` | `@persona.security_compliance_responder` | Scenario | Contributor reveals the record behind a signature | None | 0 |
 | `features/community_web_experience.feature` | `@persona.github_power_user` | Scenario | Maintainer follows a promoted message to the change it became | None | 0 |
 | `features/community_web_experience.feature` | `@persona.github_open_source_contributor` | Scenario | Contributor sees what a generated interface change does before accepting it | None | 0 |
