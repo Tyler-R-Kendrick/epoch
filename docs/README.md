@@ -21,7 +21,7 @@ decisions, operations, or contribution workflow.
 | [Native Sync And Resolution](resolver-sync.md) | Filtered sync, promises, verification, deterministic conflict resolution, and provider trust. |
 | [OpenZL Host Entropy Codec](openzl.md) | Entity-aware OpenZL compression for blobs/artifacts and changediffs (`@epoch/openzl`). |
 | [NATS Realtime Fabric](nats.md) | Host NATS JetStream/WebSocket, complementary auth callout, host-side JWT issuance, Live/platform/community streams, and posture-gated `epoch.svc.>` discovery (`@epoch/nats`). |
-| [Testing Lanes](testing-lanes.md) | Honest inventory: unit, Cucumber, Pact, chaos, fuzz, NATS/Protocol mutant kill, and Verify-style goldens. |
+| [Testing Lanes](testing-lanes.md) | Honest inventory: unit, Cucumber, Pact, chaos, fuzz, NATS/XMPP/Protocol/Community Web mutant kill, and Verify-style goldens. |
 | [Protocol Experiments](protocol-experiments.md) | E01–E16 gated registry, rejected-protocol ledger, standing Production ship: (none yet). |
 | [XMPP s2s Profile](xmpp-profile.md) | Loss-declared `@epoch/xmpp` FederationTransport, XEP profile, and fidelity statement. |
 | [Exit And Migration](exit-and-migration.md) | `epoch-exit/v1` export, import, and community migration with binding continuity. |
@@ -162,6 +162,7 @@ decisions, operations, or contribution workflow.
 | [Community Web Voice Tray State](plans/community-web-voice-grid/sdlc-state.md) | Closed record for persistent lounge voice connections and Grid design-system cleanup. |
 | [XMPP Channel Fanout State](plans/xmpp-channel-fanout/sdlc-state.md) | Closed record for public-channel s2s fanout, Verify goldens, mutant kill, and chaos envelopes. |
 | [Test Lanes Honesty State](plans/test-lanes/sdlc-state.md) | Closed record for Verify goldens, Protocol mutant kill, honest lane inventory, and the 80% branch floor. |
+| [Activity VFS Test Lanes State](plans/activity-vfs-test-lanes/sdlc-state.md) | Active stack for Activity terminal nav, Community Web mutant kill, and Verify golden. |
 | [Anti-slop Oxlint Gates State](plans/anti-slop-oxlint-gates/sdlc-state.md) | Active record for vendored anti-slop Oxlint, clean baseline, and strengthened `gate:commit` hooks. |
 | [Community Web Feed/Thread Nav State](plans/community-web-feed-thread-nav/sdlc-state.md) | Session record for roots-only feeds, single-column threads and receipt chrome lint. |
 | [Epoch Skill](../skills/epoch/SKILL.md) | Compact wiki for agents operating on the repository. |
