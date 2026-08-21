@@ -1,0 +1,8 @@
+{
+  "allFilterIsActivity": true,
+  "hooksFilterIsActivity": true,
+  "mentionsFilterIsActivity": true,
+  "notificationsNavParent": true,
+  "notificationsTerminalGuard": true,
+  "subscribedFilterIsActivity": true
+}

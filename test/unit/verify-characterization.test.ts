@@ -29,6 +29,7 @@ export async function runVerifyCharacterizationTests(): Promise<void> {
   protocolCapabilityContract();
   designTokenColorContract();
   communityWebVoiceSelectorContract();
+  communityWebActivityTerminalContract();
   await authCalloutAllowContract();
 }
 
@@ -124,6 +125,20 @@ function communityWebVoiceSelectorContract(): void {
     required,
     present: required.filter((attr) => consoleSrc.includes(attr)),
     pttBlurReleases: /addEventListener\("blur", function \(\) \{\s*endVoicePtt\(\);/.test(appSrc),
+  });
+}
+
+function communityWebActivityTerminalContract(): void {
+  const sitemap = readFileSync("packages/Epoch.Community.Web/app/sitemap.js", "utf8");
+  assertVerified("community-web-activity-terminal", {
+    allFilterIsActivity: sitemap.includes('name: "all", kind: "activity"'),
+    mentionsFilterIsActivity: sitemap.includes('name: "mentions", kind: "activity"'),
+    subscribedFilterIsActivity: sitemap.includes('name: "subscribed", kind: "activity"'),
+    hooksFilterIsActivity: sitemap.includes('name: "hooks", kind: "activity"'),
+    notificationsTerminalGuard:
+      sitemap.includes('parts[0] === "notifications" && parts.length === 2 &&'),
+    notificationsNavParent:
+      sitemap.includes('if (parts[0] === "notifications") return "/notifications"'),
   });
 }
 
