@@ -6,11 +6,13 @@ Open — stacked PRs for terminal Activity nav and lane honesty.
 
 ## Session PRs
 
-| Layer | Branch | Purpose |
-|---|---|---|
-| 01 | `sdlc/activity-vfs-01-terminal` | Activity filters are terminal leaves; board nav polish |
-| 02 | `sdlc/activity-vfs-02-verify-mutation` | Verify golden + `mutation:community-web` CI |
-| 03 | `sdlc/activity-vfs-03-docs-faults` | Testing-lanes inventory + plan/dispatch records |
+| Layer | Branch | PR | Purpose |
+|---|---|---|---|
+| 01 | `sdlc/activity-vfs-01-terminal` | [#180](https://github.com/Tyler-R-Kendrick/epoch/pull/180) | Activity filters are terminal leaves; board nav polish |
+| 02 | `sdlc/activity-vfs-02-verify-mutation` | [#181](https://github.com/Tyler-R-Kendrick/epoch/pull/181) | Verify golden + `mutation:community-web` CI |
+| 03 | `sdlc/activity-vfs-03-docs-faults` | [#182](https://github.com/Tyler-R-Kendrick/epoch/pull/182) | Testing-lanes inventory + plan/dispatch records |
+
+Stack issue: [#183](https://github.com/Tyler-R-Kendrick/epoch/issues/183).
 
 ## Inventory (honest)
 
