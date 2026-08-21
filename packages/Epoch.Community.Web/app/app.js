@@ -816,6 +816,33 @@
     }
   }
 
+  /**
+   * Targeted repaint of channel active-member badges — same pattern as
+   * paintActivityBell: touch only [data-active-badge] nodes, never re-render.
+   */
+  function paintChannelBadges() {
+    if (!window.CW_PRESENCE || !globalThis.CW_VALUE.isFunction(window.CW_PRESENCE.activeCount)) return;
+    var badges = document.querySelectorAll("[data-active-badge]");
+    for (var i = 0; i < badges.length; i++) {
+      var badge = badges[i];
+      var n = window.CW_PRESENCE.activeCount(badge.getAttribute("data-active-badge"));
+      var word = badge.getAttribute("data-active-badge-word");
+      badge.hidden = n <= 0;
+      badge.textContent = word ? n + " " + word : String(n);
+    }
+  }
+
+  /**
+   * Live presence ingest (store/NATS channel.presence traffic, or a caller
+   * poking CW_APP.ingestPresence). Repaints badges in place; no render(true).
+   */
+  function ingestPresence(events) {
+    if (!window.CW_PRESENCE || !globalThis.CW_VALUE.isFunction(window.CW_PRESENCE.ingest)) return [];
+    var changed = window.CW_PRESENCE.ingest(events);
+    if (changed.length) paintChannelBadges();
+    return changed;
+  }
+
   function openActivity(filter) {
     var dest = "/notifications/" + (filter || "all");
     navigate(dest, { keepCli: true });
@@ -5420,6 +5447,11 @@
   }
 
   function ingestStoreActivity(events) {
+    // Presence traffic updates channel badges live, apart from Activity.
+    var presenceEvents = (events || []).filter(function (event) {
+      return event && event.type === "channel.presence";
+    });
+    if (presenceEvents.length) ingestPresence(presenceEvents);
     var runtime = window.CW_RUNTIME || {};
     var mutedIds = Object.keys(state.mutedObjects || {}).filter(function (id) {
       return state.mutedObjects[id];
@@ -9877,6 +9909,10 @@
     wireAttach();
     wireMount();
     wireBrowserHistory();
+    // Declared fixture presence seeds the active-member badges before paint.
+    if (window.CW_PRESENCE && globalThis.CW_VALUE.isFunction(window.CW_PRESENCE.seedFromFixtures)) {
+      window.CW_PRESENCE.seedFromFixtures(window.CW_DATA);
+    }
     render();
     renderNotice();
     paintActivityBell();
@@ -10257,6 +10293,8 @@
     markNotificationRead: markNotificationRead,
     unreadActivityCount: unreadActivityCount,
     ingestStoreActivity: ingestStoreActivity,
+    ingestPresence: ingestPresence,
+    paintChannelBadges: paintChannelBadges,
     openReceiptLocator: openReceiptLocator,
     jumpBest: jumpBest,
     paintActivityBell: paintActivityBell,

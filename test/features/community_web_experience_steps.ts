@@ -3144,23 +3144,6 @@ When("I press Escape in the receipt search", async function () {
   await page.waitForTimeout(150);
 });
 
-When("the ideas channel gains activity after I last read it", async function () {
-  const page = requirePage();
-  // Simulate having read #ideas when it was empty: the watermark is the message
-  // count seen, so a lower watermark is exactly what storage would hold.
-  await page.evaluate(() => {
-    const key = "epoch-community:last-read";
-    const raw = window.localStorage.getItem(key);
-    // SAFETY: The scenario fixture establishes this test-only contract before the value is consumed.
-    const map: Record<string, number> = raw === null ? {} : JSON.parse(raw) as Record<string, number>;
-    map["epoch-civic|ideas"] = 0;
-    window.localStorage.setItem(key, JSON.stringify(map));
-  });
-  // Re-render badges by selecting another channel.
-  await page.locator('button[data-channel="general"]').click();
-  await page.waitForTimeout(150);
-});
-
 Then("the channel shows an empty state naming a next action", async function () {
   const page = requirePage();
   const state = page.locator('.message-feed [data-state-item]:not([hidden]) [data-state-kind="empty"]');
@@ -3192,20 +3175,146 @@ Then("the receipt search is empty and announces the channel", async function () 
   assert.ok(visible > 0, "clearing search must restore the channel messages");
 });
 
-Then("no channel shows an unread count on a first visit", async function () {
+// ── Presence: active-member nav badges and online-first members roll ─────────
+
+/** Active-member count for #ideas captured before the presence change. */
+let ideasActiveBefore = 0;
+
+Then("each channel nav badge shows how many members are active in that room", async function () {
   const page = requirePage();
-  const unread = await page.locator("[data-channel-has-unread]").count();
-  assert.equal(unread, 0, "a first visit must not mark every channel unread");
+  // Entering the board resolves as soon as CW_APP exists, which can precede
+  // the boot that seeds fixture presence and paints the nav. Wait for the
+  // settled state — seeded presence plus a painted badge — before probing.
+  await page.waitForFunction(() => {
+    // SAFETY: The scenario fixture establishes this test-only contract before the value is consumed.
+    const runtime = (window as { CW_PRESENCE?: { activeCount(channelId: string): number } });
+    const badge = document.querySelector('[data-blade-path$="/channels"] [data-active-badge="governance"]');
+    return !!runtime.CW_PRESENCE && runtime.CW_PRESENCE.activeCount("governance") > 0
+      && !!badge && Number(badge.textContent) > 0;
+  }, null, { timeout: 10_000 });
+  const probe = await page.evaluate(() => {
+    // SAFETY: The scenario fixture establishes this test-only contract before the value is consumed.
+    const runtime = (window as {
+      CW_PRESENCE?: { activeCount(channelId: string): number };
+      CW_DATA: { channels: Array<{ id: string; count?: number }> };
+    });
+    const presence = runtime.CW_PRESENCE;
+    if (!presence) return { missing: true, rows: null };
+    const rows = Array.from(document.querySelectorAll(
+      '[data-blade-path$="/channels"] .cn-item[data-kind="channel"] [data-active-badge]',
+    )).map((el) => {
+      const channelId = el.getAttribute("data-active-badge") ?? "";
+      const fixture = runtime.CW_DATA.channels.find((c) => c.id === channelId);
+      return {
+        channelId,
+        badge: Number(el.textContent),
+        expected: presence.activeCount(channelId),
+        subscribers: fixture?.count ?? null,
+      };
+    });
+    return { missing: false, rows };
+  });
+  assert.equal(probe.missing, false, "CW_PRESENCE must be available on the board");
+  const rows = probe.rows ?? [];
+  assert.ok(rows.length > 0, "channel nav rows must carry active-member badges");
+  for (const row of rows) {
+    assert.equal(row.badge, row.expected, `#${String(row.channelId)} badge must equal CW_PRESENCE.activeCount`);
+  }
+  // Honesty guardrail: badges count active members, never fixture subscriber counts.
+  const governance = rows.find((row) => row.channelId === "governance");
+  assert.ok(governance, "the governance room must be on the community channels nav");
+  assert.equal(governance.subscribers, 0, "the fixture keeps governance at zero subscribers");
+  assert.ok(Number(governance.badge) > 0, "governance badge counts active members, not subscribers");
 });
 
-Then("the ideas channel shows an unread count", async function () {
+When("a member goes away in the ideas channel", async function () {
   const page = requirePage();
-  const button = page.locator('button[data-channel="ideas"]');
-  await button.locator("[data-channel-unread]:not([hidden])").waitFor({ state: "visible", timeout: 5_000 });
-  const count = await button.locator("[data-channel-unread]").innerText();
-  assert.match(count.trim(), /^[1-9]\d*$/u);
-  const label = await button.getAttribute("aria-label");
-  assert.match(label ?? "", /unread/u, "unread must be readable, not colour-only");
+  ideasActiveBefore = await page.evaluate(() => {
+    // SAFETY: The scenario fixture establishes this test-only contract before the value is consumed.
+    const runtime = (window as {
+      CW_PRESENCE: { activeCount(channelId: string): number };
+      CW_APP: { ingestPresence(events: ReadonlyArray<JsonObject>): string[] };
+    });
+    const before = runtime.CW_PRESENCE.activeCount("ideas");
+    runtime.CW_APP.ingestPresence([{ channelId: "ideas", principalId: "maya", state: "away" }]);
+    return before;
+  });
+  await page.waitForTimeout(150);
+});
+
+Then("the ideas channel nav badge counts one fewer active member", async function () {
+  const page = requirePage();
+  const probe = await page.evaluate(() => {
+    // SAFETY: The scenario fixture establishes this test-only contract before the value is consumed.
+    const runtime = (window as { CW_PRESENCE: { activeCount(channelId: string): number } });
+    const badge = document.querySelector(
+      '[data-blade-path$="/channels"] .cn-item[data-key="ideas"] [data-active-badge="ideas"]',
+    );
+    return {
+      text: badge?.textContent ?? null,
+      active: runtime.CW_PRESENCE.activeCount("ideas"),
+    };
+  });
+  assert.equal(probe.active, ideasActiveBefore - 1, "activeCount must drop when a member goes away");
+  assert.equal(Number(probe.text), ideasActiveBefore - 1, "the badge must repaint in place, without navigation");
+});
+
+When("I open the board members roll", async function () {
+  const page = requirePage();
+  await page.evaluate(() => {
+    // SAFETY: The scenario fixture establishes this test-only contract before the value is consumed.
+    (window as { CW_APP: { navigate(path: string, options?: JsonObject): void } })
+      .CW_APP.navigate("/members", { keepCli: true });
+  });
+  await page.locator('[data-blade-path="/members"] .cn-item').first()
+    .waitFor({ state: "visible", timeout: 5_000 });
+});
+
+When("I open the community project members roll", async function () {
+  const page = requirePage();
+  await page.evaluate(() => {
+    // SAFETY: The scenario fixture establishes this test-only contract before the value is consumed.
+    (window as { CW_APP: { navigate(path: string, options?: JsonObject): void } })
+      .CW_APP.navigate("/projects/community/members", { keepCli: true });
+  });
+  await page.locator('[data-blade-path="/projects/community/members"] .cn-item').first()
+    .waitFor({ state: "visible", timeout: 5_000 });
+});
+
+Then("members who are here sort before members who are away", async function () {
+  const page = requirePage();
+  const probe = await page.evaluate(() => {
+    // SAFETY: The scenario fixture establishes this test-only contract before the value is consumed.
+    const runtime = (window as {
+      CW_APP: { state: { path: string } };
+      CW_MAP: { findMember(handle: string): { state?: string } | null };
+    });
+    const path = runtime.CW_APP.state.path;
+    const keys = Array.from(document.querySelectorAll(`[data-blade-path="${path}"] .cn-item[data-key]`))
+      .map((el) => el.getAttribute("data-key") ?? "");
+    return {
+      path,
+      states: keys.map((key) => ({ key, state: runtime.CW_MAP.findMember(key)?.state ?? "unknown" })),
+    };
+  });
+  const rank = (state: string): number => {
+    if (state === "here" || state === "active" || state === "working") return 0;
+    if (state === "idle") return 1;
+    if (state === "away" || state === "offline") return 2;
+    return 3;
+  };
+  const ranks = probe.states.map((member) => rank(member.state));
+  const lastOnline = ranks.lastIndexOf(0);
+  const firstAway = ranks.indexOf(2);
+  assert.ok(
+    probe.states.some((member) => member.state === "here"),
+    `roll ${probe.path} must include members who are here`,
+  );
+  assert.notEqual(firstAway, -1, `roll ${probe.path} must include a member who is away`);
+  assert.ok(
+    lastOnline < firstAway,
+    `online members must sort before away members on ${probe.path}: ${JSON.stringify(probe.states)}`,
+  );
 });
 
 // ── Craft moments: provenance reveal and contribution lineage ────────────────

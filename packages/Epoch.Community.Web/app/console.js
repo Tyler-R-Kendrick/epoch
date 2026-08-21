@@ -2224,11 +2224,15 @@
     var posts = D.posts.concat(extra || []).filter(function (p) { return p.channel === chan.id; });
     var last = posts.length ? posts[posts.length - 1] : null;
     var spark = activityOf({ kind: "dir", name: label }, "/projects/community/channels");
+    // Who is active in the room right now (presence), not subscriber counts.
+    var active = window.CW_PRESENCE && globalThis.CW_VALUE.isFunction(window.CW_PRESENCE.activeCount)
+      ? window.CW_PRESENCE.activeCount(chan.id) : 0;
     return '<div class="cn-ctx" data-key="ctx-' + esc(label) + '" data-channel="true">' +
       '<b class="cn-ctx-name">#' + esc(label) + "</b>" +
       '<span class="cn-ctx-kind" data-kind="' + esc(chan.kind) + '">' + esc(chan.kind) + " channel</span>" +
       '<span class="cn-ctx-fact">' + posts.length + (posts.length === 1 ? " post" : " posts") + "</span>" +
-      (chan.unread ? '<span class="cn-badge">' + chan.unread + " new</span>" : "") +
+      '<span class="cn-badge" title="Active members" data-active-badge="' + esc(chan.id) + '"' +
+      ' data-active-badge-word="active"' + (active ? "" : " hidden") + ">" + active + " active</span>" +
       (spark ? '<span class="cn-spark" aria-hidden="true">' + spark + "</span>" : "") +
       (last ? '<span class="cn-ctx-fact">last ' + esc(last.at) + " · " + esc(last.who) + "</span>" : "") +
       "</div>";
@@ -2606,6 +2610,14 @@
           ' child' + (subN === 1 ? "" : "ren") + '">' + subN + "</span>";
       }
 
+      // Channel rows carry an active-member badge (targeted-repaint target via
+      // data-active-badge); hidden at zero so a quiet room still shows its hint.
+      var chanBadge = "";
+      if (!e.unread && !e.voice && e.kind === "channel" && e.channel && e.channel.id) {
+        chanBadge = '<span class="cn-badge" title="Active members" data-active-badge="' +
+          esc(e.channel.id) + '"' + (e.active ? "" : " hidden") + ">" + (e.active || 0) + "</span>";
+      }
+
       var html = '<div class="cn-tree-row" data-key="tr-' + esc(full) + '" data-depth="' + depth + '"' +
         (pathFocus ? ' data-path-focus="true"' : "") +
         (isDir && hasSub ? ' data-has-kids="true"' : "") + ">" +
@@ -2626,7 +2638,8 @@
         (e.unread
           ? '<span class="cn-badge" title="Unread">' +
             (globalThis.CW_VALUE.isNumber(e.unread) ? e.unread : "new") + "</span>"
-          : '<span class="cn-hint">' + (spark ? '<span class="cn-spark" aria-hidden="true">' + spark + "</span> " : "") +
+          : chanBadge +
+          '<span class="cn-hint">' + (spark ? '<span class="cn-spark" aria-hidden="true">' + spark + "</span> " : "") +
           esc(e.hint || "") + "</span>") +
         "</button></div>";
 
@@ -3657,7 +3670,7 @@
     @media (prefers-reduced-motion: no-preference){
       [data-exp="console"] [data-live=true]{animation:cn-arrive .45s cubic-bezier(.2,.8,.2,1) both}
       [data-exp="console"] .cn-comment[data-here=true] > .cn-comment-row{animation:cn-ping-bg 1.2s ease-out 1}
-      [data-exp="console"] .cn-badge{animation:cn-arrive .3s ease-out both}
+      [data-exp="console"] .cn-badge:not([data-active-badge]){animation:cn-arrive .3s ease-out both}
     }
     @keyframes cn-arrive{from{opacity:0;translate:0 .5rem}to{opacity:1;translate:0 0}}
     @keyframes cn-ping-bg{0%{background:transparent}40%{background:var(--cw-surface)}100%{background:var(--cw-surface)}}

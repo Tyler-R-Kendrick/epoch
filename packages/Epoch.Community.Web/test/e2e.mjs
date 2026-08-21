@@ -7424,6 +7424,122 @@ const CASES = [
     },
   },
   {
+    name: "presence: channel nav badges count active members, not subscribers",
+    run: async (page, log) => {
+      await go(page, "/projects/community/channels/general");
+      const probe = await page.evaluate(() => {
+        const presence = window.CW_PRESENCE;
+        if (!presence) return { missing: true, rows: [] };
+        const rows = Array.from(document.querySelectorAll(
+          '[data-blade-path$="/channels"] .cn-item[data-kind="channel"] [data-active-badge]',
+        )).map((el) => {
+          const channelId = el.getAttribute("data-active-badge");
+          const fixture = (window.CW_DATA.channels || []).find((c) => c.id === channelId);
+          return {
+            channelId,
+            badge: Number(el.textContent),
+            hidden: el.hasAttribute("hidden"),
+            expected: presence.activeCount(channelId),
+            subscribers: fixture ? fixture.count : null,
+          };
+        });
+        // Seeded from declared per-member states: maya, lea, nora are "here".
+        return { missing: false, rows, general: presence.activeCount("general") };
+      });
+      if (probe.missing) return log("CW_PRESENCE missing");
+      if (probe.general !== 3) return log("seeded active count wrong: " + probe.general);
+      if (!probe.rows.length) return log("no active badges on channel rows");
+      const stale = probe.rows.filter((r) => !r.hidden && r.badge !== r.expected);
+      if (stale.length) return log("badge ≠ activeCount: " + JSON.stringify(stale));
+      const governance = probe.rows.find((r) => r.channelId === "governance");
+      if (!governance) return log("governance row missing: " + JSON.stringify(probe.rows));
+      if (governance.subscribers !== 0 || governance.badge === 0) {
+        return log("badge echoes subscriber count: " + JSON.stringify(governance));
+      }
+      return true;
+    },
+  },
+  {
+    name: "presence: ingestPresence repaints channel badges without a full render",
+    run: async (page, log) => {
+      await go(page, "/projects/community/channels/general");
+      const before = await page.evaluate(() => {
+        const badge = document.querySelector(
+          '[data-blade-path$="/channels"] .cn-item[data-key="ideas"] [data-active-badge="ideas"]',
+        );
+        window.__ideasBadgeNode = badge;
+        return {
+          active: window.CW_PRESENCE.activeCount("ideas"),
+          text: badge ? badge.textContent : null,
+        };
+      });
+      if (before.text === null) return log("ideas badge missing before ingest");
+      await page.evaluate(() => {
+        window.CW_APP.ingestPresence([{ channelId: "ideas", principalId: "maya", state: "away" }]);
+      });
+      await page.waitForTimeout(80);
+      const away = await page.evaluate(() => {
+        const badge = document.querySelector('[data-active-badge="ideas"]');
+        return {
+          active: window.CW_PRESENCE.activeCount("ideas"),
+          text: badge ? badge.textContent : null,
+          sameNode: badge === window.__ideasBadgeNode,
+        };
+      });
+      if (away.active !== before.active - 1) {
+        return log("activeCount did not drop: " + JSON.stringify({ before, away }));
+      }
+      if (Number(away.text) !== before.active - 1) {
+        return log("badge text stale: " + JSON.stringify({ before, away }));
+      }
+      if (!away.sameNode) return log("badge re-rendered instead of repainted");
+      await page.evaluate(() => {
+        window.CW_APP.ingestPresence([{ channelId: "ideas", principalId: "maya", state: "active" }]);
+      });
+      await page.waitForTimeout(80);
+      const back = await page.evaluate(() => ({
+        active: window.CW_PRESENCE.activeCount("ideas"),
+        text: document.querySelector('[data-active-badge="ideas"]')?.textContent,
+      }));
+      if (back.active !== before.active || Number(back.text) !== before.active) {
+        return log("return to active not painted: " + JSON.stringify({ before, back }));
+      }
+      return true;
+    },
+  },
+  {
+    name: "presence: members rolls list online members first",
+    run: async (page, log) => {
+      const stateOf = (states, handle) => (states.find((m) => m.key === handle) || {}).state;
+      for (const roll of ["/members", "/projects/community/members"]) {
+        await go(page, roll);
+        await page.waitForTimeout(120);
+        const states = await page.evaluate((p) => {
+          const keys = Array.from(
+            document.querySelectorAll(`[data-blade-path="${p}"] .cn-item[data-key]`),
+          ).map((el) => el.getAttribute("data-key"));
+          return keys.map((key) => ({
+            key,
+            state: (window.CW_MAP.findMember(key) || {}).state || "unknown",
+          }));
+        }, roll);
+        if (!states.length) return log("empty roll: " + roll);
+        const ranks = states.map((m) =>
+          (m.state === "here" || m.state === "active" || m.state === "working" ? 0
+            : m.state === "idle" ? 1
+            : m.state === "away" || m.state === "offline" ? 2 : 3));
+        const lastOnline = ranks.lastIndexOf(0);
+        const firstAway = ranks.indexOf(2);
+        if (stateOf(states, "maya") !== "here") return log("maya not here: " + JSON.stringify(states));
+        if (firstAway === -1) return log("no away member on roll: " + roll);
+        if (!(lastOnline < firstAway)) {
+          return log("away before online on " + roll + ": " + JSON.stringify(states));
+        }
+      }
+      return true;
+    },
+  },
+  {
     name: "person: profile toggle shows GitHub-style bio in TUI",
     run: async (page, log) => {
       await go(page, "/dms/scout");

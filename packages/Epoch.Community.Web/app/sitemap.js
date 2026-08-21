@@ -359,6 +359,11 @@
     var id = c && (c.id || c.label);
     var label = (c && (c.label || c.id)) || opts.name || "channel";
     var nPosts = voice ? 0 : (opts.count == null ? postsIn(id, opts.extra).length : opts.count);
+    // Active-member count comes from declared/known presence, never from the
+    // fixture subscriber count (honesty: count is audience size, not presence).
+    var active = !voice && window.CW_PRESENCE &&
+        globalThis.CW_VALUE.isFunction(window.CW_PRESENCE.activeCount)
+      ? window.CW_PRESENCE.activeCount(id) : 0;
     var entry = {
       name: opts.name || label,
       kind: "channel",
@@ -368,8 +373,8 @@
       ref: entityRef(c, "channel", "channel-", opts.projectId ? opts.projectId + "-" + id : id),
       hint: voice
         ? "voice · Opus · low-latency"
-        : (nPosts + " posts" + (c && c.unread ? " · " + c.unread + " unread" : "")),
-      unread: (c && c.unread) || 0,
+        : (nPosts + " posts" + (active ? " · " + active + " active" : "")),
+      active: active,
     };
     if (opts.spaceId) entry.spaceId = opts.spaceId;
     return entry;
@@ -1045,7 +1050,7 @@
         return m || { handle: h, role: "contributor", kind: "person", state: "here" };
       });
     }
-    return mergeMemberLists(base, projectAgents(proj.id).map(agentToMember));
+    return sortRosterByPresence(mergeMemberLists(base, projectAgents(proj.id).map(agentToMember)));
   }
 
   /**
@@ -1053,7 +1058,15 @@
    * declared at board scope (/.agents). Opening one opens /dms/<handle>.
    */
   function membersForBoard() {
-    return mergeMemberLists(D.members || [], boardAgents().map(agentToMember));
+    return sortRosterByPresence(mergeMemberLists(D.members || [], boardAgents().map(agentToMember)));
+  }
+
+  /** Roster ordered by who is online; fixture order is kept within a rank. */
+  function sortRosterByPresence(roster) {
+    if (window.CW_PRESENCE && globalThis.CW_VALUE.isFunction(window.CW_PRESENCE.sortByPresence)) {
+      return window.CW_PRESENCE.sortByPresence(roster);
+    }
+    return roster;
   }
 
   function agentToMember(a) {
@@ -1063,11 +1076,19 @@
       handle: id,
       role: a.scope === "project" ? "project agent" : "space agent",
       kind: "agent",
-      state: a.status || "idle",
+      state: honestAgentStatus(a),
       detail: (a.summary || a.name || id) + (a.model ? " · " + a.model : ""),
       agent: a,
       eve: true,
     };
+  }
+
+  /** Stale `working` agents rank as idle — heartbeat honesty from the runtime. */
+  function honestAgentStatus(a) {
+    if (window.CW_RUNTIME && globalThis.CW_VALUE.isFunction(window.CW_RUNTIME.honestAgentStatus)) {
+      return window.CW_RUNTIME.honestAgentStatus(a.status, a.heartbeatAt);
+    }
+    return a.status || "idle";
   }
 
   function mergeMemberLists(base, extra) {
