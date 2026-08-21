@@ -116,6 +116,8 @@
     dmOwnerPrincipalId: null,
     layers: [],
     navigationVisits: [],
+    // Last board surface before yielding to the prompt — Tab restores it.
+    focusReturn: null,
     // Esc closes the suggestion combobox without clearing the draft; typing
     // clears this so the catalogue can reopen for the next fragment.
     menuDismissed: false,
@@ -2569,9 +2571,93 @@
 
   function blurEditor() {
     var es = ensureEditorState();
+    applyKeymapBufferIfNeeded(es.active);
     es.focused = false;
     es.dragging = false;
     render(true);
+  }
+
+  /** Persist / apply dirty keymap.toml when leaving the editor. */
+  function applyKeymapBufferIfNeeded(buf, opts) {
+    opts = opts || {};
+    if (!buf) return false;
+    if (!buf.dirty && !opts.force) return false;
+    var path = String(buf.path || buf.name || "");
+    if (!/(^|\/)keymap\.toml$/i.test(path)) return false;
+    if (!window.CW_KEYMAP || !globalThis.CW_VALUE.isFunction(window.CW_KEYMAP.applyText)) {
+      return false;
+    }
+    var Ed = editorApi();
+    var text = Ed && globalThis.CW_VALUE.isFunction(Ed.text) ? Ed.text(buf) : (buf.lines || []).join("\n");
+    try {
+      var active = window.CW_KEYMAP.applyText(text);
+      buf.dirty = false;
+      buf.message = "keymap · " + active;
+      status("keymap applied · " + active);
+      // Refresh buffer text from canonical serialize so active= stays honest.
+      if (globalThis.CW_VALUE.isFunction(window.CW_KEYMAP.source)) {
+        var next = window.CW_KEYMAP.source().split(/\r?\n/);
+        buf.lines = next.length ? next : [""];
+      }
+      return true;
+    } catch (err) {
+      buf.message = "keymap error";
+      status("keymap.toml · " + ((err && err.message) || err));
+      return false;
+    }
+  }
+
+  function runKeymapCommand(arg) {
+    var km = window.CW_KEYMAP;
+    if (!km) return "keymap: unavailable";
+    var raw = String(arg || "").trim();
+    var parts = raw.split(/\s+/).filter(Boolean);
+    var verb = (parts[0] || "").toLowerCase();
+    var target = parts[1] || "";
+    if (!verb || verb === "list" || verb === "ls" || verb === "status") {
+      var rows = km.list();
+      return "keymap · active " + km.active() + " (" + km.label() + ")\n" +
+        rows.map(function (row) {
+          return (row.active ? "* " : "  ") + row.id + " — " + row.label;
+        }).join("\n") +
+        "\nedit /keymap.toml · keymap use <id> · keymap apply";
+    }
+    if (verb === "use" || verb === "set" || verb === "load") {
+      if (!target) return "keymap use <id> — try: " + km.list().map(function (r) { return r.id; }).join(", ");
+      try {
+        var id = km.use(target);
+        // Keep open editor buffer in sync with active= rewrite.
+        var es = ensureEditorState();
+        if (es.active && /(^|\/)keymap\.toml$/i.test(String(es.active.path || ""))) {
+          var nextLines = km.source().split(/\r?\n/);
+          es.active.lines = nextLines.length ? nextLines : [""];
+          es.active.dirty = false;
+        }
+        return "keymap · " + id + " (" + km.label() + ")";
+      } catch (err) {
+        return "keymap: " + ((err && err.message) || err);
+      }
+    }
+    if (verb === "apply" || verb === "reload") {
+      var esApply = ensureEditorState();
+      var buf = esApply.active;
+      if (buf && /(^|\/)keymap\.toml$/i.test(String(buf.path || ""))) {
+        return applyKeymapBufferIfNeeded(buf, { force: true })
+          ? ("keymap · " + km.active())
+          : ("keymap: " + (buf.message || "apply failed"));
+      }
+      try {
+        km.applyText(km.source());
+        return "keymap · " + km.active() + " (reloaded)";
+      } catch (err2) {
+        return "keymap: " + ((err2 && err2.message) || err2);
+      }
+    }
+    // Bare `keymap vim` → use vim
+    if (km.list().some(function (row) { return row.id === verb; })) {
+      return runKeymapCommand("use " + verb);
+    }
+    return "keymap: list | use <id> | apply — unknown: " + raw;
   }
 
   function editorHandleKey(ev) {
@@ -2663,11 +2749,11 @@
 
   function entries() { return authorizedNamespaceEntries(navListPath()); }
 
-  /** Keep a terminal channel address aligned with the navbar cursor. */
+  /** Keep a terminal channel / Activity address aligned with the navbar cursor. */
   function syncTerminalPathFromCursor() {
     if (!(MAP.isTerminalNavPath && MAP.isTerminalNavPath(state.path))) return;
     var e = entries()[state.cursor];
-    if (!e || e.kind !== "channel") return;
+    if (!e || (e.kind !== "channel" && e.kind !== "activity")) return;
     var next = MAP.resolve(navListPath(), e.name);
     if (next && next !== state.path) {
       state.path = next;
@@ -2678,8 +2764,8 @@
   }
 
   /**
-   * Open a terminal channel leaf: address the channel for compose/feed, but
-   * keep the navbar on the parent channels list (siblings stay visible).
+   * Open a terminal channel or Activity leaf: address it for compose/feed, but
+   * keep the navbar on the parent list (siblings stay visible).
    */
   function openTerminalChannel(target, opts) {
     opts = opts || {};
@@ -2725,8 +2811,17 @@
     paintSampleStream();
     if (!state.feedMark && !state.threadFocus) {
       var initialFeed = feedEntries();
-      var initialMessage = initialFeed.find(function (entry) { return entry && entry.post; });
-      if (initialMessage) state.feedMark = initialMessage.post.id;
+      // Activity cards carry both `notification` and a target `post` — prefer
+      // the notification id so dismiss/read mark the attention item, not the
+      // linked message.
+      var initialNotif = initialFeed.find(function (entry) {
+        return entry && entry.notification;
+      });
+      if (initialNotif) state.feedMark = initialNotif.notification.id;
+      else {
+        var initialMessage = initialFeed.find(function (entry) { return entry && entry.post; });
+        if (initialMessage) state.feedMark = initialMessage.post.id;
+      }
     }
     // Keep the active virtual worktree's snapshot current so tab labels and
     // a later switch restore the path/transcript you actually left.
@@ -3583,6 +3678,18 @@
         focusDetail: true,
       });
     }
+    // /notifications/<filter>/<id> marks that Activity card — content stays in detail.
+    var deepNotifParts = MAP.split(target);
+    if (deepNotifParts[0] === "notifications" && deepNotifParts.length >= 3) {
+      var notifFilterPath = MAP.join(deepNotifParts.slice(0, 2));
+      if (MAP.isTerminalNavPath && MAP.isTerminalNavPath(notifFilterPath)) {
+        return openTerminalChannel(notifFilterPath, {
+          keepCli: opts.keepCli,
+          focusDetail: true,
+          feedMark: deepNotifParts[2],
+        });
+      }
+    }
     if (!MAP.isDir(target, state.merged)) {
       // A file path selects its entry in the parent directory rather than
       // failing, because "cd" to a thing you can see should go there.
@@ -3786,7 +3893,7 @@
   }
 
   /**
-   * Dismiss the notification under the nav cursor.
+   * Dismiss the notification under the detail mark (or nav cursor on legacy leaves).
    * Same verb / hotkey `d` as home-feed dismiss.
    */
   function dismissNotificationCursor() {
@@ -3803,7 +3910,24 @@
     return true;
   }
 
+  function onActivityPath() {
+    var parts = MAP.split(state.path);
+    return parts[0] === "notifications" && !!parts[1] &&
+      (parts[1] === "all" || parts[1] === "mentions" || parts[1] === "subscribed" ||
+       parts[1] === "hooks" || parts[1] === "hook");
+  }
+
   function selectedNotificationId() {
+    if (onActivityPath()) {
+      var feed = feedEntries().filter(function (e) { return e && e.notification; });
+      if (state.feedMark) {
+        var marked = feed.find(function (e) {
+          return e.notification.id === state.feedMark || e.name === state.feedMark;
+        });
+        if (marked) return marked.notification.id;
+      }
+      if (feed[0]) return feed[0].notification.id;
+    }
     var list = entries();
     var e = list[state.cursor];
     if (e && e.notification) return e.notification.id;
@@ -3905,6 +4029,25 @@
     status("feed · " + list[next].post.id);
   }
 
+  /** Activity detail browse: j/k mark the next/prev notification card. */
+  function moveActivityBrowse(delta) {
+    var list = feedEntries().filter(function (e) { return e && e.notification; });
+    if (!list.length) return;
+    var mark = state.feedMark || null;
+    var ix = mark
+      ? list.findIndex(function (e) {
+        return e.notification.id === mark || e.name === mark;
+      })
+      : 0;
+    if (ix < 0) ix = 0;
+    var next = Math.max(0, Math.min(list.length - 1, ix + delta));
+    state.feedMark = list[next].notification.id;
+    state.detailOpen = true;
+    if (state.editor) state.editor.focused = false;
+    render(true);
+    status("activity · " + list[next].notification.id);
+  }
+
   /** Move DOM focus through every visible message (roots and replies). */
   function moveMessageFocus(delta, edge) {
     var list = Array.prototype.slice.call(document.querySelectorAll(
@@ -3918,10 +4061,40 @@
       return el.getAttribute("data-key") === (state.feedMark || state.threadFocus);
     });
     if (ix < 0) ix = 0;
+    var current = list[ix];
+    var pane = current && current.closest(".cn-blade-body, .cn-col-body");
+
+    // PageUp/PageDown: finish reading a tall message before hopping to another.
+    // Otherwise PageDown jumps to the next article and leaves unread body off-screen.
+    if (edge === "page" && pane && current) {
+      var paneRect = pane.getBoundingClientRect();
+      var msgRect = current.getBoundingClientRect();
+      var page = Math.max(64, Math.floor(pane.clientHeight * 0.85));
+      var slack = 12;
+      if (delta > 0 && msgRect.bottom > paneRect.bottom + slack) {
+        var maxTop = Math.max(0, pane.scrollHeight - pane.clientHeight);
+        var nextTop = Math.min(maxTop, pane.scrollTop + page);
+        if (nextTop > pane.scrollTop + 2) {
+          pane.scrollTop = nextTop;
+          try { current.focus({ preventScroll: true }); } catch { /* fine */ }
+          status("message · " + (current.getAttribute("data-key") || "") + " · page");
+          return true;
+        }
+      }
+      if (delta < 0 && msgRect.top < paneRect.top - slack) {
+        var prevTop = Math.max(0, pane.scrollTop - page);
+        if (prevTop < pane.scrollTop - 2) {
+          pane.scrollTop = prevTop;
+          try { current.focus({ preventScroll: true }); } catch { /* fine */ }
+          status("message · " + (current.getAttribute("data-key") || "") + " · page");
+          return true;
+        }
+      }
+    }
+
     var next;
     if (edge === "page") {
-      var activeRect = list[ix].getBoundingClientRect();
-      var pane = list[ix].closest(".cn-blade-body, .cn-col-body");
+      var activeRect = current.getBoundingClientRect();
       var distance = Math.max(activeRect.height, (pane && pane.clientHeight || window.innerHeight) * 0.8);
       var targetTop = activeRect.top + (delta < 0 ? -distance : distance);
       next = ix;
@@ -3944,7 +4117,10 @@
     var el = document.querySelector('.cn-blade[data-blade-kind="detail"] .cn-comment[data-key="' + id + '"]');
     if (el) {
       try { el.focus({ preventScroll: true }); } catch { /* fine */ }
-      try { el.scrollIntoView({ block: "nearest" }); } catch { /* fine */ }
+      // Page hops land the next article at the top; j/k keep nearest.
+      try {
+        el.scrollIntoView({ block: edge === "page" ? "start" : "nearest" });
+      } catch { /* fine */ }
     }
     status("message · " + id);
     return true;
@@ -3968,6 +4144,17 @@
     return true;
   }
 
+  /** Expand if needed, then move focus to the first child reply. */
+  function drillIntoThreadChildren(id) {
+    if (!id) return false;
+    if (state.folded[id]) {
+      invokeUiAction("post.fold", { objectId: id }, "pointer", id);
+    }
+    var first = threadGraph() && threadGraph().firstChildOf(id);
+    if (!first) return false;
+    return selectThreadMessage(first.objectId);
+  }
+
   function handleThreadTreeKey(message, key) {
     var id = message.getAttribute("data-key");
     if (key === "Enter") return selectThreadMessage(id);
@@ -3980,6 +4167,8 @@
       return first ? selectThreadMessage(first.objectId) : false;
     }
     if (key === "ArrowLeft" || key === "h") {
+      // ← collapses when open; further ← walks to parent / leaves the thread.
+      // The left branch margin toggles expand·collapse on click.
       if (message.getAttribute("aria-expanded") === "true") {
         invokeUiAction("post.fold", { objectId: id }, "keyboard", id);
         return true;
@@ -4035,6 +4224,7 @@
         (partsD[0] === "spaces" && partsD[2] === "channels" && partsD[3]) ||
         (partsD[0] === "dms" && partsD[1]);
       if (inChannelFeed) return moveFeedBrowse(delta);
+      if (onActivityPath()) return moveActivityBrowse(delta);
       // Other detail contexts — nudge nav cursor, keep detail focus.
       var listD = visible();
       if (!listD.length) return;
@@ -4093,6 +4283,16 @@
       if (!opts.noRender) render(true);
       return true;
     }
+    if (e.kind === "activity") {
+      // Activity filter leaf — preview the category feed; nav stays on filters.
+      syncTerminalPathFromCursor();
+      if (!(MAP.isTerminalNavPath && MAP.isTerminalNavPath(state.path))) {
+        state.threadFocus = null;
+        state.feedMark = null;
+      }
+      if (!opts.noRender) render(true);
+      return true;
+    }
     if (e.post) {
       // Nav posts (e.g. space feed) — full feed with the cursor row marked.
       state.threadFocus = null;
@@ -4119,6 +4319,10 @@
     if (homeOwnsKeyboard()) return activateHomeItem();
     // Detail feed mark → open that post's thread (posts are not nav children).
     if (detailOwnsKeyboard() && !state.threadFocus && state.feedMark) {
+      if (onActivityPath()) {
+        openNotification(state.feedMark);
+        return true;
+      }
       return openThread(state.feedMark);
     }
     var list = entries();
@@ -4146,8 +4350,8 @@
       status("dm · write a message");
       return true;
     }
-    // Channel is a terminal nav node — address it for detail/compose; navbar
-    // stays on the parent channels list so siblings remain visible.
+    // Channel / Activity are terminal nav nodes — address for detail; navbar
+    // stays on the parent list so siblings remain visible.
     if (e.kind === "channel") {
       var chPath = MAP.resolve(navListPath(), e.name);
       openTerminalChannel(chPath, { keepCli: true, focusDetail: true });
@@ -4158,6 +4362,13 @@
         focusColumns();
         status("channel · " + state.path + " · ↑↓ messages · Enter/→ thread · ← nav · : write");
       }
+      return true;
+    }
+    if (e.kind === "activity") {
+      var actPath = MAP.resolve(navListPath(), e.name);
+      openTerminalChannel(actPath, { keepCli: true, focusDetail: true });
+      focusColumns();
+      status("activity · " + state.path + " · ↑↓ items · Enter open · d dismiss · ← nav");
       return true;
     }
     if (e.kind === "dir") {
@@ -4220,8 +4431,8 @@
     if (e.voice || e.meta === "voice") return false;
     if (e.agentFile || e.agentSkill || e.agentTool) return true;
     if (e.meta === "instructions" || e.meta === "config" ||
-        e.meta === "skill" || e.meta === "tool") return true;
-    if (/\.(md|ts|tsx|js|jsx|json|css|html|txt|py|rs|go|yml|yaml|sh)$/i.test(e.name || "")) {
+        e.meta === "skill" || e.meta === "tool" || e.meta === "keymap" || e.keymap) return true;
+    if (/\.(md|ts|tsx|js|jsx|json|css|html|txt|py|rs|go|yml|yaml|toml|sh)$/i.test(e.name || "")) {
       return true;
     }
     return e.kind === "file" && !e.space && !e.relay && !e.member && !e.openDm;
@@ -4313,6 +4524,10 @@
       activateSelection();
       return;
     }
+    if (e.kind === "activity") {
+      activateSelection();
+      return;
+    }
     if (e.kind === "dir") {
       // Collapse any expand-in-place on the row we're leaving so the parent
       // blade does not keep a duplicate of the new first-level list.
@@ -4382,7 +4597,7 @@
     var list = entries();
     var e = list[state.cursor];
     var onList = listOwnsKeyboard();
-    // Already addressing this channel with VFS focus: hand keyboard to messages.
+    // Already addressing this channel/Activity with VFS focus: hand keyboard to detail.
     if (onList && e && e.kind === "channel" && isDetailOpen()) {
       var chPath = MAP.resolve(navListPath(), e.name);
       if (state.path === chPath) {
@@ -4394,12 +4609,29 @@
         return;
       }
     }
-    if (onList && e && (e.kind === "dir" || e.kind === "channel")) return descend();
+    if (onList && e && e.kind === "activity" && isDetailOpen()) {
+      var actPath = MAP.resolve(navListPath(), e.name);
+      if (state.path === actPath) {
+        state.focus = detailBladeIndex();
+        if (state.editor) state.editor.focused = false;
+        render(true);
+        focusColumns();
+        status("activity — ↑↓ browse · Enter open · d dismiss · ← returns to nav");
+        return;
+      }
+    }
+    if (onList && e && (e.kind === "dir" || e.kind === "channel" || e.kind === "activity")) {
+      return descend();
+    }
     if (onList && e && e.post) return descend();
     if (onList && e && entryHasTextEditor(e)) return activateDetailEditor(e);
     if (onList && e) return descend();
-    // Detail feed mark → open that thread.
+    // Detail feed mark → open that thread / notification.
     if (detailOwnsKeyboard() && !state.threadFocus && state.feedMark) {
+      if (onActivityPath()) {
+        openNotification(state.feedMark);
+        return;
+      }
       return openThread(state.feedMark);
     }
     return moveBladeFocus(1);
@@ -6595,6 +6827,8 @@
     } else if (cmd === "stat") {
       reply = "epoch " + D.board.epoch + " · " + D.board.landed + "/" + D.board.total +
         " landed · ships " + D.board.ships;
+    } else if (cmd === "keymap") {
+      reply = runKeymapCommand(arg);
     } else if (cmd === "help") {
       reply = window.CW_COMPLETE.formatGroupedHelp
         ? window.CW_COMPLETE.formatGroupedHelp(window.CW_COMPLETE.COMMANDS)
@@ -7220,6 +7454,8 @@
         if (ti === -1) reply = "unknown theme: " + arg;
         else { setTheme(ti); reply = "theme is " + window.CW_THEMES[ti].name; }
       }
+    } else if (run === "keymap") {
+      reply = runKeymapCommand(arg);
     } else if (run === "mode" || run === "ai" || run === "cli") {
       // /mode ai|cli is the user-facing verb; /ai and /cli remain for agents.
       var modeArg = run === "mode"
@@ -7569,6 +7805,19 @@
     if (el) { el.focus({ preventScroll: true }); el.setSelectionRange(el.value.length, el.value.length); }
   }
 
+  /** Snapshot the board surface so Tab from the prompt can restore it. */
+  function rememberFocusReturn() {
+    state.focusReturn = {
+      focus: state.focus,
+      cursor: state.cursor,
+      feedMark: state.feedMark || null,
+      threadFocus: state.threadFocus || null,
+      path: state.path,
+      detailOpen: !!state.detailOpen,
+      homeFeed: state.homeFeed || null,
+    };
+  }
+
   /**
    * Prompt owns the keyboard. Focusing the CLI (click, Tab, :, compose arm)
    * must clear columnFocus — otherwise ↑↓ for autocomplete still look like
@@ -7576,6 +7825,7 @@
    */
   function claimPromptFocus(opts) {
     opts = opts || {};
+    if (state.columnFocus) rememberFocusReturn();
     state.columnFocus = false;
     if (state.editor) state.editor.focused = false;
     if (opts.focus !== false) focusCli();
@@ -7604,14 +7854,42 @@
         return;
       }
       if (!detailOwnsKeyboard()) return;
-      var post = document.querySelector('.cn-blade[data-blade-kind="detail"] .cn-comment[tabindex="0"]');
+      var mark = state.feedMark || state.threadFocus;
+      var post = mark
+        ? document.querySelector(
+          '.cn-blade[data-blade-kind="detail"] .cn-comment[data-key="' + mark + '"]',
+        )
+        : null;
+      if (!post) {
+        post = document.querySelector('.cn-blade[data-blade-kind="detail"] .cn-comment[tabindex="0"]');
+      }
       if (post) try { post.focus({ preventScroll: true }); } catch { /* fine */ }
     });
+  }
+
+  /** Restore the last board surface after yielding to the prompt. */
+  function restoreFocusReturn() {
+    var snap = state.focusReturn;
+    if (snap) {
+      if (snap.focus != null) state.focus = snap.focus;
+      if (snap.cursor != null) state.cursor = snap.cursor;
+      if (snap.feedMark) state.feedMark = snap.feedMark;
+      if (snap.path && snap.path === state.path && snap.threadFocus) {
+        state.threadFocus = snap.threadFocus;
+      }
+      if (snap.detailOpen != null) state.detailOpen = snap.detailOpen;
+      if (snap.homeFeed) state.homeFeed = snap.homeFeed;
+    }
+    focusColumns();
+    render(true);
+    status("panels — Tab returns to prompt");
+    return "panels";
   }
 
   /** Focusing the prompt from a post detail begins writing a reply. */
   function swapFocusContext() {
     if (state.columnFocus) {
+      rememberFocusReturn();
       state.columnFocus = false;
       if (state.threadFocus) {
         var replyPost = null;
@@ -7637,28 +7915,59 @@
         : "prompt — Tab returns to panels");
       return "prompt";
     }
-    focusColumns();
-    render(true);
-    status("panels — Tab returns to prompt");
-    return "panels";
+    return restoreFocusReturn();
   }
 
   /** Keys that mean "steer the board" while columns own focus. */
+  function keymapMatches(ev, actionId) {
+    return !!(window.CW_KEYMAP && globalThis.CW_VALUE.isFunction(window.CW_KEYMAP.matches) &&
+      window.CW_KEYMAP.matches(ev, actionId));
+  }
+
+  function keymapSteerLetterPattern() {
+    var letters = "hjklzyvreudmiftx+-:";
+    if (!window.CW_KEYMAP || !globalThis.CW_VALUE.isFunction(window.CW_KEYMAP.chords)) {
+      return letters;
+    }
+    [
+      "board.prev", "board.next", "board.parent", "board.child", "board.open",
+      "board.expand", "board.prompt", "board.filter", "board.sort", "board.zoom",
+      "board.theme", "board.reload", "board.edit", "attention.dismiss",
+      "attention.markRead", "post.copy",
+    ].forEach(function (id) {
+      (window.CW_KEYMAP.chords(id) || []).forEach(function (chord) {
+        var c = String(chord || "");
+        if (c.length === 1) letters += c;
+      });
+    });
+    return letters;
+  }
+
   function isColumnSteerKey(ev) {
-    if (ev.altKey || ev.ctrlKey || ev.metaKey) return false;
     var k = ev.key;
     var composerFocused = !!(ev.target && ev.target.hasAttribute && ev.target.hasAttribute("data-cli"));
     // Open autocomplete owns ↑↓ / Enter while the prompt is focused.
     if (composerFocused && menuShouldOpen()) {
       if (k === "ArrowDown" || k === "ArrowUp" || k === "Enter") return false;
     }
+    // Loadout chords (incl. Emacs C-n/p/f/b) must steer even with Ctrl/Meta.
+    if (keymapMatches(ev, "board.next") || keymapMatches(ev, "board.prev") ||
+        keymapMatches(ev, "board.parent") || keymapMatches(ev, "board.child") ||
+        keymapMatches(ev, "board.open") || keymapMatches(ev, "board.expand")) {
+      return true;
+    }
+    if (ev.altKey || ev.ctrlKey || ev.metaKey) return false;
     if (k === "ArrowDown" || k === "ArrowUp" || k === "ArrowLeft" || k === "ArrowRight") {
       return true;
     }
     if (k === "Enter" || k === "Backspace" || k === "Home" || k === "End") return true;
     if (k === " " || k === "Spacebar" || k === "PageUp" || k === "PageDown") return true;
     if (k === "[" || k === "]") return true;
-    if (k.length === 1 && /^[hjklzyvre]$/i.test(k)) {
+    var letterRe = new RegExp(
+      "^[" + keymapSteerLetterPattern().replace(/[\\^$*+?.()|[\]{}-]/g, "\\$&") + "]$",
+      "i",
+    );
+    if (k.length === 1 && letterRe.test(k)) {
       if (window.CW_RUNTIME && globalThis.CW_VALUE.isFunction(window.CW_RUNTIME.letterSteersBoard)) {
         return window.CW_RUNTIME.letterSteersBoard({
           composerFocused: composerFocused,
@@ -7810,6 +8119,10 @@
       var fold = ev.target.closest("[data-fold]");
       if (fold) {
         return invokeUiAction("post.fold", { objectId: fold.dataset.fold }, "pointer", fold.dataset.fold);
+      }
+      var drill = ev.target.closest("[data-drill]");
+      if (drill) {
+        return drillIntoThreadChildren(drill.getAttribute("data-drill"));
       }
       var notifOpen = ev.target.closest("[data-notif-open]");
       if (notifOpen) {
@@ -8103,7 +8416,7 @@
       }
       var commentHit = ev.target.closest(".cn-comment");
       if (commentHit && !ev.target.closest(
-        "button, a, [data-vote-id], [data-reply], [data-repost], [data-share-post], [data-copy-post], [data-fold], [data-react], [data-react-pick], [data-spoiler], [data-open-thread]",
+        "button, a, [data-vote-id], [data-reply], [data-repost], [data-share-post], [data-copy-post], [data-fold], [data-drill], [data-react], [data-react-pick], [data-spoiler], [data-open-thread]",
       )) {
         if (selectionOwnsPointer()) {
           try { ev.preventDefault(); } catch { /* fine */ }
@@ -8538,9 +8851,16 @@
       var cli = ev.target;
       if (!cli.hasAttribute || !cli.hasAttribute("data-cli")) return;
       if (ev.key === "Tab") {
-        // Accessible default: Tab always follows native focus order. Completion
-        // is explicit with arrows + Enter, or fish-style Right/End ghost accept.
-        return;
+        // Tab / Shift+Tab yield back to the last board surface. Completion is
+        // arrows + Enter (or Right/End ghost accept) — never Tab.
+        var authDialog = (function () {
+          var d = $("[data-auth-dialog]");
+          return d && d.dataset.open === "true" && !d.hidden;
+        })();
+        if (authDialog) return;
+        ev.preventDefault();
+        try { ev.stopPropagation(); } catch { /* fine */ }
+        return restoreFocusReturn();
       }
       // Empty prompt + ready draft: `e` opens the body for editing.
       if (ev.key === "e" && !ev.altKey && !ev.ctrlKey && !ev.metaKey &&
@@ -8935,8 +9255,11 @@
       // phase. Reaching this dispatcher means it is a bare native Escape.
       if (ev.key === "Escape" && keyAction === "cancel.topLayer") keyAction = null;
       var treeKeyTarget = ev.target.closest && ev.target.closest('.cn-thread-tree [role="treeitem"]');
-      var treeOwnsKey = treeKeyTarget &&
-        ["ArrowLeft", "ArrowRight", "h", "l", "Enter"].indexOf(ev.key) >= 0;
+      var treeOwnsKey = treeKeyTarget && (
+        keymapMatches(ev, "board.parent") || keymapMatches(ev, "board.child") ||
+        keymapMatches(ev, "board.open") ||
+        ["ArrowLeft", "ArrowRight", "h", "l", "Enter"].indexOf(ev.key) >= 0
+      );
       if (!treeOwnsKey && keyAction && actionKeyAllowed(keyAction, keyAlias, ev.target)) {
         ev.preventDefault();
         return window.CW_ACTIONS.invoke(keyAction, {}, actionContext("keyboard")).catch(function (error) {
@@ -9080,26 +9403,26 @@
             return;
           }
         }
-        if (threadItem && (k === "ArrowLeft" || k === "h") &&
+        if (threadItem && (keymapMatches(ev, "board.parent") || k === "ArrowLeft" || k === "h") &&
             message.getAttribute("aria-expanded") === "true") {
-          // Collapse only — parent-walk is confusing next to "← closes thread".
+          // Collapse open reply chains; further ← leaves the thread / walks parent.
           if (handleThreadTreeKey(message, k)) {
             ev.preventDefault();
             return;
           }
         }
-        if (k === "ArrowLeft" || k === "h") {
+        if (keymapMatches(ev, "board.parent") || k === "ArrowLeft" || k === "h") {
           ev.preventDefault();
           // Deep-link / cd message addresses leave for the channel in one step.
           if (leaveMessageAddressPath()) return;
           if (state.threadFocus) return clearThreadFocus();
           return goLeft();
         }
-        if (k === "ArrowDown" || k === "j") {
+        if (keymapMatches(ev, "board.next") || k === "ArrowDown" || k === "j") {
           ev.preventDefault();
           return moveMessageFocus(1);
         }
-        if (k === "ArrowUp" || k === "k") {
+        if (keymapMatches(ev, "board.prev") || k === "ArrowUp" || k === "k") {
           ev.preventDefault();
           return moveMessageFocus(-1);
         }
@@ -9111,7 +9434,8 @@
           ev.preventDefault();
           return moveMessageFocus(k === "PageUp" ? -1 : 1, "page");
         }
-        if (k === "Enter" || k === "ArrowRight" || k === "l") {
+        if (keymapMatches(ev, "board.open") || keymapMatches(ev, "board.child") ||
+            k === "Enter" || k === "ArrowRight" || k === "l") {
           ev.preventDefault();
           return openFocusedMessage(message.getAttribute("data-key"));
         }
@@ -9133,20 +9457,26 @@
       }
       // Anything that is not steering hands focus back to the prompt, so the
       // input is where you are by default and returning is one key.
-      if (k === ":" || k === "i" || k === ">") {
+      if (keymapMatches(ev, "board.prompt") || k === ":" || k === "i" || k === ">") {
         ev.preventDefault();
         claimPromptFocus();
         render();
         return;
       }
-      if (k === "/") { ev.preventDefault(); state.filter = ""; state.focus = 1; render(); return status("filter: type to narrow, Esc to clear"); }
+      if (keymapMatches(ev, "board.filter") || k === "/") {
+        ev.preventDefault();
+        state.filter = "";
+        state.focus = 1;
+        render();
+        return status("filter: type to narrow, Esc to clear");
+      }
       if (k === "Escape") {
         // Escape cancellation is owned by the explicit capture-phase layer
         // stack. A bare Escape must bubble without mutating focus, ancestry,
         // detail, or history.
         return;
       }
-      if (k === "v") {
+      if (keymapMatches(ev, "board.sort") || k === "v") {
         ev.preventDefault();
         var visible = (window.CW_CONSOLE_VIEWS && window.CW_CONSOLE_VIEWS.visibleFeedViews)
           ? window.CW_CONSOLE_VIEWS.visibleFeedViews(state)
@@ -9159,13 +9489,13 @@
         return;
       }
       // tmux's z: the preview takes the whole width, and again restores.
-      if (k === "z") {
+      if (keymapMatches(ev, "board.zoom") || k === "z") {
         ev.preventDefault();
         focusColumns();
         return toggleFocusedPanel();
       }
       // Yank: prefer an active DOM selection, else focused content.
-      if (k === "y" && state.columnFocus && window.CW_COPY) {
+      if ((keymapMatches(ev, "post.copy") || k === "y") && state.columnFocus && window.CW_COPY) {
         if (copyDomSelection()) {
           ev.preventDefault();
           return;
@@ -9233,24 +9563,31 @@
         ev.preventDefault();
         return newSession();
       }
-      if (k.toLowerCase() === "r") { ev.preventDefault(); return mergePending(); }
-      if (k.toLowerCase() === "t" && state.columnFocus) { ev.preventDefault(); return setTheme(themeIndex + 1); }
+      if (keymapMatches(ev, "board.reload") || k.toLowerCase() === "r") {
+        ev.preventDefault();
+        return mergePending();
+      }
+      if (state.columnFocus && (keymapMatches(ev, "board.theme") || k.toLowerCase() === "t")) {
+        ev.preventDefault();
+        return setTheme(themeIndex + 1);
+      }
 
       // Home feed: j/k rows, Enter/→ open, [ ] tabs — only when home owns focus.
       if (homeOwnsKeyboard() && state.columnFocus) {
-        if (k === "ArrowDown" || k === "j") {
+        if (keymapMatches(ev, "board.next") || k === "ArrowDown" || k === "j") {
           ev.preventDefault();
           return moveHomeCursor(1);
         }
-        if (k === "ArrowUp" || k === "k") {
+        if (keymapMatches(ev, "board.prev") || k === "ArrowUp" || k === "k") {
           ev.preventDefault();
           return moveHomeCursor(-1);
         }
-        if (k === "Enter" || k === "ArrowRight" || k === "l") {
+        if (keymapMatches(ev, "board.open") || keymapMatches(ev, "board.child") ||
+            k === "Enter" || k === "ArrowRight" || k === "l") {
           ev.preventDefault();
           return activateHomeItem();
         }
-        if (k === "ArrowLeft" || k === "h") {
+        if (keymapMatches(ev, "board.parent") || k === "ArrowLeft" || k === "h") {
           ev.preventDefault();
           return goLeft();
         }
@@ -9262,11 +9599,11 @@
           ev.preventDefault();
           return cycleHomeTab(1);
         }
-        if (k === "d") {
+        if (keymapMatches(ev, "attention.dismiss") || k === "d") {
           ev.preventDefault();
           return dismissCurrent();
         }
-        if (k === "m") {
+        if (keymapMatches(ev, "attention.markRead") || k === "m") {
           ev.preventDefault();
           return markReadHomeCursor();
         }
@@ -9287,36 +9624,57 @@
       }
 
       // Unified dismiss — Activity / notification leaves (home handled above).
-      // Only steal `d` on attention surfaces so nav filter can still type `d`.
-      if (k === "d" && state.columnFocus && !state.filter && dismissOwnsKey()) {
+      // Only steal dismiss chord on attention surfaces so nav filter can still type.
+      if ((keymapMatches(ev, "attention.dismiss") || k === "d") &&
+          state.columnFocus && !state.filter && dismissOwnsKey()) {
         ev.preventDefault();
         return dismissCurrent();
       }
 
       // Enter accepts a ready compose draft even from panel focus.
-      if (k === "Enter" && state.composeDraft && state.composeDraft.status === "ready" &&
-          state.columnFocus) {
+      if ((keymapMatches(ev, "board.open") || k === "Enter") && state.composeDraft &&
+          state.composeDraft.status === "ready" && state.columnFocus) {
         ev.preventDefault();
         return acceptComposeDraft();
       }
-      if (k === "ArrowDown" || k === "j") { ev.preventDefault(); focusColumns(); return moveCursor(1); }
-      if (k === "ArrowUp" || k === "k") { ev.preventDefault(); focusColumns(); return moveCursor(-1); }
+      if (keymapMatches(ev, "board.next") || k === "ArrowDown" || k === "j") {
+        ev.preventDefault();
+        focusColumns();
+        return moveCursor(1);
+      }
+      if (keymapMatches(ev, "board.prev") || k === "ArrowUp" || k === "k") {
+        ev.preventDefault();
+        focusColumns();
+        return moveCursor(-1);
+      }
       // → / l : slide into selected dir, open post thread, or edit a file
-      if (k === "ArrowRight" || k === "l") { ev.preventDefault(); focusColumns(); return goRight(); }
-      if (k === "Enter") { ev.preventDefault(); focusColumns(); return activateSelection(); }
+      if (keymapMatches(ev, "board.child") || k === "ArrowRight" || k === "l") {
+        ev.preventDefault();
+        focusColumns();
+        return goRight();
+      }
+      if (keymapMatches(ev, "board.open") || k === "Enter") {
+        ev.preventDefault();
+        focusColumns();
+        return activateSelection();
+      }
       // e : modify staged draft, else open terminal editor
-      if (k === "e" && state.composeDraft) {
+      if ((keymapMatches(ev, "board.edit") || k === "e") && state.composeDraft) {
         ev.preventDefault();
         return modifyComposeDraft();
       }
-      if (k === "e" && state.columnFocus) {
+      if ((keymapMatches(ev, "board.edit") || k === "e") && state.columnFocus) {
         ev.preventDefault();
         return editCursorEntry();
       }
       // ← / h : slide back to parent (siblings of current path reappear as 1st-level)
-      if (k === "ArrowLeft" || k === "h") { ev.preventDefault(); focusColumns(); return goLeft(); }
+      if (keymapMatches(ev, "board.parent") || k === "ArrowLeft" || k === "h") {
+        ev.preventDefault();
+        focusColumns();
+        return goLeft();
+      }
       // Space: one-level expand/collapse under the cursor (dirs only)
-      if (k === " " || k === "Spacebar") {
+      if (keymapMatches(ev, "board.expand") || k === " " || k === "Spacebar") {
         ev.preventDefault();
         focusColumns();
         return toggleCursorTree();
@@ -9952,6 +10310,7 @@
     cycleHomeTab: cycleHomeTab,
     moveHomeCursor: moveHomeCursor,
     focusColumns: focusColumns,
+    restoreFocusReturn: restoreFocusReturn,
     swapFocusContext: swapFocusContext,
     revealSessionChat: revealSessionChat,
     clearSessionOutFocus: clearSessionOutFocus,

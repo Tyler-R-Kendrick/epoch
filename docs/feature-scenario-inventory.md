@@ -14,7 +14,7 @@ Personas remain user context for real product behavior. Do not add persona-only 
 | `features/community_agent_sandboxes.feature` | 3 |
 | `features/community_channels.feature` | 4 |
 | `features/community_sandbox_workspaces.feature` | 3 |
-| `features/community_web_experience.feature` | 83 |
+| `features/community_web_experience.feature` | 88 |
 | `features/identity_bridge.feature` | 5 |
 | `features/crdt_log.feature` | 3 |
 | `features/ha_dr.feature` | 7 |
@@ -81,6 +81,7 @@ Personas remain user context for real product behavior. Do not add persona-only 
 | `features/community_web_experience.feature` | `@persona.security_compliance_responder` | Scenario | Moderator scopes mute report and hook to the selected object | None | 0 |
 | `features/community_web_experience.feature` | `@persona.bluesky_power_user` | Scenario | Contributor cannot mint a stub AT session without OAuth | None | 0 |
 | `features/community_web_experience.feature` | `@persona.slack_power_user` | Scenario | Power user sees Activity grow only from store participants | None | 0 |
+| `features/community_web_experience.feature` | `@persona.slack_power_user` | Scenario | Power user browses Activity categories like channel messages | None | 0 |
 | `features/community_web_experience.feature` | `@persona.github_open_source_contributor` | Scenario | Contributor searches registered sources and sees completeness | None | 0 |
 | `features/community_web_experience.feature` | `@persona.github_open_source_contributor` | Scenario | Contributor corrects a precise search syntax error without AI | None | 0 |
 | `features/community_web_experience.feature` | `@persona.maintainer` | Scenario | Maintainer explains why an Entity matched | None | 0 |
@@ -114,9 +115,13 @@ Personas remain user context for real product behavior. Do not add persona-only 
 | `features/community_web_experience.feature` | `@persona.slack_power_user` | Scenario | Power user sees the sample board named as a sample stream | None | 0 |
 | `features/community_web_experience.feature` | `@persona.github_open_source_contributor` | Scenario | Contributor enters a clean sample channel from the landing | None | 0 |
 | `features/community_web_experience.feature` | `@persona.slack_power_user` | Scenario | Power user traverses Community Web messages without a pointer | None | 0 |
+| `features/community_web_experience.feature` | `@persona.slack_power_user` | Scenario | Power user pages through a tall message before the next post | None | 0 |
+| `features/community_web_experience.feature` | `@persona.slack_power_user` | Scenario | Power user sees which nested message is in focus | None | 0 |
+| `features/community_web_experience.feature` | `@persona.slack_power_user` | Scenario | Power user yields the prompt and returns to the last board context | None | 0 |
 | `features/community_web_experience.feature` | `@persona.slack_power_user` | Scenario | Power user navigates the VFS and returns from messages by keyboard | None | 0 |
 | `features/community_web_experience.feature` | `@persona.slack_power_user` | Scenario | Power user replies in CLI and previews AI drafts before posting | None | 0 |
 | `features/community_web_experience.feature` | `@persona.slack_power_user` | Scenario | Power user operates every Community Web post action without a pointer | None | 0 |
+| `features/community_web_experience.feature` | `@persona.slack_power_user` | Scenario | Power user swaps board chords via a keymap.toml loadout | None | 0 |
 | `features/community_web_experience.feature` | `@persona.slack_power_user` | Scenario | Power user previews and enters message directories from the prompt | None | 0 |
 | `features/community_web_experience.feature` | `@persona.slack_power_user` | Scenario | Power user navigates a Community Web context menu without losing focus | None | 0 |
 | `features/community_web_experience.feature` | `@persona.slack_power_user` | Scenario | Power user manages lounge voice after moving to another room | None | 0 |

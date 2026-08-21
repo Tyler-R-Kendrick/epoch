@@ -70,6 +70,15 @@ Feature: Community Web community-first experience
     Then the sample board does not invent idle Activity
     And store participant events can add Activity when the board is live
 
+  @persona.slack_power_user
+  Scenario: Power user browses Activity categories like channel messages
+    Given Epoch Community is available
+    When I open Epoch Community
+    And I enter the community board
+    And I open Activity mentions from the board
+    Then Activity categories stay in the navigator
+    And notification content appears in the detail pane
+
   @persona.github_open_source_contributor
   Scenario: Contributor searches registered sources and sees completeness
     Given Community Web has authorized Entities from current and stale registered sources
@@ -302,6 +311,37 @@ Feature: Community Web community-first experience
     Then the selected Community Web message remains the single focused feed item
 
   @persona.slack_power_user
+  Scenario: Power user pages through a tall message before the next post
+    Given Epoch Community is available
+    When I open Epoch Community
+    And I enter the community board
+    And I open the Community Web general channel from the prompt
+    And I open a tall Community Web message and page down by keyboard
+    Then PageDown keeps the tall message focused until its body is fully in view
+
+  @persona.slack_power_user
+  Scenario: Power user sees which nested message is in focus
+    Given Epoch Community is available
+    When I open Epoch Community
+    And I enter the community board
+    And I open the Community Web general channel from the prompt
+    And I open a nested Community Web thread and focus a parent message
+    Then only that message row is highlighted while replies stay unmarked
+    And nest gutters mark each ancestor depth and collapse that chain on click
+    And the left branch margin expands and collapses replies
+    And the right child margin shows replies and drills into the first child
+
+  @persona.slack_power_user
+  Scenario: Power user yields the prompt and returns to the last board context
+    Given Epoch Community is available
+    When I open Epoch Community
+    And I enter the community board
+    And I open the Community Web general channel from the prompt
+    And I focus a Community Web message then Tab to the prompt
+    Then Tab from the prompt restores that message context
+    And Shift+Tab from the prompt restores that message context
+
+  @persona.slack_power_user
   Scenario: Power user navigates the VFS and returns from messages by keyboard
     Given Epoch Community is available
     When I open Epoch Community
@@ -325,6 +365,16 @@ Feature: Community Web community-first experience
     And I enter the community board
     And I operate every focused Community Web post action by keyboard
     Then repost and share are visible and every post action has keyboard parity
+
+  @persona.slack_power_user
+  Scenario: Power user swaps board chords via a keymap.toml loadout
+    Given Epoch Community is available
+    When I open Epoch Community
+    And I enter the community board
+    And I activate the vim keymap loadout from keymap.toml
+    Then vote and dismiss chords follow the vim loadout
+    And the yazi keymap loadout follows Yazi mgr defaults
+    And the emacs and lazygit keymap loadouts are available
 
   @persona.slack_power_user
   Scenario: Power user previews and enters message directories from the prompt

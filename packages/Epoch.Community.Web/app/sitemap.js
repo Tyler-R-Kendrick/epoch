@@ -9,7 +9,7 @@
  *   /projects/civic-tuner/channels/issues
  *   /projects/civic-tuner/members/maya
  *   /dms/scout
- *   /notifications/mentions
+ *   /notifications/mentions   ← terminal Activity category (cards in detail)
  *   /members/scout
  *
  * Board root lists **projects**, **spaces**, **dms**, **notifications**,
@@ -19,6 +19,8 @@
  *   board  → /.agents/*           (apply to the space)
  *   project → /projects/<id>/.agents/*  (apply to that project only)
  * Opening a project (or board) member lands on `/dms/<handle>`.
+ * Activity filters under `/notifications/*` are terminal like channels —
+ * notification content is not a VFS child of the navigator.
  * Legacy `/channels/…` paths still resolve as aliases to the community project.
  *
  * Nodes are resolved lazily from CW_DATA so the tree never goes stale against
@@ -414,6 +416,9 @@
       });
     }
     if (parts[0] === "dms" && parts.length >= 2) {
+      return list(join(parts.slice(0, 2)), extra) || [];
+    }
+    if (parts[0] === "notifications" && parts.length >= 2) {
       return list(join(parts.slice(0, 2)), extra) || [];
     }
     return list(canonicalize(path), extra) || [];
@@ -1313,7 +1318,13 @@
         : [];
       return [{ name: ".epoch", kind: "dir", meta: "recovery", hint: "immutable namespace recovery" }].concat(branchNames.map(function (name) {
         return builtins.find(function (entry) { return entry.name === name; });
-      }).filter(Boolean));
+      }).filter(Boolean)).concat([{
+        name: "keymap.toml",
+        kind: "file",
+        meta: "keymap",
+        hint: "board keybindings · loadouts (epoch · vim · yazi · emacs · lazygit)",
+        keymap: true,
+      }]);
     }
 
     if (parts[0] === ".epoch") {
@@ -1461,7 +1472,8 @@
       return null;
     }
 
-    // /notifications → Teams-style Activity filters; /notifications/<filter> → feed
+    // /notifications → Teams-style Activity filters (terminal leaves, like
+    // channels); /notifications/<filter> → notification items for detail/FS.
     if (parts[0] === "notifications") {
       if (parts.length === 1) {
         var allN = allNotifications(readSet);
@@ -1469,17 +1481,17 @@
         var subN = filterNotifications("subscribed", readSet);
         var hooksN = filterNotifications("hooks", readSet);
         return [
-          { name: "all", kind: "dir", meta: "activity",
+          { name: "all", kind: "activity", meta: "activity",
             hint: allN.length + " items · " + allN.filter(function (n) { return n.unread; }).length + " new" },
-          { name: "mentions", kind: "dir", meta: "mentions",
+          { name: "mentions", kind: "activity", meta: "mentions",
             hint: mentionsN.length + " · @you" +
               (mentionsN.filter(function (n) { return n.unread; }).length
                 ? " · " + mentionsN.filter(function (n) { return n.unread; }).length + " new" : "") },
-          { name: "subscribed", kind: "dir", meta: "watching",
+          { name: "subscribed", kind: "activity", meta: "watching",
             hint: subN.length + " · watching" +
               (subN.filter(function (n) { return n.unread; }).length
                 ? " · " + subN.filter(function (n) { return n.unread; }).length + " new" : "") },
-          { name: "hooks", kind: "dir", meta: "hooks",
+          { name: "hooks", kind: "activity", meta: "hooks",
             hint: hooksN.length + " · custom" +
               (hooksN.filter(function (n) { return n.unread; }).length
                 ? " · " + hooksN.filter(function (n) { return n.unread; }).length + " new" : "") },
@@ -1707,8 +1719,9 @@
   }
 
   /**
-   * Channel leaves are terminal nav nodes — they have a detail feed, but must
-   * not become the navbar's parent context (that yields an empty sibling list).
+   * Channel leaves and Activity filter leaves are terminal nav nodes — they have
+   * a detail feed, but must not become the navbar's parent context (that yields
+   * an empty sibling list / notification-id rows).
    */
   function isTerminalNavPath(path) {
     var parts = split(canonicalize(path));
@@ -1716,6 +1729,11 @@
       return true;
     }
     if (parts[0] === "spaces" && parts[2] === "channels" && parts.length >= 4) {
+      return true;
+    }
+    if (parts[0] === "notifications" && parts.length === 2 &&
+        (parts[1] === "all" || parts[1] === "mentions" || parts[1] === "subscribed" ||
+         parts[1] === "hooks" || parts[1] === "hook")) {
       return true;
     }
     return false;
@@ -1726,6 +1744,7 @@
     var canon = canonicalize(path);
     if (!isTerminalNavPath(canon)) return canon;
     var parts = split(canon);
+    if (parts[0] === "notifications") return "/notifications";
     return join(parts.slice(0, 3)) || "/";
   }
 

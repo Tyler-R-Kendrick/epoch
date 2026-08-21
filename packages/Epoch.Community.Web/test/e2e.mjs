@@ -830,6 +830,29 @@ const CASES = [
       if (thread.replyTo || thread.prompt) {
         return log("thread open should not arm reply: " + JSON.stringify(thread));
       }
+      // Message row keeps rails | vote | main so nested replies cannot crush the OP.
+      const layout = await page.evaluate(() => {
+        const op = document.querySelector(".cn-comment-op");
+        const row = op && op.querySelector(":scope > .cn-comment-row");
+        const main = row && row.querySelector(".cn-comment-main");
+        const rails = row && row.querySelector(".cn-rails");
+        const receipt = op && op.querySelector("button.cn-sig-text");
+        if (!op || !row || !main) return { missing: true };
+        const mainBox = main.getBoundingClientRect();
+        const railsBox = rails.getBoundingClientRect();
+        const receiptBox = receipt && receipt.getBoundingClientRect();
+        return {
+          mainW: Math.round(mainBox.width),
+          railsW: Math.round(railsBox.width),
+          receiptW: receiptBox ? Math.round(receiptBox.width) : 0,
+          receiptInView: !!(receiptBox && receiptBox.width > 8 && receiptBox.left < window.innerWidth - 8),
+          grid: getComputedStyle(row).gridTemplateColumns,
+        };
+      });
+      if (layout.missing) return log("thread OP missing for layout check");
+      if (!(layout.mainW > 240 && layout.railsW < 80 && layout.receiptInView && layout.receiptW > 40)) {
+        return log("thread comment grid crushed main/receipts: " + JSON.stringify(layout));
+      }
 
       // Back returns to the channel feed.
       await page.click("[data-thread-back]");
@@ -1577,27 +1600,103 @@ const CASES = [
         const c = document.querySelector('.cn-thread-tree .cn-comment[data-key="p3"]');
         const vup = c?.querySelector(".cn-vup")?.textContent?.trim();
         const vdn = c?.querySelector(".cn-vdn")?.textContent?.trim();
-        const rail = c?.querySelector(".cn-rail-mark")?.textContent?.trim();
+        const rail = c?.querySelector(":scope > .cn-comment-row .cn-rails .cn-rail");
         const act = c?.querySelector(".cn-act")?.textContent?.trim();
         return {
           depth: Number(c?.dataset.depth),
-          rails: c?.querySelectorAll(".cn-rail").length ?? -1,
+          rails: c?.querySelectorAll(":scope > .cn-comment-row .cn-rails .cn-rail").length ?? -1,
+          railWidth: rail ? Math.round(rail.getBoundingClientRect().width) : 0,
           vote: !!c?.querySelector("[data-vote-id]"),
           reply: !!c?.querySelector("[data-reply]"),
           vup,
           vdn,
-          rail,
           act,
         };
       });
-      // p3 is re→p2→p1, so depth 2 and two ancestor rails; chrome is ASCII.
+      // p3 is re→p2→p1, so depth 2 and two ancestor gutters; chrome is ASCII.
       if (!(deep.depth === 2 && deep.rails === 2 && deep.vote && deep.reply)) {
         return log(JSON.stringify(deep));
       }
-      if (deep.vup !== "+" || deep.vdn !== "-" || deep.rail !== "|" || deep.act !== "reply") {
-        return log("non-ascii chrome: " + JSON.stringify(deep));
+      if (deep.vup !== "+" || deep.vdn !== "-" || !(deep.railWidth >= 10) || deep.act !== "reply") {
+        return log("thread chrome: " + JSON.stringify(deep));
       }
       return true;
+    },
+  },
+  {
+    name: "threads: focused parent highlights only its message row",
+    run: async (page, log) => {
+      await go(page, "/projects/community/channels/general");
+      const proof = await page.evaluate(() => {
+        window.CW_APP.state.folded = {};
+        window.CW_APP.openThread("p1");
+        window.CW_APP.state.feedMark = "p1";
+        window.CW_APP.state.detailOpen = true;
+        window.CW_APP.state.columnFocus = true;
+        window.CW_APP.state.focus = 1;
+        window.CW_APP.render(true);
+        const parent = document.querySelector('.cn-thread-tree .cn-comment[data-key="p1"]');
+        const child = document.querySelector('.cn-thread-tree .cn-comment[data-key="p2"]');
+        parent?.focus?.({ preventScroll: true });
+        const parentRow = parent?.querySelector(":scope > .cn-comment-row");
+        const childRow = child?.querySelector(":scope > .cn-comment-row");
+        const parentShadow = parentRow ? getComputedStyle(parentRow).boxShadow : "";
+        const childShadow = childRow ? getComputedStyle(childRow).boxShadow : "";
+        const childBg = childRow ? getComputedStyle(childRow).backgroundColor : "";
+        const branch = parentRow?.querySelector(".cn-branch-rail");
+        const childRail = parentRow?.querySelector(".cn-child-rail");
+        return {
+          parentHere: parent?.getAttribute("data-here") === "true",
+          childHere: child?.getAttribute("data-here") === "true",
+          parentInset: /inset/i.test(parentShadow),
+          childInset: /inset/i.test(childShadow),
+          childTransparent: childBg === "rgba(0, 0, 0, 0)" || childBg === "transparent",
+          branch: !!branch,
+          childRail: !!childRail,
+          branchW: branch ? Math.round(branch.getBoundingClientRect().width) : 0,
+          childW: childRail ? Math.round(childRail.getBoundingClientRect().width) : 0,
+        };
+      });
+      return (proof.parentHere && !proof.childHere && proof.parentInset &&
+        !proof.childInset && proof.childTransparent &&
+        proof.branch && proof.childRail && proof.branchW >= 10 && proof.childW >= 10) ||
+        log("parent focus / branch margins: " + JSON.stringify(proof));
+    },
+  },
+  {
+    name: "threads: left branch margin folds; right child margin drills",
+    run: async (page, log) => {
+      await go(page, "/projects/community/channels/general");
+      await page.evaluate(() => {
+        window.CW_APP.state.folded = {};
+        window.CW_APP.openThread("p1");
+        window.CW_APP.state.feedMark = "p1";
+        window.CW_APP.state.detailOpen = true;
+        window.CW_APP.state.columnFocus = true;
+        window.CW_APP.state.focus = 1;
+        window.CW_APP.render(true);
+        document.querySelector('.cn-thread-tree .cn-comment[data-key="p1"]')?.focus({ preventScroll: true });
+      });
+      const before = await page.evaluate(() => document.querySelectorAll(".cn-thread-tree .cn-comment").length);
+      await page.click('.cn-thread-tree .cn-comment[data-key="p1"] > .cn-comment-row .cn-branch-rail');
+      const folded = await page.evaluate(() => ({
+        expanded: document.querySelector('.cn-thread-tree .cn-comment[data-key="p1"]')?.getAttribute("aria-expanded"),
+        folded: !!window.CW_APP.state.folded.p1,
+        comments: document.querySelectorAll(".cn-thread-tree .cn-comment").length,
+      }));
+      if (!(folded.expanded === "false" && folded.folded && folded.comments < before)) {
+        return log("left branch did not collapse: " + JSON.stringify(folded));
+      }
+      await page.click('.cn-thread-tree .cn-comment[data-key="p1"] > .cn-comment-row .cn-branch-rail');
+      await page.waitForFunction(() =>
+        document.querySelector('.cn-thread-tree .cn-comment[data-key="p1"]')?.getAttribute("aria-expanded") === "true");
+      await page.click('.cn-thread-tree .cn-comment[data-key="p1"] > .cn-comment-row .cn-child-rail');
+      const drilled = await page.evaluate(() => ({
+        active: document.activeElement?.closest?.(".cn-comment")?.getAttribute("data-key"),
+        mark: window.CW_APP.state.feedMark,
+      }));
+      return (drilled.active === "p2" && drilled.mark === "p2") ||
+        log("right child margin did not drill: " + JSON.stringify(drilled));
     },
   },
   {
@@ -3638,6 +3737,180 @@ const CASES = [
     },
   },
   {
+    name: "chrome: VFS nav rows wear pixelarticons type glyphs",
+    run: async (page, log) => {
+      await go(page, "/");
+      await page.waitForTimeout(80);
+      const root = await page.evaluate(() => {
+        const pack = window.CW_ICONS && window.CW_ICONS.pack;
+        const items = Array.from(document.querySelectorAll('[data-blade-kind="list"] .cn-item'));
+        const rows = items.map((el) => ({
+          kind: el.getAttribute("data-kind"),
+          meta: el.getAttribute("data-meta") || "",
+          ico: el.querySelector(".cn-vfs-ico")?.getAttribute("data-ico") || "",
+          hasSvg: !!el.querySelector(".cn-vfs-ico svg.cw-ico"),
+          name: el.querySelector(".cn-name")?.textContent || "",
+        }));
+        return { pack, rows, count: rows.length };
+      });
+      if (root.pack !== "pixelarticons") {
+        return log("expected pixelarticons pack: " + JSON.stringify(root));
+      }
+      if (root.count < 4) return log("expected root VFS rows: " + JSON.stringify(root));
+      const missing = root.rows.filter((r) => !r.hasSvg || !r.ico);
+      if (missing.length) return log("VFS rows missing type icons: " + JSON.stringify(missing));
+      const keymapRow = root.rows.find((r) => r.name === "keymap.toml");
+      if (!keymapRow || keymapRow.kind !== "file" || keymapRow.ico !== "script") {
+        return log("expected keymap.toml glyph: " + JSON.stringify(keymapRow || root.rows));
+      }
+      const dirs = root.rows.filter((r) => r.kind === "dir");
+      if (!dirs.every((r) => r.ico === "folder" || r.ico === "building-community" ||
+        r.ico === "mail" || r.ico === "bell" || r.ico === "robot" || r.ico === "search" ||
+        r.ico === "layout" || r.ico === "users" || r.ico === "archive" || r.ico === "briefcase")) {
+        return log("dir icons unexpected: " + JSON.stringify(dirs));
+      }
+
+      await go(page, "/projects/community/channels");
+      await page.waitForTimeout(80);
+      const channels = await page.evaluate(() => {
+        return Array.from(document.querySelectorAll('[data-blade-kind="list"] .cn-item[data-kind="channel"]'))
+          .map((el) => ({
+            name: el.querySelector(".cn-name")?.textContent || "",
+            ico: el.querySelector(".cn-vfs-ico")?.getAttribute("data-ico") || "",
+            meta: el.getAttribute("data-meta") || "",
+            hasSvg: !!el.querySelector(".cn-vfs-ico svg.cw-ico"),
+          }));
+      });
+      if (channels.length < 2) return log("expected channel rows: " + JSON.stringify(channels));
+      const badChan = channels.filter((c) => !c.hasSvg || (c.ico !== "hash" && c.ico !== "headphone"));
+      if (badChan.length) return log("channel icons wrong: " + JSON.stringify(badChan));
+      return true;
+    },
+  },
+  {
+    name: "chrome: keymap.toml loadouts remap vote chords",
+    run: async (page, log) => {
+      await go(page, "/");
+      await page.waitForTimeout(80);
+      const probe = await page.evaluate(async () => {
+        const km = window.CW_KEYMAP;
+        if (!km) return { err: "CW_KEYMAP missing" };
+        const root = (window.CW_MAP.list("/") || []).map((e) => e.name);
+        if (root.indexOf("keymap.toml") < 0) return { err: "keymap.toml not in VFS", root };
+        const ids = km.list().map((row) => row.id).sort();
+        const required = ["emacs", "lazygit", "vim", "yazi"];
+        const missingIds = required.filter((id) => ids.indexOf(id) < 0);
+        if (missingIds.length) return { err: "loadouts missing", missingIds, ids };
+        const before = {
+          active: km.active(),
+          voteUp: km.chord("post.voteUp"),
+          voteDown: km.chord("post.voteDown"),
+          dismiss: km.chord("attention.dismiss"),
+        };
+        km.use("vim", { silent: true });
+        const vim = {
+          active: km.active(),
+          voteUp: km.chord("post.voteUp"),
+          voteDown: km.chord("post.voteDown"),
+          dismiss: km.chord("attention.dismiss"),
+          registryUp: window.CW_ACTIONS.resolve("key", "+"),
+          registryDown: window.CW_ACTIONS.resolve("key", "-"),
+          registryOldUp: window.CW_ACTIONS.resolve("key", "u"),
+        };
+        km.use("yazi", { silent: true });
+        const yazi = {
+          active: km.active(),
+          voteUp: km.chord("post.voteUp"),
+          dismiss: km.chord("attention.dismiss"),
+          filter: km.chord("board.filter"),
+          jump: km.chord("jump.interactive"),
+          search: km.chord("search.open"),
+          copy: km.chord("post.copy"),
+          open: km.chords("board.open"),
+          registrySearch: window.CW_ACTIONS.resolve("key", "s"),
+          registryJump: window.CW_ACTIONS.resolve("key", "z"),
+          registryYank: window.CW_ACTIONS.resolve("key", "y"),
+        };
+        km.use("emacs", { silent: true });
+        const emacs = {
+          active: km.active(),
+          next: km.chord("board.next"),
+          prev: km.chord("board.prev"),
+          child: km.chord("board.child"),
+          parent: km.chord("board.parent"),
+          cancel: km.chord("cancel.topLayer"),
+          prompt: km.chord("board.prompt"),
+          dismiss: km.chord("attention.dismiss"),
+          copy: km.chord("post.copy"),
+          registryCancel: window.CW_ACTIONS.resolve("key", "Ctrl+G"),
+          registryCopy: window.CW_ACTIONS.resolve("key", "Alt+W"),
+        };
+        km.use("lazygit", { silent: true });
+        const lazygit = {
+          active: km.active(),
+          filter: km.chord("board.filter"),
+          dismiss: km.chord("attention.dismiss"),
+          edit: km.chord("board.edit"),
+          copy: km.chord("post.copy"),
+          reply: km.chord("compose.reply"),
+          reload: km.chord("board.reload"),
+          registryReply: window.CW_ACTIONS.resolve("key", "c"),
+          registryYank: window.CW_ACTIONS.resolve("key", "y"),
+        };
+        // Round-trip TOML parse of the live serialize.
+        km.applyText(km.serialize(), { silent: true });
+        const roundTrip = km.active() === "lazygit" && km.chord("attention.dismiss") === "x";
+        km.use("epoch", { silent: true });
+        return { before, vim, yazi, emacs, lazygit, roundTrip, restored: km.active(), ids };
+      });
+      if (probe.err) return log(probe.err + " " + JSON.stringify(probe));
+      if (probe.before.active !== "epoch" || probe.before.voteUp !== "u") {
+        return log("epoch defaults wrong: " + JSON.stringify(probe.before));
+      }
+      if (probe.vim.active !== "vim" || probe.vim.voteUp !== "+" ||
+          probe.vim.voteDown !== "-" || probe.vim.dismiss !== "x") {
+        return log("vim loadout wrong: " + JSON.stringify(probe.vim));
+      }
+      if (probe.vim.registryUp !== "post.voteUp" || probe.vim.registryDown !== "post.voteDown") {
+        return log("vim registry rebind failed: " + JSON.stringify(probe.vim));
+      }
+      if (probe.vim.registryOldUp === "post.voteUp") {
+        return log("old u binding still active: " + JSON.stringify(probe.vim));
+      }
+      if (probe.yazi.active !== "yazi" || probe.yazi.voteUp !== "+" ||
+          probe.yazi.dismiss !== "d" || probe.yazi.filter !== "f" ||
+          probe.yazi.jump !== "z" || probe.yazi.search !== "s" ||
+          probe.yazi.copy !== "y" ||
+          !(probe.yazi.open || []).includes("o") ||
+          probe.yazi.registrySearch !== "search.open" ||
+          probe.yazi.registryJump !== "jump.interactive" ||
+          probe.yazi.registryYank !== "post.copy") {
+        return log("yazi loadout wrong: " + JSON.stringify(probe.yazi));
+      }
+      if (probe.emacs.active !== "emacs" || probe.emacs.next !== "Ctrl+N" ||
+          probe.emacs.prev !== "Ctrl+P" || probe.emacs.child !== "Ctrl+F" ||
+          probe.emacs.parent !== "Ctrl+B" || probe.emacs.cancel !== "Ctrl+G" ||
+          probe.emacs.prompt !== "Alt+X" || probe.emacs.dismiss !== "Ctrl+K" ||
+          probe.emacs.copy !== "Alt+W" ||
+          probe.emacs.registryCancel !== "cancel.topLayer" ||
+          probe.emacs.registryCopy !== "post.copy") {
+        return log("emacs loadout wrong: " + JSON.stringify(probe.emacs));
+      }
+      if (probe.lazygit.active !== "lazygit" || probe.lazygit.filter !== "/" ||
+          probe.lazygit.dismiss !== "x" || probe.lazygit.edit !== "e" ||
+          probe.lazygit.copy !== "y" || probe.lazygit.reply !== "c" ||
+          probe.lazygit.reload !== "r" ||
+          probe.lazygit.registryReply !== "compose.reply" ||
+          probe.lazygit.registryYank !== "post.copy") {
+        return log("lazygit loadout wrong: " + JSON.stringify(probe.lazygit));
+      }
+      if (!probe.roundTrip || probe.restored !== "epoch") {
+        return log("round-trip/restore failed: " + JSON.stringify(probe));
+      }
+      return true;
+    },
+  },
+  {
     name: "chrome: filters and sorts are terminal brackets, not web pills",
     run: async (page, log) => {
       await go(page, "/projects/community/channels/general");
@@ -3702,42 +3975,83 @@ const CASES = [
     },
   },
   {
-    name: "focus: Tab follows order with suggestions; arrows accept completion",
+    name: "focus: Tab yields prompt ↔ last board context",
+    run: async (page, log) => {
+      await go(page, "/projects/community/channels/general");
+      await page.evaluate(() => {
+        window.CW_APP.openThread("p1");
+        window.CW_APP.state.feedMark = "p2";
+        window.CW_APP.state.detailOpen = true;
+        window.CW_APP.state.columnFocus = true;
+        window.CW_APP.state.focus = 1;
+        window.CW_APP.focusColumns();
+        window.CW_APP.render(true);
+        document.querySelector('.cn-thread-tree .cn-comment[data-key="p2"]')?.focus({ preventScroll: true });
+      });
+      await page.keyboard.press("Tab");
+      const toPrompt = await page.evaluate(() => ({
+        onCli: document.activeElement === document.querySelector("[data-cli]"),
+        columnFocus: !!window.CW_APP.state.columnFocus,
+        replyTo: window.CW_APP.state.replyTo?.id || null,
+      }));
+      if (!toPrompt.onCli || toPrompt.columnFocus) {
+        return log("Tab did not yield to prompt: " + JSON.stringify(toPrompt));
+      }
+      await page.keyboard.press("Tab");
+      const back = await page.evaluate(() => ({
+        key: document.activeElement?.closest?.(".cn-comment")?.getAttribute("data-key"),
+        mark: window.CW_APP.state.feedMark,
+        columnFocus: !!window.CW_APP.state.columnFocus,
+        onCli: document.activeElement === document.querySelector("[data-cli]"),
+      }));
+      if (!(back.columnFocus && !back.onCli && back.key === "p2" && back.mark === "p2")) {
+        return log("Tab did not restore message context: " + JSON.stringify(back));
+      }
+      await page.keyboard.press("Tab");
+      await page.waitForFunction(() => document.activeElement === document.querySelector("[data-cli]"));
+      await page.keyboard.press("Shift+Tab");
+      const shiftBack = await page.evaluate(() => ({
+        key: document.activeElement?.closest?.(".cn-comment")?.getAttribute("data-key"),
+        mark: window.CW_APP.state.feedMark,
+        columnFocus: !!window.CW_APP.state.columnFocus,
+      }));
+      return (shiftBack.columnFocus && shiftBack.key === "p2" && shiftBack.mark === "p2") ||
+        log("Shift+Tab did not restore message context: " + JSON.stringify(shiftBack));
+    },
+  },
+  {
+    name: "focus: Tab from empty prompt restores panels without accepting completion",
     run: async (page, log) => {
       await go(page, "/");
       await page.waitForTimeout(80);
       await page.evaluate(() => {
         window.CW_APP.state.ai = false;
-        window.CW_APP.state.columnFocus = false;
-        window.CW_APP.state.menuDismissed = false;
-        document.querySelector("[data-cli]")?.focus();
+        window.CW_APP.state.columnFocus = true;
+        window.CW_APP.state.focus = 0;
+        window.CW_APP.focusColumns();
+        window.CW_APP.render(true);
+        document.querySelector('.cn-blade[data-blade-kind="list"] .cn-item[aria-current="true"]')
+          ?.focus({ preventScroll: true });
       });
+      await page.keyboard.press("Tab");
+      await page.waitForFunction(() => document.activeElement === document.querySelector("[data-cli]"));
       await page.fill("[data-cli]", "");
-      await page.waitForTimeout(40);
-
-      // Empty prompt, no suggestions → native Tab leaves the input.
       await page.keyboard.press("Tab");
       await page.waitForTimeout(60);
-      let swap = await page.evaluate(() => ({
+      const restored = await page.evaluate(() => ({
         columnFocus: !!window.CW_APP.state.columnFocus,
         onCli: document.activeElement === document.querySelector("[data-cli]"),
+        onNav: !!document.activeElement?.closest?.('.cn-blade[data-blade-kind="list"] .cn-item'),
       }));
-      if (swap.onCli) {
-        return log("Tab did not follow native focus order: " + JSON.stringify(swap));
+      if (!restored.columnFocus || restored.onCli) {
+        return log("Tab from prompt did not restore panels: " + JSON.stringify(restored));
       }
 
-      // Reverse native traversal returns to the prompt.
-      await page.keyboard.press("Shift+Tab");
-      await page.waitForTimeout(60);
-      swap = await page.evaluate(() => ({
-        columnFocus: !!window.CW_APP.state.columnFocus,
-        onCli: document.activeElement === document.querySelector("[data-cli]"),
-      }));
-      if (!swap.onCli) {
-        return log("Shift+Tab did not return to prompt: " + JSON.stringify(swap));
-      }
-
-      // With path suggestions open, Tab follows focus order and preserves the draft.
+      // With path suggestions open, Tab still restores panels and preserves the draft.
+      await page.evaluate(() => {
+        window.CW_APP.state.columnFocus = false;
+        document.querySelector("[data-cli]")?.focus();
+      });
       await page.fill("[data-cli]", "");
       await page.keyboard.type("cd pro", { delay: 15 });
       await page.waitForTimeout(100);
@@ -3754,8 +4068,9 @@ const CASES = [
       const afterTab = await page.evaluate(() => ({
         value: document.querySelector("[data-cli]")?.value || "",
         onCli: document.activeElement === document.querySelector("[data-cli]"),
+        columnFocus: !!window.CW_APP.state.columnFocus,
       }));
-      if (afterTab.onCli || afterTab.value !== before.value) {
+      if (afterTab.onCli || afterTab.value !== before.value || !afterTab.columnFocus) {
         return log("Tab changed completion draft/focus: " + JSON.stringify({ before, afterTab }));
       }
       await page.focus("[data-cli]");
@@ -5124,10 +5439,18 @@ const CASES = [
     },
   },
   {
-    name: "power: ArrowUp reverses candidates; Shift+Tab follows focus order",
+    name: "power: ArrowUp reverses candidates; Shift+Tab restores panels",
     run: async (page, log) => {
       await go(page, "/projects");
-      await page.evaluate(() => { window.CW_APP.state.ai = false; window.CW_APP.render(true); });
+      await page.evaluate(() => {
+        window.CW_APP.state.ai = false;
+        window.CW_APP.state.helpOpen = false;
+        window.CW_APP.state.menuDismissed = false;
+        window.CW_APP.state.columnFocus = false;
+        window.CW_APP.state.history = [];
+        window.CW_APP.state.histIndex = -1;
+        window.CW_APP.render(true);
+      });
       await page.focus("[data-cli]");
       await page.fill("[data-cli]", "");
       await page.keyboard.type("c", { delay: 20 });
@@ -5142,21 +5465,32 @@ const CASES = [
       if (forward !== 1 || reversed !== 0) {
         return log("ArrowUp did not reverse candidate selection: " + JSON.stringify({ forward, reversed }));
       }
-      await page.keyboard.press("Enter");
+      await page.locator("[data-cli]").press("Enter");
       await page.waitForFunction(() => (document.querySelector("[data-cli]")?.value || "") !== "c");
       const accepted = await page.evaluate(() => document.querySelector("[data-cli]")?.value || "");
       if (!accepted) return log("Enter did not accept the selected candidate");
 
-      // Shift+Tab is native reverse focus traversal and must preserve the draft.
-      await page.focus("[data-cli]");
+      // Shift+Tab yields back to the last board context and must preserve the draft.
+      // Wait until columns own DOM focus — Tab on the CLI restores panels instead.
+      await page.evaluate(() => {
+        window.CW_APP.state.columnFocus = true;
+        window.CW_APP.focusColumns();
+        window.CW_APP.render(true);
+      });
+      await page.waitForFunction(() =>
+        window.CW_APP.state.columnFocus &&
+        document.activeElement !== document.querySelector("[data-cli]"));
+      await page.keyboard.press("Tab");
+      await page.waitForFunction(() => document.activeElement === document.querySelector("[data-cli]"));
       await page.fill("[data-cli]", "c");
       await page.keyboard.press("Shift+Tab");
-      const nativeTab = await page.evaluate(() => ({
+      const yieldBack = await page.evaluate(() => ({
         value: document.querySelector("[data-cli]")?.value || "",
         onCli: document.activeElement === document.querySelector("[data-cli]"),
+        columnFocus: !!window.CW_APP.state.columnFocus,
       }));
-      return (!nativeTab.onCli && nativeTab.value === "c") ||
-        log("Shift+Tab changed draft/focus order: " + JSON.stringify(nativeTab));
+      return (!yieldBack.onCli && yieldBack.columnFocus && yieldBack.value === "c") ||
+        log("Shift+Tab did not restore panels: " + JSON.stringify(yieldBack));
     },
   },
   {
@@ -6341,10 +6675,24 @@ const CASES = [
         filters: Array.from(document.querySelectorAll(".cn-activity-filter"))
           .map((el) => el.textContent),
         mentionsBtn: !!document.querySelector('.cn-activity-filter[aria-pressed="true"]'),
+        navKeys: Array.from(document.querySelectorAll(
+          '.cn-blade[data-blade-kind="list"] .cn-item[data-key]',
+        )).map((el) => el.getAttribute("data-key")),
+        terminal: window.CW_MAP.isTerminalNavPath(window.CW_APP.state.path),
+        navParent: window.CW_MAP.navParentPath(window.CW_APP.state.path),
       }));
       if (feed.cards < 3) return log("expected activity cards: " + JSON.stringify(feed));
       if (!feed.filters.some((t) => /Mentions/i.test(t || ""))) {
         return log("missing Mentions filter: " + feed.filters.join("|"));
+      }
+      if (!feed.terminal || feed.navParent !== "/notifications") {
+        return log("Activity filter should be a terminal nav leaf: " + JSON.stringify(feed));
+      }
+      if (feed.navKeys.some((k) => /^n\d+$/.test(k || "") || (k || "").indexOf("notif") === 0)) {
+        return log("notification ids must not be nav leaves: " + feed.navKeys.join("|"));
+      }
+      if (!["all", "mentions", "subscribed", "hooks"].every((name) => feed.navKeys.includes(name))) {
+        return log("nav should list Activity categories: " + feed.navKeys.join("|"));
       }
 
       // Mentions filter — only @you cards.
@@ -9738,6 +10086,55 @@ const CASES = [
     },
   },
   {
+    name: "NAV-A11Y-001 PageDown scrolls a tall message before hopping to the next post",
+    run: async (page, log) => {
+      await go(page, "/projects/community/channels/general");
+      const prep = await page.evaluate(() => {
+        const post = (window.CW_DATA.posts || []).find((entry) => entry.id === "p1");
+        if (!post) return { ok: false, reason: "missing p1" };
+        post.body = Array.from({ length: 80 }, (_, i) => `Tall line ${i + 1}`).join("\n");
+        window.CW_APP.openThread("p1");
+        window.CW_APP.state.feedMark = "p1";
+        window.CW_APP.state.detailOpen = true;
+        window.CW_APP.state.columnFocus = true;
+        window.CW_APP.state.focus = 1;
+        window.CW_APP.render(true);
+        const article = document.querySelector(
+          '.cn-blade[data-blade-kind="detail"] .cn-comment[data-key="p1"]',
+        );
+        const pane = article && article.closest(".cn-blade-body, .cn-col-body");
+        if (!article || !pane) return { ok: false, reason: "missing article pane" };
+        article.focus({ preventScroll: true });
+        pane.scrollTop = 0;
+        const msgRect = article.getBoundingClientRect();
+        const paneRect = pane.getBoundingClientRect();
+        return {
+          ok: true,
+          scrollTop: pane.scrollTop,
+          overhang: msgRect.bottom - paneRect.bottom,
+        };
+      });
+      if (!prep.ok) return log("tall-message prep failed: " + JSON.stringify(prep));
+      if (!(prep.overhang > 80)) return log("expected tall overhang: " + JSON.stringify(prep));
+      await page.keyboard.press("PageDown");
+      const mid = await page.evaluate(() => {
+        const article = document.activeElement?.closest?.(".cn-comment[data-key]");
+        const pane = article && article.closest(".cn-blade-body, .cn-col-body");
+        const msgRect = article?.getBoundingClientRect();
+        const paneRect = pane?.getBoundingClientRect();
+        return {
+          key: article?.getAttribute("data-key") || "",
+          scrollTop: pane?.scrollTop ?? -1,
+          stillOverhangs: !!(msgRect && paneRect && msgRect.bottom > paneRect.bottom + 12),
+        };
+      });
+      if (mid.key !== "p1" || !(mid.scrollTop > 0) || !mid.stillOverhangs) {
+        return log("PageDown skipped unread tall body: " + JSON.stringify({ prep, mid }));
+      }
+      return true;
+    },
+  },
+  {
     name: "NAV-A11Y-003 collapsing an ancestor retains exactly one visible roving tree item",
     run: async (page, log) => {
       await go(page, "/projects/community/channels/general");
@@ -9746,7 +10143,7 @@ const CASES = [
       await page.keyboard.press("ArrowDown");
       const collapsed = await page.evaluate(() => {
         const root = document.querySelector('.cn-thread-tree [role="treeitem"][data-key="p1"]');
-        const control = root?.querySelector(':scope > .cn-comment-main .cn-pm[data-fold="p1"]');
+        const control = root?.querySelector(':scope > .cn-comment-row .cn-pm[data-fold="p1"]');
         control?.click();
         return !!control;
       });

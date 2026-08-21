@@ -336,6 +336,9 @@ All radii `0`. Square avatars / leads. No pills, no bubbles, no soft cards.
   identity. No brand plaque tagline.
 - **Workspace tabs:** TTY tab strip; selected = reverse video / accent edge.
 - **Rows / posts:** Flat feed rows; actor weight first; quiet mono trust line.
+- **VFS nav:** pixelarticons (MIT) 16-bit type glyphs per node kind (`CW_ICONS.vfs`);
+  expand/collapse stays `+` / `−`. No emoji icons. Board chords live in
+  `/keymap.toml` (epoch, vim, yazi, emacs, and lazygit loadouts).
 - **Actions:** Rectangular / bracketed; primary filled magenta; agent accents
   cyan.
 - **Status:** Persistent `[keys]` cue; live/snapshot honesty in the board’s own

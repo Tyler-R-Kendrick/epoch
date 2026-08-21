@@ -59,7 +59,7 @@
       : null;
     if (!opened) return '<span class="cn-sig-text">' + esc(text) + "</span>";
     return '<button type="button" class="cn-sig-text" data-receipt-locator="' + esc(opened.locator) + '"' +
-      ' title="' + esc(opened.title) + '">' + esc(opened.locator) + "</button>";
+      ' tabindex="-1" title="' + esc(opened.title) + '">' + esc(opened.locator) + "</button>";
   }
 
   function formatBody(text) {
@@ -127,13 +127,14 @@
     var depthRails = opts.depth > 0
       ? Array(opts.depth).fill(
         '<span class="cn-rail cn-rail-pending" aria-hidden="true">' +
-        '<span class="cn-rail-mark">|</span></span>',
+        '<span class="cn-rail-mark"></span></span>',
       ).join("")
       : "";
     return '<article class="cn-comment cn-compose-draft" data-key="compose-draft" data-compose-draft data-pending="true"' +
       ' data-status="' + esc(status) + '"' +
       (opts.inline ? ' data-inline="true"' : "") +
       ' aria-label="' + esc(pendingLabel + ": " + body.slice(0, 80)) + '">' +
+      '<div class="cn-comment-row">' +
       (depthRails ? '<div class="cn-rails" aria-hidden="true">' + depthRails + "</div>" : "") +
       '<div class="cn-comment-main">' +
       '<header class="cn-comment-head">' +
@@ -144,7 +145,7 @@
       '<div class="cn-comment-body">' +
       esc(body || (status === "generating" ? "…" : "")) + "</div>" +
       actions +
-      "</div></article>";
+      "</div></div></article>";
   }
 
   function reactionDef(key) {
@@ -182,7 +183,7 @@
       if (me && n <= 0) n = 1;
       pills.push(
         '<button type="button" class="cn-react-pill" data-react="' + esc(r.key) + '"' +
-        ' data-react-id="' + esc(postId) + '" aria-pressed="' + me + '"' +
+        ' tabindex="-1" data-react-id="' + esc(postId) + '" aria-pressed="' + me + '"' +
         ' title="' + esc(r.label) + (me ? " · you reacted" : "") + '"' +
         ' aria-label="' + esc(r.label) + ", " + n + (me ? ", including you" : "") + '">' +
         '<span class="cn-react-mark">' + esc(r.mark) + "</span>" +
@@ -198,7 +199,7 @@
       var me = !!st.mine[k];
       pills.push(
         '<button type="button" class="cn-react-pill" data-react="' + esc(k) + '"' +
-        ' data-react-id="' + esc(postId) + '" aria-pressed="' + me + '"' +
+        ' tabindex="-1" data-react-id="' + esc(postId) + '" aria-pressed="' + me + '"' +
         ' title="' + esc(def.label) + '">' +
         '<span class="cn-react-mark">' + esc(def.mark) + "</span>" +
         '<span class="cn-react-count">' + n + "</span></button>"
@@ -207,14 +208,14 @@
     var picker = REACTIONS.map(function (r) {
       var me = !!st.mine[r.key];
       return '<button type="button" class="cn-react-opt" data-react="' + esc(r.key) + '"' +
-        ' data-react-id="' + esc(postId) + '" aria-pressed="' + me + '"' +
+        ' tabindex="-1" data-react-id="' + esc(postId) + '" aria-pressed="' + me + '"' +
         ' title="' + esc(r.label) + '">' +
         '<span class="cn-react-mark">' + esc(r.mark) + "</span></button>";
     }).join("");
     return '<div class="cn-reacts" data-key="react-' + esc(postId) + '">' +
       pills.join("") +
       '<button type="button" class="cn-react-add" data-react-pick="' + esc(postId) + '"' +
-      ' aria-keyshortcuts="a"' +
+      ' tabindex="-1" aria-keyshortcuts="a"' +
       ' aria-expanded="' + !!pickOpen + '" title="Add reaction (a)" aria-label="Add reaction">+</button>' +
       '<div class="cn-react-picker" data-react-picker="' + esc(postId) + '"' +
       ' data-open="' + (pickOpen ? "true" : "false") + '"' +
@@ -548,26 +549,53 @@
       var position = isThread ? siblingPosition : feedPosition;
       var setSize = isThread ? siblingSetSize : visiblePosts.length;
 
-      // Nest rails: one clickable │ per ancestor depth so you can collapse
-      // any level of the chain by hitting its line (terminal tree, not pills).
-      var rails = ancestors.map(function (anc) {
+      // Nest rails: one clickable gutter per ancestor depth (Reddit-style) so
+      // you can collapse any level by hitting its vertical margin.
+      var rails = ancestors.map(function (anc, railIx) {
         return '<button type="button" class="cn-rail" data-fold="' + esc(objectIdOf(anc)) + '"' +
-          ' title="Collapse thread" aria-label="Collapse thread by ' + esc(anc.who) + '">' +
-          '<span class="cn-rail-mark" aria-hidden="true">|</span></button>';
+          ' tabindex="-1"' +
+          ' data-rail-depth="' + railIx + '"' +
+          ' title="Collapse thread by ' + esc(anc.who) + '"' +
+          ' aria-label="Collapse thread by ' + esc(anc.who) + '">' +
+          '<span class="cn-rail-mark" aria-hidden="true"></span></button>';
       }).join("");
 
       var foldCtl = replies.length
         ? '<button type="button" class="cn-pm" data-fold="' + esc(key) + '"' +
-          ' aria-keyshortcuts="f"' +
+          ' tabindex="-1" aria-keyshortcuts="f"' +
           ' aria-expanded="' + !isFolded + '" aria-label="' +
           (isFolded ? "Expand" : "Collapse") + ' replies" title="' +
           (isFolded ? "Expand" : "Collapse") + ' replies (f)">' +
           (isFolded ? "+" : "-") + "</button>"
         : '<span class="cn-pm cn-pm-leaf" aria-hidden="true"> </span>';
 
+      // Left margin: expand/collapse this message's replies. Right margin: cue
+      // that Right drills into the first child (or opens the thread from feed).
+      var hasThreadKids = isThread && replies.length > 0;
+      var hasFeedKids = !isThread && below > 0;
+      var branchRail = hasThreadKids
+        ? ('<button type="button" class="cn-branch-rail" data-fold="' + esc(key) + '"' +
+          ' tabindex="-1" aria-keyshortcuts="f" aria-expanded="' + !isFolded + '"' +
+          ' title="' + (isFolded ? "Expand replies (f)" : "Collapse replies (f)") + '"' +
+          ' aria-label="' + (isFolded ? "Expand" : "Collapse") + ' replies">' +
+          '<span class="cn-branch-rail-mark" aria-hidden="true"></span></button>')
+        : "";
+      var childRail = hasThreadKids
+        ? ('<button type="button" class="cn-child-rail" data-drill="' + esc(key) + '"' +
+          ' tabindex="-1" title="Open first reply (→)"' +
+          ' aria-label="' + below + (below === 1 ? " reply" : " replies") + ' — open first child">' +
+          '<span class="cn-child-rail-mark" aria-hidden="true"></span></button>')
+        : (hasFeedKids
+          ? ('<button type="button" class="cn-child-rail" data-open-thread="' + esc(key) + '"' +
+            ' tabindex="-1" title="Open thread (→)"' +
+            ' aria-label="' + below + (below === 1 ? " reply" : " replies") + ' — open thread">' +
+            '<span class="cn-child-rail-mark" aria-hidden="true"></span></button>')
+          : "");
+
       var html = '<article class="cn-comment' +
         (isThread && depth === 0 ? " cn-comment-op" : "") +
-        (!isThread ? " cn-feed-post" : "") + '"' +
+        (!isThread ? " cn-feed-post" : "") +
+        (hasThreadKids || hasFeedKids ? " cn-has-children" : "") + '"' +
         ' data-key="' + esc(key) + '"' +
         ' data-object-id="' + esc(objectId) + '"' +
         (parentIdOf(p) ? ' data-parent-id="' + esc(parentIdOf(p)) + '"' : "") +
@@ -585,14 +613,16 @@
         ' data-depth="' + depth + '"' +
         (key === keyboardId ? ' data-here="true"' : "") +
         (String(key).indexOf("live-") === 0 ? ' data-live="true"' : "") + ">" +
+        '<div class="cn-comment-row">' +
         '<div class="cn-rails" data-key="rails-' + esc(key) + '">' + rails + "</div>" +
+        branchRail +
         '<div class="cn-vote" data-key="vote-' + esc(key) + '">' +
         '<button type="button" class="cn-vup" data-vote="up" data-vote-id="' + esc(key) + '"' +
-        ' aria-pressed="' + (myVote === 1) + '" aria-keyshortcuts="u" aria-label="Upvote">+</button>' +
+        ' tabindex="-1" aria-pressed="' + (myVote === 1) + '" aria-keyshortcuts="u" aria-label="Upvote">+</button>' +
         '<span class="cn-score" data-score="' + (sc > 0 ? "pos" : sc < 0 ? "neg" : "zero") + '">' +
         sc + "</span>" +
         '<button type="button" class="cn-vdn" data-vote="down" data-vote-id="' + esc(key) + '"' +
-        ' aria-pressed="' + (myVote === -1) + '" aria-keyshortcuts="d" aria-label="Downvote">-</button>' +
+        ' tabindex="-1" aria-pressed="' + (myVote === -1) + '" aria-keyshortcuts="d" aria-label="Downvote">-</button>' +
         "</div>" +
         '<div class="cn-comment-main">' +
         '<header class="cn-comment-head">' +
@@ -614,37 +644,39 @@
         receiptLocatorHtml(p.sig) + "</div>" +
         (!tombstone ? '<div class="cn-actions">' +
         '<button type="button" class="cn-act" data-reply="' + esc(key) + '"' +
-        ' data-reply-who="' + esc(p.who) + '" aria-keyshortcuts="r" title="Reply (r)">reply</button>' +
+        ' tabindex="-1" data-reply-who="' + esc(p.who) + '" aria-keyshortcuts="r" title="Reply (r)">reply</button>' +
         (!isThread
           ? '<button type="button" class="cn-act cn-act-open" data-open-thread="' + esc(key) + '"' +
-            ' aria-keyshortcuts="Enter" title="Open thread (Enter)">' +
+            ' tabindex="-1" aria-keyshortcuts="Enter" title="Open thread (Enter)">' +
             (below
               ? (below + (below === 1 ? " reply" : " replies"))
               : "open thread") + "</button>"
           : "") +
         (isThread || key === keyboardId
           ? ('<button type="button" class="cn-act" data-repost="' + esc(key) + '"' +
-            ' aria-pressed="' + reposted + '" aria-keyshortcuts="Shift+R" title="Repost (Shift+R)">' +
+            ' tabindex="-1" aria-pressed="' + reposted + '" aria-keyshortcuts="Shift+R" title="Repost (Shift+R)">' +
             (reposted ? "reposted" : "repost") + '</button>' +
             '<button type="button" class="cn-act" data-share data-share-kind="contextual" data-share-post="' + esc(key) + '"' +
-            ' aria-keyshortcuts="s" title="Share contextual link (s)">share</button>' +
+            ' tabindex="-1" aria-keyshortcuts="s" title="Share contextual link (s)">share</button>' +
             '<button type="button" class="cn-act" data-copy-post="' + esc(key) + '"' +
-            ' aria-keyshortcuts="y" title="Copy this thread (y)">copy</button>' +
-            '<button type="button" class="cn-act" data-mute-post="' + esc(key) + '" title="Mute">mute</button>' +
-            '<button type="button" class="cn-act" data-report-post="' + esc(key) + '" title="Report">report</button>')
+            ' tabindex="-1" aria-keyshortcuts="y" title="Copy this thread (y)">copy</button>' +
+            '<button type="button" class="cn-act" data-mute-post="' + esc(key) + '" tabindex="-1" title="Mute">mute</button>' +
+            '<button type="button" class="cn-act" data-report-post="' + esc(key) + '" tabindex="-1" title="Report">report</button>')
           : "") +
         (isThread && isFolded && below
-          ? '<button type="button" class="cn-act cn-act-fold" data-fold="' + esc(key) + '">' +
+          ? '<button type="button" class="cn-act cn-act-fold" data-fold="' + esc(key) + '" tabindex="-1">' +
             below + (below === 1 ? " more" : " more") + "</button>"
           : "") +
         "</div>" +
         renderReactions(key, p, reactions, reactPick === key) : "") +
+        "</div>" +
+        childRail +
         "</div>" + (isThread ? "" : "</article>");
 
       // Channel feed stays flat (roots only). Nesting belongs in thread detail.
       if (isThread && replies.length && !isFolded) {
         html += '<div class="cn-replies" role="group"' +
-          ' data-key="re-' + esc(key) + '">' +
+          ' data-key="re-' + esc(key) + '" data-parent="' + esc(key) + '">' +
           replies.map(function (c, index) {
             return nodeHtml(c, depth + 1, ancestors.concat([p]), index + 1, replies.length);
           }).join("") + "</div>";
@@ -701,8 +733,9 @@
     // Generic file leaves (about-style cards still use kind file —
     // only true content files with agent payloads or explicit file meta).
     if (entry.meta === "instructions" || entry.meta === "config" ||
-        entry.meta === "skill" || entry.meta === "tool") return true;
-    if (/\.(md|ts|tsx|js|jsx|json|css|html|txt|py|rs|go|yml|yaml|sh)$/i.test(entry.name || "")) {
+        entry.meta === "skill" || entry.meta === "tool" || entry.meta === "keymap" ||
+        entry.keymap) return true;
+    if (/\.(md|ts|tsx|js|jsx|json|css|html|txt|py|rs|go|yml|yaml|toml|sh)$/i.test(entry.name || "")) {
       return true;
     }
     return false;
@@ -1692,12 +1725,19 @@
       title: "verbs (shared)",
       always: true,
       rows: [
-        { keys: "d", desc: "Dismiss — clear the current item from attention (home · Activity · notifications · DM alerts)" },
-        { keys: "m", desc: "Mark read — keep visible, clear unread (home)" },
-        { keys: "y", desc: "Yank / copy focused post, channel feed, or chat (optimized paste format)" },
+        { keys: function () {
+          return (window.CW_KEYMAP && window.CW_KEYMAP.chord("attention.dismiss")) || "d";
+        }, desc: "Dismiss — clear the current item from attention (home · Activity · notifications · DM alerts)" },
+        { keys: function () {
+          return (window.CW_KEYMAP && window.CW_KEYMAP.chord("attention.markRead")) || "m";
+        }, desc: "Mark read — keep visible, clear unread (home)" },
+        { keys: function () {
+          return (window.CW_KEYMAP && window.CW_KEYMAP.chord("post.copy")) || "y";
+        }, desc: "Yank / copy focused post, channel feed, or chat (optimized paste format)" },
         { keys: "esc", desc: "Leave / close the current surface (not dismiss)" },
         { keys: "Enter", desc: "Open / activate the current item" },
         { keys: "j k / ↑ ↓", desc: "Move within the focused list" },
+        { keys: "keymap.toml", desc: "Edit loadouts · keymap use vim | yazi | emacs | lazygit | epoch" },
       ],
     },
     {
@@ -1705,7 +1745,7 @@
       title: "Prompt",
       contexts: ["prompt"],
       rows: [
-        { keys: "Tab", desc: "Swap to panels — or complete / cycle candidates while suggestions are open (Shift+Tab cycles back)" },
+        { keys: "Tab / Shift+Tab", desc: "Yield to the prompt, or restore the last board context from the prompt" },
         { keys: "Enter", desc: "Submit / run (never steals autocomplete)" },
         { keys: "↑ ↓", desc: "Candidates (menu open) or history" },
         { keys: "→ / End", desc: "Accept ghost text at caret end" },
@@ -1813,20 +1853,26 @@
       title: "Thread",
       contexts: ["thread"],
       rows: [
-        { keys: "f", desc: "Fold or expand the focused chain" },
-        { keys: "nest rail", desc: "Collapse that depth" },
-        { keys: "u / d", desc: "Upvote / downvote the focused post" },
+        { keys: "f / left margin", desc: "Expand or collapse the focused chain" },
+        { keys: "nest gutter", desc: "Collapse that ancestor thread (hover highlights the margin)" },
+        { keys: "→ / right margin", desc: "Open the first child reply (or expand first)" },
+        { keys: function () {
+          var up = (window.CW_KEYMAP && window.CW_KEYMAP.chord("post.voteUp")) || "u";
+          var down = (window.CW_KEYMAP && window.CW_KEYMAP.chord("post.voteDown")) || "d";
+          return up + " / " + down;
+        }, desc: "Upvote / downvote the focused post" },
         { keys: "a", desc: "Open reactions for the focused post" },
         { keys: "r / Shift+R", desc: "Reply / repost the focused post" },
         { keys: "s / y", desc: "Share link / copy the focused thread" },
         { keys: "j k / ↑ ↓", desc: "Previous / next visible message (roots and replies)" },
+        { keys: "PageUp / PageDown", desc: "Page within a tall message, then the next / previous message" },
         { keys: "Home / End", desc: "First / last visible message" },
         { keys: "v", desc: "Cycle feed sort",
           note: function (ctx) { return "now: " + (ctx.sort || "hot"); } },
         { keys: "hot new top", desc: "Default sorts — pin more with [+]" },
         { keys: "esc", desc: "Leave thread → channel feed" },
         { keys: "Backspace", desc: "Same as esc — channel feed" },
-        { keys: "← / h", desc: "Focus navigation (detail stays open)" },
+        { keys: "←", desc: "Collapse replies, then parent / channel feed / navigator" },
         { keys: "i or :", desc: "Focus the prompt" },
         { keys: "e", desc: "Open the post in the terminal editor" },
         { keys: "z / Alt+Z", desc: "Expand / restore focused panel" },
@@ -1839,7 +1885,11 @@
       rows: [
         { keys: "tabs", desc: "messages (default) · profile" },
         { keys: "f", desc: "Fold or expand the focused chain" },
-        { keys: "u / d", desc: "Upvote / downvote the focused message" },
+        { keys: function () {
+          var up = (window.CW_KEYMAP && window.CW_KEYMAP.chord("post.voteUp")) || "u";
+          var down = (window.CW_KEYMAP && window.CW_KEYMAP.chord("post.voteDown")) || "d";
+          return up + " / " + down;
+        }, desc: "Upvote / downvote the focused message" },
         { keys: "a", desc: "Open reactions for the focused message" },
         { keys: "r / Shift+R", desc: "Reply / repost the focused message" },
         { keys: "s / y", desc: "Share link / copy the focused thread" },
@@ -1872,12 +1922,12 @@
       title: "Activity",
       contexts: ["activity"],
       rows: [
-        { keys: "↑ ↓ / j k", desc: "Move between notifications (nav)" },
-        { keys: "Enter / →", desc: "Open the selected notification" },
+        { keys: "↑ ↓ / j k", desc: "Move between notifications (detail)" },
+        { keys: "Enter / →", desc: "Open the marked notification source" },
         { keys: "d", desc: "Dismiss — clear unread (same verb as home / DM alerts)" },
         { keys: "Open", desc: "Jump to source and mark read" },
         { keys: "Dismiss", desc: "Same as d — clear from unread without opening" },
-        { keys: "filters", desc: "all · mentions · subscribed · hooks" },
+        { keys: "filters", desc: "all · mentions · subscribed · hooks (nav leaves)" },
         { keys: "esc", desc: "Leave selection → Following, or columns → prompt" },
         { keys: "i or :", desc: "Focus the prompt" },
         { keys: "← / h", desc: "Focus navigation / parent" },
@@ -1926,7 +1976,8 @@
       if (r.surfaces && !surfaceActive(r.surfaces, ctx.surfaces || [])) return false;
       // Onboard: keep the shared verbs that unlock the first channel read.
       if (onboardOnly && g.id === "verbs") {
-        return /^(j k|Enter|esc)/i.test(String(r.keys || ""));
+        var keyLabel = globalThis.CW_VALUE.isFunction(r.keys) ? r.keys(ctx) : r.keys;
+        return /^(j k|Enter|esc)/i.test(String(keyLabel || ""));
       }
       return true;
     });
@@ -1970,8 +2021,9 @@
     var groups = matched.map(function (g, gi) {
       // Rows already trimmed by visibleHelpGroups (including onboard predicates).
       var rows = (g.rows || []).map(function (r, ri) {
+        var keyLabel = globalThis.CW_VALUE.isFunction(r.keys) ? r.keys(ctx) : r.keys;
         return '<div class="cn-help-row" data-key="hr-' + gi + "-" + ri + '">' +
-          '<span class="cn-help-key"><kbd>' + esc(r.keys) + "</kbd></span>" +
+          '<span class="cn-help-key"><kbd>' + esc(keyLabel) + "</kbd></span>" +
           '<span class="cn-help-desc">' + esc(helpRowDesc(r, ctx)) + "</span></div>";
       }).join("");
       if (!rows) return "";
@@ -2036,7 +2088,7 @@
 
   /** Activity per channel, bucketed, for the column sparkline. */
   function activityOf(entry, path) {
-    if (entry.kind !== "dir" && entry.kind !== "channel") return null;
+    if (entry.kind !== "dir" && entry.kind !== "channel" && entry.kind !== "activity") return null;
     var A = window.CW_ASCII;
     var full = MAP.resolve(path, entry.name);
     var live = (window.CW_APP && window.CW_APP.state && window.CW_APP.state.merged) || [];
@@ -2419,7 +2471,8 @@
           ? "thread"
           : (selected && selected.post
             ? selected.name
-            : (selected && (selected.kind === "dir" || selected.kind === "channel")
+            : (selected && (selected.kind === "dir" || selected.kind === "channel" ||
+                selected.kind === "activity")
               ? selected.name
               : (parts[0] === "projects" && parts[2] === "channels" && parts[3]
                 ? parts[3]
@@ -2468,10 +2521,11 @@
    *   - Rows are the blade path's immediate entries (siblings).
    *   - Expanding a dir reveals ITS children once — those children never
    *     expand further in this blade (no duplicate deep trees).
-   *   - Iconography is only + / − (never dots or arrows):
+   *   - Expand/collapse is only + / − (never dots or arrows):
    *       +  dir with children (collapsed, or not expandable in-place)
    *       −  dir expanded (one-level peek open)
    *       (blank spacer) leaf file / empty dir — same column, no glyph
+   *   - Type icons (pixelarticons via CW_ICONS.vfs) mark node kind beside the name.
    *   - Child counts are plain numbers (no ›). Enter / → slides into a dir.
    *   - + / − and Space toggle expand; Enter / → slides into a dir.
    */
@@ -2491,7 +2545,8 @@
       var full = MAP.resolve(parentPath, e.name);
       var isDir = e.kind === "dir";
       var isChannel = e.kind === "channel";
-      // Only first-level directory rows may expand (depth 0). Channels are leaves.
+      var isActivity = e.kind === "activity";
+      // Only first-level directory rows may expand (depth 0). Channels / Activity are leaves.
       var canExpand = isDir && depth === 0;
       var kids = isDir ? (MAP.list(full, extra) || []) : [];
       if (filter && kids.length) {
@@ -2504,13 +2559,13 @@
       // Grandchild count for depth-1 rows (count badge only).
       var subN = 0;
       if (isDir && depth >= 1) subN = kids.length;
-      if (isChannel) {
+      if (isChannel || isActivity) {
         subN = detailFeedEntries(full, extra).length;
       }
 
       var spark = activityOf(e, parentPath);
       var current = blade.selected != null && e.name === blade.selected && parentPath === blade.path;
-      if (!current && (isDir || isChannel)) {
+      if (!current && (isDir || isChannel || isActivity)) {
         current = live === full || live.indexOf(full + "/") === 0;
       }
       // Path-focus: the immediate next segment under this blade.
@@ -2521,11 +2576,11 @@
       }
       if (live === full) pathFocus = true;
 
-      // One icon language for every tree row: + / − / blank. No ·  ›  ▸  *.
+      // One expand language: + / − / blank. Type glyphs live on .cn-vfs-ico.
       var twist;
       if (canExpand && hasSub) {
         twist = '<button type="button" class="cn-pm" data-tree-toggle="' + esc(full) + '"' +
-          ' aria-expanded="' + open + '" title="' +
+          ' tabindex="-1" aria-expanded="' + open + '" title="' +
           (open ? "Collapse (Space)" : "Expand (Space) — one level") + '">' +
           (open ? "−" : "+") + "</button>";
       } else if (isDir && hasSub) {
@@ -2537,6 +2592,10 @@
         // Leaf file or empty directory: keep the column, no glyph.
         twist = '<span class="cn-pm cn-pm-leaf" aria-hidden="true"></span>';
       }
+
+      var typeIco = (window.CW_ICONS && window.CW_ICONS.vfs)
+        ? window.CW_ICONS.vfs(e)
+        : "";
 
       var subMark = "";
       if (isDir && depth === 0 && hasSub && !open) {
@@ -2559,7 +2618,9 @@
         (e.openDm ? ' data-open-dm="' + esc(e.openDm) + '"' : "") +
         (isDir && hasSub ? ' data-has-kids="true"' : "") +
         (e.meta ? ' data-meta="' + esc(e.meta) + '"' : "") +
+        ' tabindex="' + (current ? "0" : "-1") + '"' +
         (current ? ' aria-current="true"' : "") + ">" +
+        typeIco +
         '<span class="cn-name">' + esc(e.label || e.name) + "</span>" +
         subMark +
         (e.unread
@@ -2922,6 +2983,9 @@
       opacity:1;z-index:1;
       box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--cw-accent) 35%,transparent),
         4px 0 18px color-mix(in srgb,var(--cw-bg) 70%,#000)}
+    /* Detail focus belongs on the selected message row, not the whole blade chrome. */
+    [data-exp="console"] .cn-blade[data-blade-kind=detail][data-focus=true]:has(.cn-comment[data-here=true]){
+      box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--cw-accent) 16%,transparent)}
     /* Nav + detail stay opaque so a neighbour cannot show through during morph/back. */
     [data-exp="console"] .cn-blade[data-nav=true],
     [data-exp="console"] .cn-blade[data-blade-kind=detail]{opacity:1}
@@ -3058,6 +3122,17 @@
       padding:.18rem .45rem .18rem .25rem;background:none;border:0;font:inherit;
       color:var(--cw-ink);cursor:pointer;text-align:start;min-height:1.9rem;
       overflow:hidden}
+    [data-exp="console"] .cn-tree-line .cn-item .cn-vfs-ico{flex:none;display:inline-flex;
+      align-items:center;justify-content:center;width:1rem;height:1rem;margin-inline-end:.15rem;
+      color:var(--cw-ink-faint);line-height:0}
+    [data-exp="console"] .cn-tree-line .cn-item .cn-vfs-ico .cw-ico{width:14px;height:14px;
+      display:block;image-rendering:pixelated;image-rendering:crisp-edges}
+    [data-exp="console"] .cn-tree-line .cn-item[aria-current=true] .cn-vfs-ico{color:inherit}
+    [data-exp="console"] .cn-tree-line .cn-item[data-kind=channel] .cn-vfs-ico{color:var(--cw-ink-dim)}
+    [data-exp="console"] .cn-tree-line .cn-item[data-kind=agent] .cn-vfs-ico,
+    [data-exp="console"] .cn-tree-line .cn-item[data-meta=eve] .cn-vfs-ico{color:var(--cw-agent)}
+    [data-exp="console"] .cn-tree-line .cn-item[data-meta=voice] .cn-vfs-ico,
+    [data-exp="console"] .cn-tree-line .cn-item .cn-vfs-ico[data-ico=headphone]{color:var(--cw-live)}
     [data-exp="console"] .cn-tree-line .cn-item:hover{background:var(--cw-surface)}
     [data-exp="console"] .cn-blade[data-focus=true] .cn-tree-line .cn-item[aria-current=true],
     [data-exp="console"] .cn-col[data-focus=true] .cn-tree-line .cn-item[aria-current=true]{
@@ -3103,21 +3178,33 @@
     [data-exp="console"] .cn-empty{color:var(--cw-ink-faint);padding:.6rem .8rem}
 
     [data-exp="console"] .cn-feed-tree{display:flex;flex-direction:column;gap:.15rem;padding:.15rem 0 .4rem}
-    [data-exp="console"] .cn-feed-post{border-block-end:1px solid var(--cw-rule);padding:.45rem .65rem .5rem .2rem;
+    [data-exp="console"] .cn-feed-post > .cn-comment-row{border-block-end:1px solid var(--cw-rule);padding:.45rem .65rem .5rem .2rem;
       gap:.45rem .55rem}
     [data-exp="console"] .cn-feed-post .cn-comment-body{font-size:1em;line-height:1.45;max-width:72ch}
     [data-exp="console"] .cn-feed-post .cn-subject{font-size:1.05em;font-weight:700;color:var(--cw-ink);
       margin-block:.05rem .15rem}
     [data-exp="console"] .cn-act-open{color:var(--cw-agent)!important;font-weight:700}
 
-    [data-exp="console"] .cn-comment{display:grid;grid-template-columns:auto auto minmax(0,1fr);
-      gap:0 .4rem;padding:.28rem .55rem .28rem 0;align-items:start;
-      border-block-end:1px solid color-mix(in srgb,var(--cw-rule) 80%,transparent);cursor:pointer}
-    [data-exp="console"] .cn-comment:hover{background:color-mix(in srgb,var(--cw-surface) 65%,transparent)}
-    [data-exp="console"] .cn-comment[data-here=true]{background:var(--cw-surface);
-      box-shadow:inset 2px 0 0 var(--cw-accent)}
-    [data-exp="console"] .cn-comment:focus-visible{outline:2px solid var(--cw-accent);
-      outline-offset:-2px;background:var(--cw-surface)}
+    [data-exp="console"] .cn-comment{
+      display:flex;flex-direction:column;gap:0;padding:0;align-items:stretch;
+      border:0;background:transparent;cursor:pointer;min-width:0}
+    [data-exp="console"] .cn-comment-row{
+      display:grid;grid-template-columns:auto auto auto minmax(0,1fr) auto;
+      gap:0 .45rem;padding:.32rem .2rem .32rem .15rem;align-items:start;
+      border-block-end:1px solid color-mix(in srgb,var(--cw-rule) 80%,transparent);
+      border-radius:0;min-width:0}
+    [data-exp="console"] .cn-comment:not(.cn-has-children) > .cn-comment-row{
+      grid-template-columns:auto auto minmax(0,1fr)}
+    [data-exp="console"] .cn-comment.cn-has-children:not(:has(.cn-branch-rail)) > .cn-comment-row{
+      grid-template-columns:auto auto minmax(0,1fr) auto}
+    [data-exp="console"] .cn-comment:hover > .cn-comment-row{
+      background:color-mix(in srgb,var(--cw-surface) 65%,transparent)}
+    [data-exp="console"] .cn-comment[data-here=true] > .cn-comment-row{
+      background:var(--cw-surface);
+      box-shadow:inset 3px 0 0 var(--cw-accent)}
+    [data-exp="console"] .cn-comment:focus-visible{outline:none}
+    [data-exp="console"] .cn-comment:focus-visible > .cn-comment-row{
+      outline:2px solid var(--cw-accent);outline-offset:-2px;background:var(--cw-surface)}
     [data-exp="console"] .cn-comment button,
     [data-exp="console"] .cn-comment a{cursor:pointer}
     [data-exp="console"] .cn-comment[data-state-of=open] .cn-comment-head [data-c=state]{color:var(--cw-ink-dim)}
@@ -3128,27 +3215,88 @@
 
     /* Thread: single column (Reddit / X / Threads), OP emphasized. */
     [data-exp="console"] .cn-thread-tree{min-width:0;padding:.1rem 0 .5rem}
-    [data-exp="console"] .cn-thread-tree .cn-comment-op{padding-block:.55rem .65rem;
+    [data-exp="console"] .cn-thread-tree .cn-comment-op > .cn-comment-row{padding-block:.55rem .65rem;
       border-block-end:1px solid var(--cw-line-strong, var(--cw-rule));
-      background:color-mix(in srgb,var(--cw-surface) 45%,transparent);margin-block-end:.2rem}
+      background:color-mix(in srgb,var(--cw-surface) 45%,transparent);margin-block-end:0}
     [data-exp="console"] .cn-thread-tree .cn-comment-op .cn-comment-body{font-size:1.02em;line-height:1.5;max-width:72ch}
     [data-exp="console"] .cn-thread-tree .cn-comment-op .cn-subject{font-size:1.1em;font-weight:700}
-    [data-exp="console"] .cn-thread-tree [role=treeitem][aria-selected=true]{background:var(--cw-surface);
-      box-shadow:inset 2px 0 0 var(--cw-accent)}
+    [data-exp="console"] .cn-thread-tree [role=treeitem][aria-selected=true] > .cn-comment-row{
+      background:var(--cw-surface);box-shadow:inset 3px 0 0 var(--cw-accent)}
     [data-exp="console"] .cn-thread-tree [role=treeitem][data-tombstone=true]{color:var(--cw-ink-faint)}
-    [data-exp="console"] .cn-thread-tree .cn-replies{display:flex;flex-direction:column;min-width:0}
+    [data-exp="console"] .cn-thread-tree .cn-replies{
+      display:flex;flex-direction:column;min-width:0;margin:0;padding:0;
+      border-inline-start:0}
 
-    /* Nest rails: clearer thread lines (RES / Reddit-like). */
-    [data-exp="console"] .cn-rails{display:flex;align-self:stretch;flex:none;gap:0;padding-inline-start:.1rem}
-    [data-exp="console"] .cn-rail{display:flex;align-items:stretch;justify-content:center;
-      width:1.1ch;min-width:1.1ch;padding:0;margin:0;background:none;border:0;
-      color:color-mix(in srgb,var(--cw-agent) 55%,var(--cw-ink-faint));cursor:pointer;flex:none;font:inherit;line-height:1.2}
-    [data-exp="console"] .cn-rail-mark{display:block;width:100%;text-align:center;
-      color:inherit;user-select:none;opacity:.85}
-    [data-exp="console"] .cn-rail:hover,[data-exp="console"] .cn-rail:focus-visible{
-      color:var(--cw-accent);outline:none}
+    /*
+     * Nested replies sit under the parent article. Selection chrome lives on
+     * .cn-comment-row only so a focused parent never paints the whole subtree.
+     */
+    [data-exp="console"] .cn-comment > .cn-replies{min-width:0;width:100%}
+
+    /* Nest gutters: Reddit-style clickable margins — one column per ancestor. */
+    [data-exp="console"] .cn-rails{display:flex;align-self:stretch;flex:none;gap:0;padding:0;
+      min-width:0;max-width:max-content;width:auto}
+    [data-exp="console"] .cn-rail{
+      appearance:none;display:block;position:relative;align-self:stretch;
+      width:.85rem;min-width:.85rem;min-height:2.5rem;padding:0;margin:0;
+      background:transparent;border:0;border-radius:0;cursor:pointer;flex:none;
+      color:color-mix(in srgb,var(--cw-ink-faint) 70%,var(--cw-agent) 30%)}
+    [data-exp="console"] .cn-rail-mark{
+      position:absolute;inset-block:.15rem;inset-inline-start:50%;
+      width:2px;transform:translateX(-50%);border-radius:1px;
+      background:currentColor;opacity:.9;pointer-events:none}
+    [data-exp="console"] .cn-rail:hover,
+    [data-exp="console"] .cn-rail:focus-visible{
+      color:var(--cw-accent);
+      background:color-mix(in srgb,var(--cw-accent) 14%,transparent);
+      outline:none}
     [data-exp="console"] .cn-rail:hover .cn-rail-mark,
     [data-exp="console"] .cn-rail:focus-visible .cn-rail-mark{opacity:1}
+    [data-exp="console"] .cn-rail[data-rail-depth="0"]{color:color-mix(in srgb,var(--cw-agent) 45%,var(--cw-ink-faint))}
+    [data-exp="console"] .cn-rail[data-rail-depth="1"]{color:color-mix(in srgb,var(--cw-accent) 35%,var(--cw-ink-faint))}
+    [data-exp="console"] .cn-rail[data-rail-depth="2"]{color:color-mix(in srgb,var(--cw-signed) 40%,var(--cw-ink-faint))}
+    [data-exp="console"] .cn-rail[data-rail-depth="3"]{color:color-mix(in srgb,var(--cw-warn) 35%,var(--cw-ink-faint))}
+
+    /* Left branch margin: expand / collapse this message's replies. */
+    [data-exp="console"] .cn-branch-rail{
+      appearance:none;display:block;position:relative;align-self:stretch;
+      width:.85rem;min-width:.85rem;min-height:2.5rem;padding:0;margin:0;
+      background:transparent;border:0;border-radius:0;cursor:pointer;flex:none;
+      color:color-mix(in srgb,var(--cw-ink-dim) 55%,var(--cw-accent) 45%)}
+    [data-exp="console"] .cn-branch-rail-mark{
+      position:absolute;inset-block:.2rem;inset-inline-start:50%;
+      width:3px;transform:translateX(-50%);border-radius:1px;
+      background:currentColor;opacity:.95;pointer-events:none}
+    [data-exp="console"] .cn-branch-rail[aria-expanded=false] .cn-branch-rail-mark{
+      inset-block:.55rem;opacity:.7}
+    [data-exp="console"] .cn-branch-rail:hover,
+    [data-exp="console"] .cn-branch-rail:focus-visible{
+      color:var(--cw-accent);
+      background:color-mix(in srgb,var(--cw-accent) 14%,transparent);
+      outline:none}
+
+    /* Right child margin: more replies live this way — Right drills in. */
+    [data-exp="console"] .cn-child-rail{
+      appearance:none;display:block;position:relative;align-self:stretch;
+      width:.85rem;min-width:.85rem;min-height:2.5rem;padding:0;margin:0;
+      background:transparent;border:0;border-radius:0;cursor:pointer;flex:none;
+      color:color-mix(in srgb,var(--cw-agent) 50%,var(--cw-ink-faint))}
+    [data-exp="console"] .cn-child-rail-mark{
+      position:absolute;inset-block:.2rem;inset-inline-start:50%;
+      width:3px;transform:translateX(-50%);border-radius:1px;
+      background:currentColor;opacity:.9;pointer-events:none}
+    [data-exp="console"] .cn-child-rail-mark::after{
+      content:"";position:absolute;inset-block-start:50%;inset-inline-end:-3px;
+      width:0;height:0;transform:translateY(-50%);
+      border-block:.28rem solid transparent;
+      border-inline-start:.35rem solid currentColor;opacity:.85}
+    [data-exp="console"] .cn-child-rail:hover,
+    [data-exp="console"] .cn-child-rail:focus-visible{
+      color:var(--cw-accent);
+      background:color-mix(in srgb,var(--cw-accent) 14%,transparent);
+      outline:none}
+    [data-exp="console"] .cn-comment[data-here=true] > .cn-comment-row .cn-child-rail{
+      color:var(--cw-accent)}
 
     /* Votes as [+] n [-] — terminal brackets, never triangles or circles. */
     [data-exp="console"] .cn-vote{display:flex;flex-direction:column;align-items:center;gap:0;
@@ -3508,7 +3656,7 @@
     [data-exp="console"] .cn-tree{padding:.15rem 0}
     @media (prefers-reduced-motion: no-preference){
       [data-exp="console"] [data-live=true]{animation:cn-arrive .45s cubic-bezier(.2,.8,.2,1) both}
-      [data-exp="console"] .cn-comment[data-here=true]{animation:cn-ping-bg 1.2s ease-out 1}
+      [data-exp="console"] .cn-comment[data-here=true] > .cn-comment-row{animation:cn-ping-bg 1.2s ease-out 1}
       [data-exp="console"] .cn-badge{animation:cn-arrive .3s ease-out both}
     }
     @keyframes cn-arrive{from{opacity:0;translate:0 .5rem}to{opacity:1;translate:0 0}}
@@ -3818,6 +3966,10 @@
     [data-exp="console"] .cn-compose-draft[data-status=generating]{
       border-color:color-mix(in srgb,var(--cw-live) 50%,var(--cw-rule));
       background:color-mix(in srgb,var(--cw-live) 8%,transparent)}
+    [data-exp="console"] .cn-compose-draft > .cn-comment-row{
+      grid-template-columns:auto minmax(0,1fr)}
+    [data-exp="console"] .cn-compose-draft > .cn-comment-row:not(:has(.cn-rails)){
+      grid-template-columns:minmax(0,1fr)}
     [data-exp="console"] .cn-compose-draft .cn-comment-main{min-width:0;display:grid;gap:.3rem}
     [data-exp="console"] .cn-compose-draft [data-draft-state]{
       color:var(--cw-accent);font-weight:700;letter-spacing:.02em}
@@ -4139,7 +4291,9 @@
       [data-exp="console"] .cn-path{gap:.25rem}
       [data-exp="console"] .cn-panel-act,[data-exp="console"] .cn-pane-act{min-width:2.25rem;min-height:2.25rem}
       [data-exp="console"] .cn-panel-tab{min-height:2.25rem}
-      [data-exp="console"] .cn-rail{width:1.25ch;min-height:2rem}
+      [data-exp="console"] .cn-rail,
+      [data-exp="console"] .cn-branch-rail,
+      [data-exp="console"] .cn-child-rail{width:1.1rem;min-width:1.1rem;min-height:2.5rem}
       [data-exp="console"] .cn-vup,[data-exp="console"] .cn-vdn,[data-exp="console"] .cn-pm{
         min-height:2rem;padding-block:.25rem}
       [data-exp="console"] .cn-act,[data-exp="console"] .cn-react-pill,
@@ -4183,10 +4337,11 @@
           (parts[1] === "all" || parts[1] === "mentions" || parts[1] === "subscribed" ||
            parts[1] === "hooks" || parts[1] === "hook")) {
         activityFilter = parts[1] === "hook" ? "hooks" : parts[1];
-        var markNotif = selected && selected.notification
-          ? selected.name
-          : (selected && selected.name) || null;
-        preview = viewNotifications(here, markNotif);
+        var notifFeed = detailFeedEntries(path, extra);
+        if (!notifFeed.length) notifFeed = MAP.list(path, extra) || [];
+        var markNotif = state.feedMark ||
+          (selected && selected.notification ? selected.name : null);
+        preview = viewNotifications(notifFeed, markNotif);
       } else if (selected && selected.kind === "channel") {
         // Channel selected from …/channels — preview its feed (nav stays put).
         var chPreviewPath = MAP.resolve(listPath, selected.name);
@@ -4214,12 +4369,12 @@
       } else if (selected && selected.kind === "dir") {
         var childPath = MAP.resolve(listPath, selected.name);
         var child = MAP.list(childPath, extra) || [];
-        // Notifications filter dir selected from /notifications → show that feed.
+        // Notifications filter selected from /notifications → show that feed.
         if (parts[0] === "notifications" && !parts[1] && selected &&
             (selected.name === "all" || selected.name === "mentions" ||
              selected.name === "subscribed" || selected.name === "hooks")) {
           activityFilter = selected.name;
-          preview = viewNotifications(child, null);
+          preview = viewNotifications(child, state.feedMark || null);
         } else {
           preview = viewTree(child, null, state.folded, sort, votes,
             state.reactions, state.reposts, state.reactPick, state.feedQuery);
@@ -4232,7 +4387,7 @@
           }
           if (child.some(function (e) { return e.notification; })) {
             activityFilter = selected.name;
-            preview = viewNotifications(child, null);
+            preview = viewNotifications(child, state.feedMark || null);
           }
         }
         // Selecting a DM under /dms shows who you are talking to before messages.
@@ -4240,6 +4395,13 @@
           ctxLabel = { dm: selected.name };
           preview = viewPersonPane(selected.name, extra, state, sort, votes);
         }
+      } else if (selected && selected.kind === "activity") {
+        // Terminal Activity category — detail shows the filter feed.
+        var actPath = MAP.resolve(listPath, selected.name);
+        var actFeed = detailFeedEntries(actPath, extra);
+        if (!actFeed.length) actFeed = MAP.list(actPath, extra) || [];
+        activityFilter = selected.name;
+        preview = viewNotifications(actFeed, state.feedMark || null);
       } else if (selected && selected.post) {
         // Posts still listed in nav (e.g. space feed) — detail shows the feed/thread.
         var postPath = MAP.resolve(listPath, selected.name);

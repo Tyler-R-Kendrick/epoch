@@ -300,6 +300,9 @@ export async function runCommunityWebAppThemeTests(): Promise<void> {
   const map = sandbox2.CW_MAP as {
     list: (p: string, e?: FixtureValue) => FixtureValue[] | null;
     join: (p: string[]) => string;
+    isTerminalNavPath: (p: string) => boolean;
+    navParentPath: (p: string) => string;
+    feedEntriesAt: (p: string, e?: FixtureValue) => FixtureValue[];
   };
   for (const root of ["/", "/channels", "/members", "/projects", "/dms", "/notifications", "/spaces", "/.agents"]) {
     assert.ok(map.list(root) !== null, `sitemap must list ${root}`);
@@ -452,20 +455,32 @@ export async function runCommunityWebAppThemeTests(): Promise<void> {
   assert.ok(scoutThread.some((e) => e.post && e.post.who === "you"),
     "local principal messages use who: you");
 
-  // Notifications: filters + mention/subscription kinds.
+  // Notifications: filters are terminal Activity leaves; items stay in detail/FS.
   // SAFETY: The browser-script fixture establishes this contract before the test consumes the value.
-  const notifFilters = map.list("/notifications") as Array<{ name: string }>;
+  const notifFilters = map.list("/notifications") as Array<{ name: string; kind?: string }>;
   assert.ok(notifFilters.some((e) => e.name === "all"));
   assert.ok(notifFilters.some((e) => e.name === "mentions"));
   assert.ok(notifFilters.some((e) => e.name === "subscribed"));
   assert.ok(notifFilters.some((e) => e.name === "hooks"),
     "notifications lists hooks filter for custom event subscriptions");
+  assert.ok(notifFilters.every((e) => e.kind === "activity"),
+    "Activity filters are terminal activity leaves");
+  assert.equal(map.isTerminalNavPath("/notifications/mentions"), true,
+    "mentions filter is a terminal nav path");
+  assert.equal(map.navParentPath("/notifications/mentions"), "/notifications",
+    "Activity terminal paths keep the navigator on /notifications");
   // SAFETY: The browser-script fixture establishes this contract before the test consumes the value.
   const mentions = map.list("/notifications/mentions") as Array<{
     notification?: { kind: string; unread?: boolean; body?: string };
   }>;
   assert.ok(mentions.length >= 1 && mentions.every((e) => e.notification?.kind === "mention"),
     "mentions filter is only @you mentions");
+  // SAFETY: The browser-script fixture establishes this contract before the test consumes the value.
+  const mentionFeed = map.feedEntriesAt("/notifications/mentions") as Array<{
+    notification?: { kind: string };
+  }>;
+  assert.ok(mentionFeed.length >= 1 && mentionFeed.every((e) => e.notification?.kind === "mention"),
+    "detail feedEntriesAt exposes mention cards without making them nav parents");
   // SAFETY: The browser-script fixture establishes this contract before the test consumes the value.
   const subscribed = map.list("/notifications/subscribed") as Array<{
     notification?: { kind: string };
