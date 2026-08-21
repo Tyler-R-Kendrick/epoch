@@ -351,6 +351,7 @@ Append-only outcomes for SDLC coordinator runs. Newest entries appear at the bot
 | Initiative | [`activity-vfs-test-lanes`](activity-vfs-test-lanes/sdlc-state.md) |
 | Backend | Sequential fallback; coordinator inline |
 | Branches | `sdlc/activity-vfs-01-terminal` → `02-verify-mutation` → `03-docs-faults` |
-| Result | **in progress** |
-| Failure class | None yet. |
-| Notes | Honest answer unchanged: unit/BDD/Pact/PR-fuzz strong; mutation/Verify listed-contract (now includes Activity terminal); chaos partial (NATS/XMPP/AI-draft faults). Boy scout: terminal Activity nav + Verify golden + `mutation:community-web` CI + testing-lanes typo fix. |
+| PRs (bottom-up land) | [#180](https://github.com/Tyler-R-Kendrick/epoch/pull/180) [`a249a51`](https://github.com/Tyler-R-Kendrick/epoch/commit/a249a5141e65ed076bcc932e98db7702f3a58cb2) → [#181](https://github.com/Tyler-R-Kendrick/epoch/pull/181) [`a2985aa`](https://github.com/Tyler-R-Kendrick/epoch/commit/a2985aa396cccc4023e7cfb2f198aeb5cdb6232a) → [#182](https://github.com/Tyler-R-Kendrick/epoch/pull/182) [`358cbfe`](https://github.com/Tyler-R-Kendrick/epoch/commit/358cbfeb958bce75c81e0592ed4da3bd096e392a) — all **squash-merged** |
+| Result | **success** |
+| Failure class | Real CI fixed pre-merge (Activity feedMark seeded post vs notification; fold rail shortcuts; Tab-yield e2e race). Not billing. |
+| Notes | Honest lane inventory unchanged except Activity now has Verify + mutant kill. Production deploy kicked for `a249a51`. |
