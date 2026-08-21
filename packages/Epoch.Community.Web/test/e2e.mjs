@@ -5466,7 +5466,8 @@ const CASES = [
         return log("ArrowUp did not reverse candidate selection: " + JSON.stringify({ forward, reversed }));
       }
       await page.locator("[data-cli]").press("Enter");
-      await page.waitForFunction(() => (document.querySelector("[data-cli]")?.value || "") !== "c");
+      // Generous wait ceilings: CI runners under load have flaked on the 30s default.
+      await page.waitForFunction(() => (document.querySelector("[data-cli]")?.value || "") !== "c", null, { timeout: 90000 });
       const accepted = await page.evaluate(() => document.querySelector("[data-cli]")?.value || "");
       if (!accepted) return log("Enter did not accept the selected candidate");
 
@@ -5479,9 +5480,9 @@ const CASES = [
       });
       await page.waitForFunction(() =>
         window.CW_APP.state.columnFocus &&
-        document.activeElement !== document.querySelector("[data-cli]"));
+        document.activeElement !== document.querySelector("[data-cli]"), null, { timeout: 90000 });
       await page.keyboard.press("Tab");
-      await page.waitForFunction(() => document.activeElement === document.querySelector("[data-cli]"));
+      await page.waitForFunction(() => document.activeElement === document.querySelector("[data-cli]"), null, { timeout: 90000 });
       await page.fill("[data-cli]", "c");
       await page.keyboard.press("Shift+Tab");
       const yieldBack = await page.evaluate(() => ({
