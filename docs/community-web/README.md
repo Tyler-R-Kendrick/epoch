@@ -134,24 +134,32 @@ count instead of interrupting.
 
 ## Operating it
 
+Default chords below are the **epoch** loadout. Edit `/keymap.toml` in the VFS
+(or run `keymap use <id>`) to swap loadouts:
+`vim`, `yazi`, `emacs` (C-n/p/f/b · C-g cancel · M-x prompt), and
+`lazygit` (j/k · `/` filter · `x` discard · `c` compose · `y` yank).
+Active loadout persists locally; leaving a dirty keymap.toml buffer applies it.
+
 | Key | Does |
 |---|---|
-| `R` | Load queued posts for the open feed |
+| `R` / `r` | Load queued posts for the open feed |
 | `J` / `K` or arrows | Move through the focused surface — VFS list when the navigator owns focus, or the message list when the detail feed owns focus |
 | `→` / `←` on the **navigator** | Enter the selected directory/channel, or return to the parent VFS scope (first `←` from messages returns to the navigator) |
-| `→` / `←` on a **focused message** | `→` / Enter opens that **thread** in the detail pane (channel path stays put). `←` closes the thread back to the channel feed; another `←` returns keyboard to the navigator. Message-ID directories stay on `cd`, not on arrows |
-| `u` / `d` on a message | Upvote / downvote |
+| `→` / `←` on a **focused message** | In a thread: the right margin cues replies — `→` expands or opens the first child. The left branch margin expands/collapses that chain on click; `←` collapses an open chain, then walks to the parent / channel feed / navigator. From the channel feed, `→` / Enter opens the thread. Message-ID directories stay on `cd`, not on arrows |
+| `u` / `d` on a message | Upvote / downvote (epoch); vim / yazi / emacs / lazygit use `+` / `-` |
 | `a` / `f` on a message | Open reactions / fold its reply chain |
 | `r` / `Shift+R` on a message | Reply / repost |
 | `s` / `y` on a message | Share an HTTPS contextual link / copy the optimized thread |
+| `PageUp` / `PageDown` | Page within a tall message first, then jump to the previous / next message |
 | `Home` / `End` | First / last visible message |
 | `1`–`9` | Open a post by its number |
 | `Esc` | Home feed (or leave columns for the prompt) |
-| `Tab` | Follow normal focus order; completion requires an explicitly active option |
+| `Tab` / `Shift+Tab` | Yield between the last board context (navigator / message) and the prompt. Message and nav use one roving tab stop each — arrows and chords operate inside them. Completion uses arrows + Enter (or Right/End ghost accept), not Tab |
 | `[view]` | Fold open the Lucene feed query (power; not always on) |
-| `T` | Re-apply Grid theme |
+| `T` / `t` | Re-apply Grid theme |
 | `G` | Open the garden |
 | `?` | Key help |
+| `keymap` / `/keymap` | List or activate a `/keymap.toml` loadout |
 | `Alt+T` | New isolated workspace tab (default home) |
 | `Enter` (in channel) | Publish a new post (CLI) or stage an inline AI draft |
 | `Enter` (after reply) | CLI: publish under that post (visible in thread). AI: stage **inline** pending draft — Enter commit · Esc reject · `e` edit. Never auto-opens agent chat |
@@ -299,12 +307,14 @@ the same dense TUI styling — not a web card.
 - **Subscriptions** you watch (channels, topics, members, projects)
 - **Custom hooks** you subscribe to (app events → Activity + browser alerts)
 
-Filters: `all` · `mentions` · `subscribed` · `hooks`. Unread items badge the
-**Activity** control in the bar; open a card (or press Open) to jump to the
-source and mark it read. **Dismiss** (or `d`) clears unread without opening —
-same dismiss verb as the home feed and DM alerts. `/notifications` /
-`/activity` open the feed from the prompt. Subscriptions live in fixture data
-(`CW_DATA.subscriptions`).
+Filters (`all` · `mentions` · `subscribed` · `hooks`) are **terminal nav
+leaves**, same idea as channels: the navigator stays on the filter list, and
+notification cards live in the detail pane — individual items are not VFS
+children. Unread items badge the **Activity** control in the bar; open a card
+(or press Open) to jump to the source and mark it read. **Dismiss** (or `d`)
+clears unread without opening — same dismiss verb as the home feed and DM
+alerts. `/notifications` / `/activity` open the feed from the prompt.
+Subscriptions live in fixture data (`CW_DATA.subscriptions`).
 
 #### Custom event hooks
 
@@ -387,13 +397,24 @@ never cloned into a stack of path-segment columns.
   default), **featured** projects (README summary + optional excerpt), and
   **creators** (bio snippet + ASCII contribution sparkline). Each tab carries
   an unread count; opening a row marks it read
-- **Shared verbs:** `d` = **Dismiss** (clear from attention), `m` = **Mark read**
-  (keep visible, clear unread), `esc` = leave/close (not dismiss). Same `d` on
-  home following stacks, other home tabs, Activity / notifications, and DM alerts
-- On following: `d` dismisses the cursor card; `m` marks it read
-- Tree icons are only **`+` / `−`** (expand/collapse). Leaves keep a blank
+- **Shared verbs:** default `d` = **Dismiss**, `m` = **Mark read**, `esc` =
+  leave/close (not dismiss). Same dismiss chord on home following stacks, other
+  home tabs, Activity / notifications, and DM alerts — remappable via
+  `/keymap.toml` (vim: `x` dismiss; yazi: `d`/`x` trash; lazygit: `x` discard;
+  emacs: `C-k` kill/dismiss)
+- On following: dismiss removes the cursor card; mark-read keeps it visible
+- Tree expand/collapse marks are only **`+` / `−`**. Leaves keep a blank
   spacer — no dots or arrows. A trailing count is a plain number when a dir
-  has children
+  has children.
+- Every VFS nav row wears a **type glyph** from the 16-bit
+  [pixelarticons](https://pixelarticons.com) pack (`icons.js` / `CW_ICONS.vfs`):
+  folder, `#` channel, headphone (voice), file, robot (agent), mail (DM),
+  bell (notifications), `keymap.toml` (script), and so on. Icons are
+  `currentColor`, pixelated at 14×14 — never emoji.
+- **`/keymap.toml`** at the board root edits loadouts
+  (`epoch`, `vim`, `yazi`, `emacs`, `lazygit`, …).
+  `keymap use emacs` / `keymap use lazygit` swaps chords; the help sheet and
+  action registry rebind with the active loadout.
 
 | | |
 |---|---|
@@ -401,7 +422,8 @@ never cloned into a stack of path-segment columns.
 | `→` / `l` | when the **navigator** owns focus: reload nav into selected **dir**, or open/hand focus to a **channel** message feed (navbar stays on the channels list); when already addressing that channel, hand keyboard to messages; on a marked feed post in **detail**, open its **thread** (path stays the channel — no message-ID panes); on other text files, open the editor; on **home feed** (detail focused), open the current row |
 | `↑↓` / `jk` | move within the focused surface — nav list (**preview** updates), home-feed rows (when home owns focus), or previous/next post in the **detail** channel feed / thread |
 | `Enter` | **Activate** the preview — open a **channel** into the message feed (keyboard stays on messages; `:` / `i` / Tab write), post **thread**, editor, or slide into dir; on home, open the current row |
-| `Tab` | normal focus traversal; from **post detail**, focusing the prompt **arms a reply** |
+| `Tab` | yield to the prompt from the board; from the prompt, restore the last navigator/message context. Arms a reply when leaving post detail |
+| `Shift+Tab` | same yield/restore as Tab from the prompt |
 | `d` | **Dismiss** — home stack / Activity / notification / DM alert under the cursor |
 | `m` | **Mark read** — home feed (keep in stack, clear unread) |
 | `e` | open the terminal editor for the selected file/post |
@@ -465,6 +487,7 @@ resolves for agents only).
 owes you. While you type, the prompt shows **fish-style ghost preview** and
 **syntax highlighting** (verb, path, sort, query fields) plus a suggestions menu.
 Focusing the prompt (click or Tab) claims keyboard ownership from the VFS —
+Tab / Shift+Tab from the prompt restores the last board context.
 ↑↓ walk autocomplete candidates (or history when the menu is closed) and do not
 move the navigator.
 
@@ -591,7 +614,11 @@ Delight opportunities (should fix this pass if cheap):
     that are unsafe to probe — Community Web treats those as unavailable rather
     than crashing the tab
   - Mic control uses the **16-bit iconography pack** (`icons.js` /
-    [pixelarticons](https://pixelarticons.com) `mic`, 16×16 pixelated)
+    [pixelarticons](https://pixelarticons.com), MIT). The same pack supplies
+    VFS nav type glyphs via `CW_ICONS.vfs` (folder, hash, headphone, file,
+    robot, …) plus root `/keymap.toml`, rendered 14×14 pixelated with
+    `currentColor`. Board chords swap via loadouts in that file
+    (`keymap use vim` / `yazi` / `emacs` / `lazygit`).
   - **Hold `` ` ``** — Discord-style push-to-talk; listen while held, commit on
     release
   - **Alt+V** — toggle continuous listening (voice-activity analogue)
@@ -1078,10 +1105,13 @@ Polish that had been missing, each piece done the terminal way:
   and supplemental detail collapse by default under the agent (`> navigate ·
   path`) and expand on click — the one-line summary stays honest when closed.
 - **Conversations are Reddit-style trees.** `re:` names the parent; replies nest
-  under what they answer with clickable nest rails and `±` fold controls.
-  Votes and reply sit on every comment. Feed sort defaults to Reddit's three —
-  hot / new / top — on the feed pane only; pin more with `[+]`. Not a view
-  costume.
+  under what they answer with clickable nest gutters (hover highlights the
+  margin; click collapses that ancestor), a left branch margin to expand/collapse
+  the focused chain, and a right child margin that cues more replies and drills
+  in with `→`. Focus chrome marks only the selected message row — never the
+  whole detail pane or nested replies. Votes and reply sit on every comment.
+  Feed sort defaults to Reddit's three — hot / new / top — on the feed pane
+  only; pin more with `[+]`. Not a view costume.
 - **A channel shows what it is before what it contains**: name, kind, post
   count, unread, its activity sparkline and last word, as one line of facts
   above the conversation — both when selecting it from `/channels` and while

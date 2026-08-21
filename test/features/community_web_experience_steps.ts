@@ -122,6 +122,15 @@ let communityWebAppPostActionResult: {
   readonly copied: boolean;
   readonly replied: boolean;
 } | undefined;
+let communityWebKeymapResult: {
+  readonly ok: boolean;
+  readonly err?: string;
+  readonly active?: string;
+  readonly voteUp?: string;
+  readonly voteDown?: string;
+  readonly dismiss?: string;
+  readonly root?: readonly string[];
+} | undefined;
 let communityWebAppStartupApplied = false;
 let communityWebAppRouteSticky = false;
 let communityWebAppFocusRestored = false;
@@ -986,6 +995,74 @@ Then("store participant events can add Activity when the board is live", async f
   assert.equal(probe, 1);
 });
 
+When("I open Activity mentions from the board", async function () {
+  const page = requirePage();
+  const helpClose = page.locator("[data-help-close]:visible");
+  if (await helpClose.count()) await helpClose.click();
+  await page.evaluate(() => {
+    // SAFETY: The scenario fixture establishes this test-only contract before the value is consumed.
+    ((window as { CW_APP: { openActivity(filter: string): void } })).CW_APP.openActivity("mentions");
+  });
+  await page.locator(".cn-activity-card").first().waitFor({ state: "visible" });
+});
+
+Then("Activity categories stay in the navigator", async function () {
+  const page = requirePage();
+  const probe = await page.evaluate(() => {
+    // SAFETY: The scenario fixture establishes this test-only contract before the value is consumed.
+    const app = ((window as {
+      CW_APP: { state: { path: string } };
+    })).CW_APP;
+    // SAFETY: The scenario fixture establishes this test-only contract before the value is consumed.
+    const map = ((window as {
+      CW_MAP: {
+        isTerminalNavPath(path: string): boolean;
+        navParentPath(path: string): string;
+        list(path: string): Array<{ name: string; kind?: string; notification?: object }>;
+      };
+    })).CW_MAP;
+    const navNames = Array.from(document.querySelectorAll(
+      '.cn-blade[data-blade-kind="list"] .cn-item[data-key]',
+    )).map((el) => el.getAttribute("data-key") || "");
+    const navList = map.list(map.navParentPath(app.state.path)) || [];
+    return {
+      path: app.state.path,
+      terminal: map.isTerminalNavPath(app.state.path),
+      navParent: map.navParentPath(app.state.path),
+      navNames,
+      categoryKinds: navList.map((e) => e.kind),
+      categoryNames: navList.map((e) => e.name),
+      notifLeavesInNav: navList.some((e) => !!e.notification) ||
+        navNames.some((name) => /^n\d+$/u.test(name) || name.indexOf("notif") === 0),
+    };
+  });
+  assert.equal(probe.path, "/notifications/mentions");
+  assert.equal(probe.terminal, true);
+  assert.equal(probe.navParent, "/notifications");
+  assert.deepEqual(probe.categoryNames.sort(), ["all", "hooks", "mentions", "subscribed"]);
+  assert.ok(probe.categoryKinds.every((k) => k === "activity"),
+    "Activity filters must be terminal activity leaves, not dirs: " + JSON.stringify(probe.categoryKinds));
+  assert.equal(probe.notifLeavesInNav, false,
+    "individual notifications must not appear as navigator rows: " + JSON.stringify(probe.navNames));
+});
+
+Then("notification content appears in the detail pane", async function () {
+  const page = requirePage();
+  const probe = await page.evaluate(() => {
+    const detail = document.querySelector('.cn-blade[data-blade-kind="detail"]');
+    const cards = Array.from(detail?.querySelectorAll(".cn-activity-card") || []);
+    return {
+      cards: cards.length,
+      kinds: cards.map((c) => c.getAttribute("data-kind")),
+      solo: !!detail?.querySelector(".cn-activity-solo"),
+    };
+  });
+  assert.ok(probe.cards >= 1, "detail pane should show Activity cards");
+  assert.ok(probe.kinds.every((k) => k === "mention"),
+    "mentions filter should only show mention cards: " + JSON.stringify(probe.kinds));
+  assert.equal(probe.solo, false, "Activity must not open a single notification as the only detail view");
+});
+
 Then("the sample board opens the general channel without a restored showcase filter", async function () {
   const page = requirePage();
   const probe = await page.evaluate(() => {
@@ -1064,6 +1141,339 @@ Then("the selected Community Web message remains the single focused feed item", 
   assert.equal(location.synchronized, true);
   assert.equal(location.virtualNav, false, "opening a thread must not swap the navigator into message directories");
 });
+
+When("I open a tall Community Web message and page down by keyboard", async function () {
+  const page = requirePage();
+  const prepared = await page.evaluate(() => {
+    // SAFETY: The scenario fixture establishes this test-only contract before the value is consumed.
+    const w = window as {
+      CW_DATA: { posts: Array<{ id?: string; body?: string }> };
+      CW_APP: {
+        state: {
+          feedMark?: string;
+          threadFocus?: string;
+          detailOpen: boolean;
+          columnFocus: boolean;
+          focus: number;
+        };
+        openThread: (id: string) => void;
+        render: (keepCli?: boolean) => void;
+      };
+    };
+    const post = (w.CW_DATA.posts || []).find((entry) => entry.id === "p1");
+    if (!post) return { ok: false as const, reason: "missing p1" };
+    post.body = Array.from({ length: 80 }, (_, i) => `Tall line ${i + 1} — cold install timing notes.`).join("\n");
+    w.CW_APP.openThread("p1");
+    w.CW_APP.state.feedMark = "p1";
+    w.CW_APP.state.detailOpen = true;
+    w.CW_APP.state.columnFocus = true;
+    w.CW_APP.state.focus = 1;
+    w.CW_APP.render(true);
+    const article = document.querySelector(
+      '.cn-blade[data-blade-kind="detail"] .cn-comment[data-key="p1"]',
+    );
+    const pane = article?.closest(".cn-blade-body, .cn-col-body");
+    if (!(article instanceof HTMLElement) || !(pane instanceof HTMLElement)) {
+      return { ok: false as const, reason: "missing article pane" };
+    }
+    article.focus({ preventScroll: true });
+    pane.scrollTop = 0;
+    const msgRect = article.getBoundingClientRect();
+    const paneRect = pane.getBoundingClientRect();
+    return {
+      ok: true as const,
+      scrollTop: pane.scrollTop,
+      overhang: msgRect.bottom - paneRect.bottom,
+      scrollHeight: pane.scrollHeight,
+      clientHeight: pane.clientHeight,
+    };
+  });
+  assert.ok(prepared.ok, prepared.ok === false ? prepared.reason : "prepare failed");
+  assert.ok(prepared.ok && prepared.overhang > 80, "expected a tall message past the fold");
+  communityWebAppFocusedMessage = "p1";
+  await page.keyboard.press("PageDown");
+});
+
+Then("PageDown keeps the tall message focused until its body is fully in view", async function () {
+  const page = requirePage();
+  const after = await page.evaluate(() => {
+    const article = document.activeElement?.closest?.(".cn-comment[data-key]");
+    const pane = article?.closest(".cn-blade-body, .cn-col-body");
+    const msgRect = article instanceof HTMLElement ? article.getBoundingClientRect() : null;
+    const paneRect = pane instanceof HTMLElement ? pane.getBoundingClientRect() : null;
+    return {
+      key: article?.getAttribute("data-key") || "",
+      scrollTop: pane instanceof HTMLElement ? pane.scrollTop : -1,
+      stillOverhangs: !!(msgRect && paneRect && msgRect.bottom > paneRect.bottom + 12),
+    };
+  });
+  assert.equal(after.key, "p1", "PageDown must stay on the tall message while unread body remains");
+  assert.ok(after.scrollTop > 0, "PageDown must scroll the detail pane through the tall body");
+  assert.equal(after.stillOverhangs, true, "first PageDown should leave more body below the fold");
+});
+
+When("I open a nested Community Web thread and focus a parent message", async function () {
+  const page = requirePage();
+  await page.evaluate(() => {
+    // SAFETY: The scenario fixture establishes this test-only contract before the value is consumed.
+    const app = (window as {
+      CW_APP: {
+        state: {
+          feedMark?: string;
+          threadFocus?: string;
+          detailOpen: boolean;
+          columnFocus: boolean;
+          focus: number;
+          folded: Record<string, boolean>;
+        };
+        openThread: (id: string) => void;
+        render: (keepCli?: boolean) => void;
+      };
+    }).CW_APP;
+    app.state.folded = {};
+    app.openThread("p1");
+    app.state.feedMark = "p1";
+    app.state.detailOpen = true;
+    app.state.columnFocus = true;
+    app.state.focus = 1;
+    app.render(true);
+    const parent = document.querySelector(
+      '.cn-thread-tree .cn-comment[data-key="p1"]',
+    );
+    if (parent instanceof HTMLElement) parent.focus({ preventScroll: true });
+  });
+  communityWebAppFocusedMessage = "p1";
+  await page.waitForFunction(() => {
+    const parent = document.querySelector('.cn-thread-tree .cn-comment[data-key="p1"]');
+    return parent?.getAttribute("data-here") === "true" &&
+      !!document.querySelector('.cn-thread-tree .cn-comment[data-key="p3"]');
+  });
+});
+
+Then("only that message row is highlighted while replies stay unmarked", async function () {
+  const page = requirePage();
+  const proof = await page.evaluate(() => {
+    const parent = document.querySelector('.cn-thread-tree .cn-comment[data-key="p1"]');
+    const child = document.querySelector('.cn-thread-tree .cn-comment[data-key="p2"]');
+    const parentRow = parent?.querySelector(":scope > .cn-comment-row");
+    const childRow = child?.querySelector(":scope > .cn-comment-row");
+    const parentHere = parent?.getAttribute("data-here") === "true";
+    const childHere = child?.getAttribute("data-here") === "true";
+    const parentBg = parentRow ? getComputedStyle(parentRow).backgroundColor : "";
+    const childBg = childRow ? getComputedStyle(childRow).backgroundColor : "";
+    const parentShadow = parentRow ? getComputedStyle(parentRow).boxShadow : "";
+    const childShadow = childRow ? getComputedStyle(childRow).boxShadow : "";
+    return {
+      parentHere,
+      childHere,
+      hasRow: !!parentRow && !!childRow,
+      parentMarked: /inset/i.test(parentShadow) || parentBg !== "rgba(0, 0, 0, 0)" && parentBg !== "transparent",
+      childUnmarked: !/inset/i.test(childShadow) && (childBg === "rgba(0, 0, 0, 0)" || childBg === "transparent"),
+      parentBg,
+      childBg,
+      parentShadow,
+      childShadow,
+    };
+  });
+  assert.equal(proof.parentHere, true, "parent must own focus");
+  assert.equal(proof.childHere, false, "child must not share data-here");
+  assert.equal(proof.hasRow, true, "comments must expose a focusable message row");
+  assert.equal(proof.parentMarked, true, "parent row must show selection chrome: " + JSON.stringify(proof));
+  assert.equal(proof.childUnmarked, true, "child row must stay unmarked under a focused parent: " + JSON.stringify(proof));
+});
+
+Then("nest gutters mark each ancestor depth and collapse that chain on click", async function () {
+  const page = requirePage();
+  const before = await page.evaluate(() => ({
+    comments: document.querySelectorAll(".cn-thread-tree .cn-comment").length,
+    deep: (() => {
+      const c = document.querySelector('.cn-thread-tree .cn-comment[data-key="p3"]');
+      const rails = Array.from(c?.querySelectorAll(":scope > .cn-comment-row .cn-rails .cn-rail") || []);
+      return {
+        depth: Number(c?.getAttribute("data-depth") || -1),
+        rails: rails.length,
+        widths: rails.map((rail) =>
+          rail instanceof HTMLElement ? Math.round(rail.getBoundingClientRect().width) : 0),
+        folds: rails.map((rail) => rail.getAttribute("data-fold")),
+      };
+    })(),
+  }));
+  assert.equal(before.deep.depth, 2);
+  assert.equal(before.deep.rails, 2);
+  assert.deepEqual(before.deep.folds, ["p1", "p2"]);
+  assert.ok(before.deep.widths.every((w) => w >= 10), "nest gutters must be wide enough to aim: " + JSON.stringify(before.deep));
+  await page.locator('.cn-thread-tree .cn-comment[data-key="p3"] .cn-rails .cn-rail[data-fold="p1"]').click();
+  await page.waitForFunction((count) =>
+    document.querySelectorAll(".cn-thread-tree .cn-comment").length < count, before.comments);
+  const after = await page.evaluate(() => {
+    // SAFETY: The scenario fixture establishes this test-only contract before the value is consumed.
+    const app = (window as { CW_APP: { state: { folded: Record<string, boolean> } } }).CW_APP;
+    return {
+      comments: document.querySelectorAll(".cn-thread-tree .cn-comment").length,
+      folded: !!app.state.folded.p1,
+    };
+  });
+  assert.equal(after.folded, true);
+  assert.ok(after.comments < before.comments);
+  // Restore the thread so later steps can exercise branch / child margins.
+  await page.evaluate(() => {
+    // SAFETY: The scenario fixture establishes this test-only contract before the value is consumed.
+    const app = (window as {
+      CW_APP: {
+        state: { folded: Record<string, boolean>; feedMark?: string };
+        openThread: (id: string) => void;
+        render: (keepCli?: boolean) => void;
+      };
+    }).CW_APP;
+    app.state.folded = {};
+    app.openThread("p1");
+    app.state.feedMark = "p1";
+    app.render(true);
+    const parent = document.querySelector('.cn-thread-tree .cn-comment[data-key="p1"]');
+    if (parent instanceof HTMLElement) parent.focus({ preventScroll: true });
+  });
+});
+
+Then("the left branch margin expands and collapses replies", async function () {
+  const page = requirePage();
+  const before = await page.evaluate(() => {
+    const parent = document.querySelector('.cn-thread-tree .cn-comment[data-key="p1"]');
+    const branch = parent?.querySelector(":scope > .cn-comment-row .cn-branch-rail");
+    return {
+      hasBranch: !!branch,
+      expanded: parent?.getAttribute("aria-expanded"),
+      comments: document.querySelectorAll(".cn-thread-tree .cn-comment").length,
+      width: branch instanceof HTMLElement ? Math.round(branch.getBoundingClientRect().width) : 0,
+    };
+  });
+  assert.equal(before.hasBranch, true, "parent with replies must expose a left branch margin");
+  assert.equal(before.expanded, "true");
+  assert.ok(before.width >= 10, "branch margin must be aimable");
+  await page.locator('.cn-thread-tree .cn-comment[data-key="p1"] > .cn-comment-row .cn-branch-rail').click();
+  await page.waitForFunction(() =>
+    document.querySelector('.cn-thread-tree .cn-comment[data-key="p1"]')?.getAttribute("aria-expanded") === "false");
+  const collapsed = await page.evaluate(() => ({
+    expanded: document.querySelector('.cn-thread-tree .cn-comment[data-key="p1"]')?.getAttribute("aria-expanded"),
+    comments: document.querySelectorAll(".cn-thread-tree .cn-comment").length,
+    // SAFETY: The scenario fixture establishes this test-only contract before the value is consumed.
+    folded: !!(window as { CW_APP: { state: { folded: Record<string, boolean> } } }).CW_APP.state.folded.p1,
+  }));
+  assert.equal(collapsed.expanded, "false");
+  assert.equal(collapsed.folded, true);
+  assert.ok(collapsed.comments < before.comments);
+  await page.locator('.cn-thread-tree .cn-comment[data-key="p1"] > .cn-comment-row .cn-branch-rail').click();
+  await page.waitForFunction(() =>
+    document.querySelector('.cn-thread-tree .cn-comment[data-key="p1"]')?.getAttribute("aria-expanded") === "true");
+});
+
+Then("the right child margin shows replies and drills into the first child", async function () {
+  const page = requirePage();
+  const proof = await page.evaluate(() => {
+    const parent = document.querySelector('.cn-thread-tree .cn-comment[data-key="p1"]');
+    const childRail = parent?.querySelector(":scope > .cn-comment-row .cn-child-rail");
+    const leaf = document.querySelector('.cn-thread-tree .cn-comment[data-key="p3"]');
+    return {
+      hasChildRail: !!childRail,
+      width: childRail instanceof HTMLElement ? Math.round(childRail.getBoundingClientRect().width) : 0,
+      leafHasChildRail: !!leaf?.querySelector(":scope > .cn-comment-row .cn-child-rail"),
+      label: childRail?.getAttribute("aria-label") || "",
+    };
+  });
+  assert.equal(proof.hasChildRail, true, "parent with replies must expose a right child margin");
+  assert.equal(proof.leafHasChildRail, false, "leaf messages must not show a children cue");
+  assert.ok(proof.width >= 10, "child margin must be aimable");
+  assert.match(proof.label, /child|replies|responses/i);
+  await page.locator('.cn-thread-tree .cn-comment[data-key="p1"] > .cn-comment-row .cn-child-rail').click();
+  await page.waitForFunction(() =>
+    document.activeElement?.closest?.(".cn-comment")?.getAttribute("data-key") === "p2");
+  const after = await page.evaluate(() => ({
+    active: document.activeElement?.closest?.(".cn-comment")?.getAttribute("data-key") || "",
+    // SAFETY: The scenario fixture establishes this test-only contract before the value is consumed.
+    mark: (window as { CW_APP: { state: { feedMark?: string } } }).CW_APP.state.feedMark || "",
+  }));
+  assert.equal(after.active, "p2");
+  assert.equal(after.mark, "p2");
+});
+
+When("I focus a Community Web message then Tab to the prompt", async function () {
+  const page = requirePage();
+  await page.evaluate(() => {
+    // SAFETY: The scenario fixture establishes this test-only contract before the value is consumed.
+    const app = (window as {
+      CW_APP: {
+        state: {
+          feedMark?: string;
+          threadFocus?: string;
+          detailOpen: boolean;
+          columnFocus: boolean;
+          focus: number;
+        };
+        openThread: (id: string) => void;
+        focusColumns: () => void;
+        render: (keepCli?: boolean) => void;
+      };
+    }).CW_APP;
+    app.openThread("p1");
+    app.state.feedMark = "p2";
+    app.state.detailOpen = true;
+    app.state.columnFocus = true;
+    app.state.focus = 1;
+    app.focusColumns();
+    app.render(true);
+    const message = document.querySelector('.cn-thread-tree .cn-comment[data-key="p2"]');
+    if (message instanceof HTMLElement) message.focus({ preventScroll: true });
+  });
+  communityWebAppFocusedMessage = "p2";
+  await page.waitForFunction(() =>
+    document.activeElement?.closest?.(".cn-comment")?.getAttribute("data-key") === "p2");
+  await page.keyboard.press("Tab");
+  await page.waitForFunction(() =>
+    document.activeElement === document.querySelector("[data-cli]"));
+});
+
+Then("Tab from the prompt restores that message context", async function () {
+  const page = requirePage();
+  await page.keyboard.press("Tab");
+  await page.waitForFunction(() =>
+    document.activeElement?.closest?.(".cn-comment")?.getAttribute("data-key") === "p2");
+  const restored = await page.evaluate(() => {
+    // SAFETY: The scenario fixture establishes this test-only contract before the value is consumed.
+    const app = (window as { CW_APP: { state: { feedMark?: string; columnFocus: boolean } } }).CW_APP;
+    return {
+      key: document.activeElement?.closest?.(".cn-comment")?.getAttribute("data-key") || "",
+      mark: app.state.feedMark || "",
+      columnFocus: !!app.state.columnFocus,
+      onCli: document.activeElement === document.querySelector("[data-cli]"),
+    };
+  });
+  assert.equal(restored.onCli, false);
+  assert.equal(restored.columnFocus, true);
+  assert.equal(restored.key, "p2");
+  assert.equal(restored.mark, "p2");
+});
+
+Then("Shift+Tab from the prompt restores that message context", async function () {
+  const page = requirePage();
+  await page.keyboard.press("Tab");
+  await page.waitForFunction(() =>
+    document.activeElement === document.querySelector("[data-cli]"));
+  await page.keyboard.press("Shift+Tab");
+  await page.waitForFunction(() =>
+    document.activeElement?.closest?.(".cn-comment")?.getAttribute("data-key") === "p2");
+  const restored = await page.evaluate(() => {
+    // SAFETY: The scenario fixture establishes this test-only contract before the value is consumed.
+    const app = (window as { CW_APP: { state: { feedMark?: string; columnFocus: boolean } } }).CW_APP;
+    return {
+      key: document.activeElement?.closest?.(".cn-comment")?.getAttribute("data-key") || "",
+      mark: app.state.feedMark || "",
+      columnFocus: !!app.state.columnFocus,
+    };
+  });
+  assert.equal(restored.columnFocus, true);
+  assert.equal(restored.key, "p2");
+  assert.equal(restored.mark, "p2");
+});
+
 When("I navigate the Community Web VFS into general and return from messages by keyboard", async function () {
   const page = requirePage();
   const helpClose = page.locator("[data-help-close]:visible");
@@ -1634,6 +2044,127 @@ Then("repost and share are visible and every post action has keyboard parity", f
     copied: true,
     replied: true,
   });
+});
+
+When("I activate the vim keymap loadout from keymap.toml", async function () {
+  const page = requirePage();
+  communityWebKeymapResult = await page.evaluate(() => {
+    type KeymapApi = {
+      active: () => string;
+      chord: (id: string) => string;
+      use: (id: string, opts?: { silent?: boolean }) => string;
+    };
+    type MapApi = { list: (path: string) => Array<{ name: string }> };
+    type ActionsApi = { resolve: (origin: string, alias: string) => string | null };
+    // SAFETY: Community Web board globals are installed before this step runs.
+    const win = window as Window & {
+      CW_KEYMAP?: KeymapApi;
+      CW_MAP?: MapApi;
+      CW_ACTIONS?: ActionsApi;
+    };
+    const km = win.CW_KEYMAP;
+    const map = win.CW_MAP;
+    const actions = win.CW_ACTIONS;
+    if (!km || !map || !actions) return { ok: false, err: "keymap runtime missing" };
+    const root = (map.list("/") || []).map((e) => e.name);
+    if (root.indexOf("keymap.toml") < 0) return { ok: false, err: "keymap.toml missing", root };
+    km.use("vim", { silent: true });
+    return {
+      ok: km.active() === "vim" &&
+        km.chord("post.voteUp") === "+" &&
+        km.chord("post.voteDown") === "-" &&
+        km.chord("attention.dismiss") === "x" &&
+        actions.resolve("key", "+") === "post.voteUp" &&
+        actions.resolve("key", "-") === "post.voteDown",
+      active: km.active(),
+      voteUp: km.chord("post.voteUp"),
+      voteDown: km.chord("post.voteDown"),
+      dismiss: km.chord("attention.dismiss"),
+    };
+  });
+});
+
+Then("vote and dismiss chords follow the vim loadout", function () {
+  assert.ok(communityWebKeymapResult);
+  assert.equal(communityWebKeymapResult?.ok, true, JSON.stringify(communityWebKeymapResult));
+});
+
+Then("the yazi keymap loadout follows Yazi mgr defaults", async function () {
+  const page = requirePage();
+  const yazi = await page.evaluate(() => {
+    type KeymapApi = {
+      active: () => string;
+      chord: (id: string) => string;
+      chords: (id: string) => string[];
+      use: (id: string, opts?: { silent?: boolean }) => string;
+      list: () => Array<{ id: string }>;
+    };
+    type ActionsApi = { resolve: (origin: string, alias: string) => string | null };
+    // SAFETY: Community Web board globals are installed before this step runs.
+    const win = window as Window & { CW_KEYMAP?: KeymapApi; CW_ACTIONS?: ActionsApi };
+    const km = win.CW_KEYMAP;
+    const actions = win.CW_ACTIONS;
+    if (!km || !actions) return { ok: false, err: "keymap runtime missing" };
+    if (!km.list().some((row) => row.id === "yazi")) return { ok: false, err: "yazi missing" };
+    km.use("yazi", { silent: true });
+    return {
+      ok: km.active() === "yazi" &&
+        km.chord("board.filter") === "f" &&
+        km.chord("jump.interactive") === "z" &&
+        km.chord("search.open") === "s" &&
+        km.chord("post.copy") === "y" &&
+        km.chord("attention.dismiss") === "d" &&
+        (km.chords("board.open") || []).indexOf("o") >= 0 &&
+        actions.resolve("key", "s") === "search.open" &&
+        actions.resolve("key", "z") === "jump.interactive" &&
+        actions.resolve("key", "y") === "post.copy",
+      active: km.active(),
+      filter: km.chord("board.filter"),
+      jump: km.chord("jump.interactive"),
+      search: km.chord("search.open"),
+    };
+  });
+  assert.equal(yazi.ok, true, JSON.stringify(yazi));
+});
+
+Then("the emacs and lazygit keymap loadouts are available", async function () {
+  const page = requirePage();
+  const probe = await page.evaluate(() => {
+    type KeymapApi = {
+      active: () => string;
+      chord: (id: string) => string;
+      use: (id: string, opts?: { silent?: boolean }) => string;
+      list: () => Array<{ id: string }>;
+    };
+    type ActionsApi = { resolve: (origin: string, alias: string) => string | null };
+    // SAFETY: Community Web board globals are installed before this step runs.
+    const win = window as Window & { CW_KEYMAP?: KeymapApi; CW_ACTIONS?: ActionsApi };
+    const km = win.CW_KEYMAP;
+    const actions = win.CW_ACTIONS;
+    if (!km || !actions) return { ok: false, err: "keymap runtime missing" };
+    const ids = km.list().map((row) => row.id);
+    if (ids.indexOf("emacs") < 0 || ids.indexOf("lazygit") < 0) {
+      return { ok: false, err: "missing loadouts", ids };
+    }
+    km.use("emacs", { silent: true });
+    const emacsOk = km.active() === "emacs" &&
+      km.chord("board.next") === "Ctrl+N" &&
+      km.chord("board.prev") === "Ctrl+P" &&
+      km.chord("cancel.topLayer") === "Ctrl+G" &&
+      km.chord("board.prompt") === "Alt+X" &&
+      actions.resolve("key", "Ctrl+G") === "cancel.topLayer" &&
+      actions.resolve("key", "Alt+W") === "post.copy";
+    km.use("lazygit", { silent: true });
+    const lazygitOk = km.active() === "lazygit" &&
+      km.chord("board.filter") === "/" &&
+      km.chord("attention.dismiss") === "x" &&
+      km.chord("compose.reply") === "c" &&
+      km.chord("post.copy") === "y" &&
+      actions.resolve("key", "c") === "compose.reply" &&
+      actions.resolve("key", "y") === "post.copy";
+    return { ok: emacsOk && lazygitOk, emacsOk, lazygitOk };
+  });
+  assert.equal(probe.ok, true, JSON.stringify(probe));
 });
 
 When("I reply to a Community Web message in CLI mode and see it under the parent", async function () {

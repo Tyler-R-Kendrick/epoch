@@ -75,6 +75,7 @@
     if (/\.rs$/.test(name)) return "rust";
     if (/\.go$/.test(name)) return "go";
     if (/\.ya?ml$/.test(name)) return "yaml";
+    if (/\.toml$/.test(name)) return "toml";
     if (/\.sh$|\.bash$/.test(name)) return "shell";
     return "text";
   }
@@ -630,6 +631,18 @@
         name: entry.name || entry.post.id || "post",
         language: "markdown",
         path: path || entry.name,
+      };
+    }
+    if (entry.keymap || entry.meta === "keymap" ||
+        /(^|\/)keymap\.toml$/i.test(path || entry.name || "")) {
+      var keymapText = (window.CW_KEYMAP && window.CW_KEYMAP.source)
+        ? window.CW_KEYMAP.source()
+        : "# keymap.toml unavailable\n";
+      return {
+        text: keymapText,
+        name: "keymap.toml",
+        language: "toml",
+        path: path || "/keymap.toml",
       };
     }
     // Generic entry

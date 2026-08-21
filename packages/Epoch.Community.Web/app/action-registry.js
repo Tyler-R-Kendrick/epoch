@@ -134,10 +134,33 @@
     return Object.assign({}, input, { schemaVersion: 2, actionIds: actionIds });
   }
 
+  /**
+   * Replace key bindings for selected actions and rebuild the key alias map.
+   * Used by CW_KEYMAP loadouts (`/keymap.toml`). Unmentioned actions keep
+   * their registered bindings.
+   */
+  function rebindKeys(overrides) {
+    overrides = overrides || {};
+    aliases.key = new Map();
+    descriptors.forEach(function (descriptor, actionId) {
+      var next = descriptor;
+      if (Object.prototype.hasOwnProperty.call(overrides, actionId)) {
+        next = Object.freeze(Object.assign({}, descriptor, {
+          keyBindings: overrides[actionId] || [],
+        }));
+        descriptors.set(actionId, next);
+      }
+      (next.keyBindings || []).forEach(function (item) {
+        bind("key", item.key || item, actionId);
+      });
+    });
+  }
+
   window.CW_ACTIONS = {
     register: register,
     resolve: resolve,
     invoke: invoke,
+    rebindKeys: rebindKeys,
     get: function (id) { return descriptors.get(id) || null; },
     list: function () { return Array.from(descriptors.values()); },
     lastEvent: function () { return latest; },
