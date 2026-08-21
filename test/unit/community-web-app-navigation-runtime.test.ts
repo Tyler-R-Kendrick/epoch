@@ -11,7 +11,18 @@ interface BrowserWindow {
   [key: string]: BrowserValue;
 }
 
+function ensureValueKind(): void {
+  // Classic app scripts classify through globalThis.CW_VALUE (value-kind.js),
+  // which board.html loads first. Install it before eval'ing dependent scripts
+  // so this suite also passes in a fresh process (parity runner).
+  // SAFETY: CW_VALUE is installed by value-kind.js onto globalThis in browsers and tests.
+  const host = globalThis as { CW_VALUE?: unknown };
+  if (host.CW_VALUE !== undefined) return;
+  new Function(readFileSync(join(ROOT, "value-kind.js"), "utf8"))();
+}
+
 function load(name: string, window: BrowserWindow): void {
+  ensureValueKind();
   const source = readFileSync(join(ROOT, name), "utf8");
   new Function("window", "document", source)(window, window.document ?? {});
 }

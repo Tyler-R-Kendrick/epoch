@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
+// board.html loads value-kind.js first; app scripts classify via globalThis.CW_VALUE.
+import "../app/value-kind.js";
 
 const root = fileURLToPath(new URL("../app/", import.meta.url));
 
