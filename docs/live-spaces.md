@@ -24,7 +24,9 @@ for the executable persona journeys.
 | `live.*` command family on the shared command bus with receipts, confirmation, and capability checks | Implemented (`@epoch/community-runtime`) |
 | Local in-memory semantic-only application port (no credentials, no network) | Implemented (`createLocalLiveSpacePort`) |
 | Provider-neutral media + caption ports; `disabled` and deterministic `fake` providers; E2EE/recording refusal; caption gate | Implemented (`@epoch/community-api`) |
-| Hosted API routes, SSE transport, Community Web host/spectator UI, telemetry, moderation service | Not yet implemented |
+| Semantic transport port, deterministic in-memory transport, spectator client with gap recovery and bounded reconnect | Implemented (`@epoch/community-runtime`) |
+| Hosted HTTP surface: session/command routes, checkpoint and event paging, SSE stream with `Last-Event-ID` resume, origin allow-list, rate limits, bounded subscribers | Implemented (`@epoch/community-api`) |
+| Community Web host/spectator UI, telemetry, moderation service | Not yet implemented |
 | LiveKit adapter | Not implemented; `livekit` is a declared provider kind only, and no media SDK dependency exists |
 
 `semantic-only` is a complete product: every scenario, test, and command in
@@ -46,10 +48,60 @@ credentials.
                               projection, replay decisions, fork eligibility
   live/commands.ts            LiveSpaceApplicationPort + local port +
                               command-bus extensions
+  live/transport.ts           transport port, deterministic in-memory
+                              transport, spectator client (late join, gap
+                              recovery, bounded reconnect)
 @epoch/community-api  (server-capable)
   live/media-provider.ts      provider-neutral media/caption ports,
                               disabled + fake providers, mode compatibility
+  live/live-session-service.ts  hub fan-out with a per-session broadcast
+                              cursor; every read and write is a bus command
+  live/live-routes.ts         fetch handler: sessions, commands, join,
+                              checkpoint, events, SSE stream
 ```
+
+## Hosted transport
+
+The HTTP surface is an adapter: it enforces transport-level bounds the domain
+cannot see, then hands everything to the shared command bus.
+
+| Route | Purpose |
+|---|---|
+| `POST /community/live/sessions` | Create a session bound to an existing Space |
+| `GET /community/live/sessions/:id` | Session state, policy digest, participants |
+| `POST /community/live/sessions/:id/commands` | Any `live.*` command; returns the receipt |
+| `POST /community/live/sessions/:id/join` | Scoped observer join |
+| `GET /community/live/sessions/:id/presentation/checkpoint` | Late-join checkpoint plus deltas |
+| `GET /community/live/sessions/:id/presentation/events?after=&limit=` | Keyset paging by sequence |
+| `GET /community/live/sessions/:id/presentation/stream` | SSE with `Last-Event-ID` resume |
+
+Controls that live in the route layer rather than the domain:
+
+- **Exact origin allow-list.** A near-miss origin is a miss; the check runs
+  before any authorization work.
+- **Command scoping.** Only `live.*` kinds are accepted, and `live.media.*`
+  is refused outright — secret-bearing provider operations get dedicated,
+  separately authorized routes, never the generic command endpoint.
+- **Rate limits** per principal and method, on an injected clock.
+- **Bounded subscribers** per session and in total. At the bound a stream is
+  refused with `503` and an explicit `refused` frame, never silently starved
+  of events a client would not know it was missing.
+- **No existence oracle.** An unreadable session, a malformed id, and a
+  session that never existed all return the same `404` body.
+- **Cursor-based resume.** `Last-Event-ID` is the envelope sequence, so a
+  reconnecting spectator names exactly what it has and receives exactly what
+  it missed.
+
+The spectator client owns the other half: it hydrates from a checkpoint,
+applies deltas through the verifying projection, refetches the exact missing
+range when a gap appears, and reconnects on bounded exponential backoff with
+jitter — giving up visibly after a bounded number of attempts rather than
+retrying forever.
+
+Latency is whatever the deployment's SSE path costs: released envelopes are
+pushed to open subscribers as the releasing command completes, with no polling
+interval in between. Publication delay, when configured, is a deliberate policy
+choice applied before release — not transport lag.
 
 Canonical authority never moves: signed Epoch events, Views, grants, and
 receipts stay canonical; transports, browser memory, and media rooms are

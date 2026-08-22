@@ -80,6 +80,7 @@ import { runLiveSpacesPolicyTests } from "./unit/live-spaces-policy.test";
 import { runLiveSpacesLogTests } from "./unit/live-spaces-log.test";
 import { runLiveSpacesCoreTests } from "./unit/live-spaces-core.test";
 import { runLiveSpacesCommandTests } from "./unit/live-spaces-commands.test";
+import { runLiveSpacesTransportTests } from "./unit/live-spaces-transport.test";
 import { runChangeGraphBrowserWrapperTests } from "./unit/change-graph-browser-wrappers.test";
 import { runChangeGraphCliTests } from "./unit/change-graph-cli.test";
 import { runNomenclatureContractTests } from "./unit/nomenclature-contract.test";
@@ -182,6 +183,7 @@ async function main(): Promise<void> {
   runLiveSpacesLogTests();
   await runLiveSpacesCoreTests();
   await runLiveSpacesCommandTests();
+  await runLiveSpacesTransportTests();
   await runNomenclatureContractTests();
   runSemanticPipelineTests();
   runExtensionMechanismTests();
