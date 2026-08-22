@@ -442,7 +442,7 @@
     } else {
       try {
         // URL needs a base for relative; absolute http works.
-        var u = new (!globalThis.CW_VALUE.isUndefined(URL) ? URL : window.URL)(raw, "https://community.local");
+        var u = new window.URL(raw, "https://community.local");
         protocol = u.protocol.replace(":", "");
         host = u.host || "";
         path = (u.pathname || "/") + (u.search || "");

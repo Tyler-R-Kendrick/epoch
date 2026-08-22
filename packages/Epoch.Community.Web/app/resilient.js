@@ -74,6 +74,14 @@
    * the panel keeps saying something true even when the event is silent.
    */
   async function openSession(opts) {
+    // The same absence `availability()` reports, stated rather than thrown.
+    // Every caller today checks first, but this is the only place that reaches
+    // for the API itself, and an unguarded read here fails as a ReferenceError
+    // — the one error shape that says nothing about what went wrong.
+    var api = window.LanguageModel;
+    if (globalThis.CW_VALUE.isUndefined(api)) {
+      throw new Error("The on-device Prompt API is not available in this browser.");
+    }
     var report = opts.report;
     var signal = opts.signal;
     var lastEvent = Date.now();
@@ -92,7 +100,7 @@
     }, 1000);
 
     try {
-      return await LanguageModel.create({
+      return await api.create({
         signal: signal,
         initialPrompts: opts.initialPrompts,
         monitor: function (m) {
