@@ -71,7 +71,7 @@ export interface CommunityCommandBus {
   execute<TData = unknown>(request: EpochCommandRequest): Promise<EpochCommandReceipt<TData>>;
 }
 
-interface CommandOutcome {
+export interface EpochCommandOutcome {
   readonly data: unknown;
   readonly eventIds?: readonly string[];
   readonly revisionIds?: readonly number[];
@@ -83,7 +83,14 @@ interface CommandOutcome {
 
 interface CommandHandler {
   readonly descriptor: EpochCommandDescriptor;
-  run(input: Readonly<Record<string, DictionaryValue>>): CommandOutcome;
+  /** Handlers may be synchronous or promise-returning; the bus awaits both. */
+  run(input: Readonly<Record<string, DictionaryValue>>): EpochCommandOutcome | Promise<EpochCommandOutcome>;
+}
+
+/** A command contributed by another module (for example Live Spaces). */
+export interface EpochCommandExtension {
+  readonly descriptor: EpochCommandDescriptor;
+  run(input: Readonly<Record<string, DictionaryValue>>): EpochCommandOutcome | Promise<EpochCommandOutcome>;
 }
 
 export interface CreateCommandBusOptions {
@@ -93,6 +100,8 @@ export interface CreateCommandBusOptions {
   readonly defaultSource: EpochCommandSource;
   readonly now: () => string;
   readonly onReceipt?: (receipt: EpochCommandReceipt) => void;
+  /** Additional commands registered on the same bus with the same policy, confirmation, and receipt path. */
+  readonly extensions?: readonly EpochCommandExtension[];
 }
 
 export function createCommunityCommandBus(options: CreateCommandBusOptions): CommunityCommandBus {
@@ -480,6 +489,10 @@ export function createCommunityCommandBus(options: CreateCommandBusOptions): Com
     return { data: mutation.data, eventIds: mutation.eventIds, revisionIds: mutation.revisionIds, baseRef: mutation.ref };
   });
 
+  for (const extension of options.extensions ?? []) {
+    register(extension.descriptor, extension.run);
+  }
+
   function register(descriptor: EpochCommandDescriptor, run: CommandHandler["run"]): void {
     handlers.set(descriptor.kind, { descriptor, run });
   }
@@ -541,7 +554,7 @@ export function createCommunityCommandBus(options: CreateCommandBusOptions): Com
       }));
     }
 
-    const outcome = handler.run(input);
+    const outcome = await handler.run(input);
     // SAFETY: The module validates or constructs this value before applying the asserted contract.
     return emit(createCommandReceipt<TData>({
       ...base,
@@ -572,7 +585,7 @@ export function createCommunityCommandBus(options: CreateCommandBusOptions): Com
   };
 }
 
-function fromMutation(mutation: WorkspaceMutation<unknown>, ref: "base" | "proposal"): CommandOutcome {
+function fromMutation(mutation: WorkspaceMutation<unknown>, ref: "base" | "proposal"): EpochCommandOutcome {
   return {
     data: mutation.data,
     eventIds: mutation.eventIds,
