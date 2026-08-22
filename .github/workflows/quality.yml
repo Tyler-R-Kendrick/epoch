@@ -385,6 +385,28 @@ jobs:
       - name: Kill NATS discovery/ACL mutants
         run: npm run mutation:nats
 
+  live-spaces-mutants:
+    name: Live Spaces mutant kill
+    needs: guard
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: ".nvmrc"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Kill Live Spaces publication and sequencing mutants
+        run: npm run mutation:live-spaces
+
   xmpp-mutants:
     name: XMPP mutant kill
     needs: guard
