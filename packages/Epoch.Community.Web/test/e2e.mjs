@@ -5478,9 +5478,17 @@ const CASES = [
         window.CW_APP.focusColumns();
         window.CW_APP.render(true);
       });
-      await page.waitForFunction(() =>
-        window.CW_APP.state.columnFocus &&
-        document.activeElement !== document.querySelector("[data-cli]"), null, { timeout: 90000 });
+      // Wait for a column to actually hold DOM focus, not merely for the CLI to
+      // lose it. focusColumns() blurs the prompt synchronously and focuses a
+      // column in a later animation frame, so "not the CLI" is already true
+      // while document.body holds focus — and a Tab pressed there walks the
+      // native tab order to the skip link instead of returning to the prompt.
+      await page.waitForFunction(() => {
+        const active = document.activeElement;
+        const mount = document.querySelector("[data-mount]");
+        return window.CW_APP.state.columnFocus && !!mount && mount.contains(active) &&
+          active !== document.querySelector("[data-cli]");
+      }, null, { timeout: 90000 });
       await page.keyboard.press("Tab");
       await page.waitForFunction(() => document.activeElement === document.querySelector("[data-cli]"), null, { timeout: 90000 });
       await page.fill("[data-cli]", "c");
