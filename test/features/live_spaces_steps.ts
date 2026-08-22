@@ -70,6 +70,7 @@ interface LiveWorld {
   communityStore?: CommunityStateStore;
   annotationObjectId?: string;
   forkChangeId?: string;
+  spectatorGap?: { readonly missingFrom: number; readonly missingTo: number };
   forkLogHead?: string;
   boardBus?: CommunityCommandBus;
   boardReceipt?: EpochCommandReceipt;
@@ -660,4 +661,48 @@ Then("the board still states that publication is semantic-only and cannot be rec
   assert.match(text, /never your screen/iu);
   assert.match(text, /never your keystrokes/iu);
   assert.match(text, /cannot be recalled/iu);
+});
+
+
+// ------------------------------------------------------- spectator honesty
+
+When("a spectator receives an envelope out of order so one is missing", function () {
+  const envelopes = world.envelopes ?? (() => { throw new Error("no envelopes in scope"); })();
+  const spectator = createLiveSpectatorProjection({ sessionId: envelopes[0]?.sessionId ?? "session-feature" });
+  world.spectator = spectator;
+  spectator.apply(envelopes[0] ?? (() => { throw new Error("no first envelope"); })());
+  const third = envelopes[2] ?? (() => { throw new Error("no third envelope"); })();
+  const result = spectator.apply(third);
+  if (result.kind === "gap") world.spectatorGap = { missingFrom: result.missingFrom, missingTo: result.missingTo };
+});
+
+Then("the board names the missing range and says it is not showing everything", function () {
+  const gap = world.spectatorGap ?? (() => { throw new Error("no gap was reported"); })();
+  assert.equal(gap.missingFrom, 2, "the hole names where it starts");
+  assert.equal(gap.missingTo, 2, "and where it ends");
+  // The words a reader actually sees are authored in the page, not derived.
+  const board = readFileSync(join(BOARD_APP, "board.html"), "utf8");
+  const creed = /<p[^>]*data-spec-creed[^>]*>([\s\S]*?)<\/p>/u.exec(board)
+    ?? (() => { throw new Error("the board must author a spectator statement"); })();
+  assert.match(creed[1].replace(/\s+/gu, " ").trim(), /never quietly filled in/iu);
+});
+
+Then("the board does not advance the applied sequence past the hole", function () {
+  const spectator = world.spectator ?? (() => { throw new Error("no spectator in scope"); })();
+  const state = spectator.state();
+  assert.equal(state.lastSequence, 1, "a hole must not advance the applied sequence");
+  assert.equal(state.pendingCount, 1, "the early envelope is held, not applied");
+});
+
+When("the spectator resynchronizes from a checkpoint", function () {
+  const publisher = world.publisher ?? (() => { throw new Error("no publisher in scope"); })();
+  const spectator = world.spectator ?? (() => { throw new Error("no spectator in scope"); })();
+  const envelopes = world.envelopes ?? [];
+  const checkpoint = publisher.checkpoint();
+  spectator.resyncFrom(checkpoint, envelopes.slice(checkpoint.sequence));
+});
+
+Then("the board states where the reader now is", function () {
+  const spectator = world.spectator ?? (() => { throw new Error("no spectator in scope"); })();
+  assert.equal(spectator.state().lastSequence, 3, "a resynced reader converges on the released head");
 });

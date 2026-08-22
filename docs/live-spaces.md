@@ -392,6 +392,41 @@ registered and answers `unavailable` with the reason, and the panel shows that
 reason and offers no controls. A missing command would be indistinguishable
 from a broken page.
 
+## The board as spectator
+
+A spectator cannot verify anything for themselves. They did not choose the
+allow-list, cannot see what was dropped, and have no way to tell a quiet
+stream from a broken one. The only thing the surface owes them is an honest
+account of its own state.
+
+**A hole is named, never filled.** When an envelope arrives out of order the
+projection reports a gap, and the board renders the missing range in its own
+announced region rather than as a line in the feed — a reader scanning a list
+would scroll past it and believe the stream was whole. The applied sequence
+does not advance past a hole, and the early envelope is held rather than shown
+out of order. Recovery is an explicit resync from a checkpoint the host
+recorded, which also states where the reader now is: a resync notice without a
+position leaves them guessing whether it worked, which is the question they
+resynced to answer.
+
+**Every outcome is recorded, including the ones with no content.** A duplicate,
+a quarantined envelope, and an action skipped because it was the host's own
+view preference each appear in the feed, dimmer than content but never absent.
+"Nothing arrived" and "three things arrived and were refused" must not look the
+same.
+
+**The host's view preferences stay the host's.** Replay eligibility is decided
+by the shared projection, and a `view-preference` action is shown as skipped
+rather than applied — replaying it would reach into a spectator's page and
+change it on the host's behalf.
+
+**Accessibility.** The released feed is a `role="log"` with
+`aria-live="polite"`, so each release is announced without stealing focus from
+whatever is being read; `assertive` would interrupt on every action. The gap
+notice is a `role="status"`. Both live in `board.html` beside the host panel
+and outside the morph mount, so no generated revision can remove them or
+reword what they say about holes.
+
 ## Honest limitations
 
 - Released public bytes may be copied by spectators and **cannot be
@@ -417,8 +452,11 @@ from a broken page.
   configured in the shipped page, so the honest steady state of Community Web
   today is `unavailable` — the panel is real and the refusal is real, but no
   browser has yet hosted a session end to end.
-- The board is a host surface. Spectator viewing, replay, and fork-from-
-  checkpoint are not on it yet; those reach the same bus from the CLI and SDK.
+- The spectator surface renders a projection it is fed. Subscribing it to a
+  live transport needs a configured deployment, which the shipped page does not
+  have, so today it is driven by envelopes handed to it rather than by a socket.
+  Sealed-manifest replay is not on the board yet either; both reach the same
+  bus from the CLI and SDK.
 
 ## Configuration
 
