@@ -1,0 +1,64 @@
+[
+  {
+    "exitStatus": 0,
+    "hasNodeModules": true,
+    "npmCalls": [],
+    "npmInstallExit": 0,
+    "presentBins": [
+      "eslint",
+      "konsistent",
+      "oxlint",
+      "tsgo"
+    ],
+    "wiredHooksPath": ".githooks"
+  },
+  {
+    "exitStatus": 0,
+    "hasNodeModules": true,
+    "npmCalls": [
+      "install"
+    ],
+    "npmInstallExit": 0,
+    "presentBins": [
+      "eslint",
+      "konsistent",
+      "tsgo"
+    ],
+    "wiredHooksPath": ".githooks"
+  },
+  {
+    "exitStatus": 0,
+    "hasNodeModules": true,
+    "npmCalls": [
+      "install"
+    ],
+    "npmInstallExit": 0,
+    "presentBins": [
+      "tsgo"
+    ],
+    "wiredHooksPath": ".githooks"
+  },
+  {
+    "exitStatus": 0,
+    "hasNodeModules": true,
+    "npmCalls": [
+      "install",
+      "ci"
+    ],
+    "npmInstallExit": 217,
+    "presentBins": [
+      "tsgo"
+    ],
+    "wiredHooksPath": ".githooks"
+  },
+  {
+    "exitStatus": 0,
+    "hasNodeModules": false,
+    "npmCalls": [
+      "ci"
+    ],
+    "npmInstallExit": 0,
+    "presentBins": [],
+    "wiredHooksPath": ".githooks"
+  }
+]

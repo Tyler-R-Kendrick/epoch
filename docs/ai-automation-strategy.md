@@ -331,15 +331,26 @@ satisfied:
 1. Repair `NODE_OPTIONS` only when it fails to parse — probe with
    `node -e 0` and rewrite or unset the variable only on failure. A session
    whose environment is already sane should not be touched.
-2. Install only when the tree is actually missing or stale: skip when
-   `node_modules/.bin/tsgo` resolves, and prefer `npm install` over `npm ci`
-   where a usable `node_modules` already exists, since `npm ci` deletes the tree
-   first by design.
+2. Install only when the tree is actually missing or stale: skip only when
+   every binary the gate ladder shells out to resolves under
+   `node_modules/.bin/` (`tsgo`, `oxlint`, `eslint`, `konsistent`). A
+   single-binary probe is not enough — a tree can carry `tsgo` while `oxlint`
+   is absent entirely, which reports ready and then fails both lint gates.
+   Prefer `npm install` over `npm ci` where a usable `node_modules` already
+   exists, since `npm ci` deletes the tree first by design, but fall back to
+   `npm ci` when `npm install` fails: a half-written tree fails with
+   `ENOTEMPTY` and only a clean tree repairs it.
 3. Verify after installing rather than assuming — `npm ci` runs `prepare`
    (`scripts/install-hooks.mjs`), and that lifecycle script must complete before
    anything relies on the toolchain or on `core.hooksPath` being wired. Check
-   the exit status and the presence of `node_modules/.bin/tsgo` before
-   reporting success.
+   the exit status and re-probe the same binary list before reporting success,
+   naming any that are still missing.
+4. Wire `core.hooksPath` directly instead of trusting that `prepare` ran. It
+   does not run when the install is skipped as already-satisfied, and it is
+   never reached when an install stalls in an earlier postinstall; either way
+   `pre-commit` and `pre-push` are silently inactive, which is precisely the
+   failure the gates exist to prevent. `scripts/install-hooks.mjs` is
+   idempotent and fail-open, so calling it when the config is missing is free.
 
 Note also that `SessionStart` is documented to be unreliable on `/clear` in some
 Claude Code versions, so the hook should be a convenience that fails loudly, not
@@ -404,6 +415,17 @@ Effort sizing follows the `DX.md` convention.
    postinstall downloads a release binary over raw `https`, bypassing this
    environment's configured proxy — a pre-existing issue in that dependency's
    installer, not something this hook can or should route around.)*
+   *Corrected 2026-08-22: the skip condition was still a single-binary probe,
+   and a live session was observed where `tsgo` was present but `oxlint` was
+   absent from `node_modules` entirely and `@eslint/js` was missing its entry
+   point. The hook reported "dependencies already installed" while
+   `npm run lint` and `npm run lint:oxlint` both failed — the tree was
+   partly installed, not installed. The probe now covers every binary the
+   gates invoke by name, and because `npm install` could not repair that tree
+   in place (`ENOTEMPTY` renaming `ajv-formats`), the install path now falls
+   back to `npm ci`. The same session also had `core.hooksPath` unset, so
+   `pre-commit` and `pre-push` never ran locally; the hook now wires it
+   directly rather than assuming the `prepare` lifecycle reached it.*
 3. ✅ **Demote `pre-push` to `gate:fast`** once CI carries the heavy tail. **[S]**
    *Done 2026-08-10: `.githooks/pre-push` ran `gate:fast`, matching
    `pre-commit`; `gate:push` was optional manual.*

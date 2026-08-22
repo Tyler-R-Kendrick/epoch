@@ -472,3 +472,30 @@ jobs:
 
       - name: Kill Community Web Activity terminal-nav mutants
         run: npm run mutation:community-web
+
+  session-init-mutants:
+    name: Session init mutant kill
+    needs: guard
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: ".nvmrc"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      # The oracle is the compiled session-init hook suite, so the mutants
+      # need a build before they can be killed.
+      - name: Build
+        run: npm run build -- --pretty false
+
+      - name: Kill session-init toolchain probe mutants
+        run: npm run mutation:session-init
