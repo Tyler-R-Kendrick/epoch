@@ -67,3 +67,19 @@ Feature: Live Spaces
     Then media readiness reports itself provider-disabled while the semantic session still works
     And starting public synchronized audio without live captions is refused
     And an end-to-end-encrypted session refuses provider recording and egress
+
+  @persona.maintainer
+  Scenario: Host sees what an audience would receive before anything is published
+    Given a host is preparing a live session on the board
+    When the host runs preflight
+    Then the board names the paths and actions an audience would receive
+    And the board names what is never published regardless of policy
+    And start stays unavailable while preflight reports an error
+
+  @persona.maintainer
+  Scenario: A board with no configured deployment says so instead of hosting
+    Given the board has no Live Space deployment configured
+    When the host opens a live session on the board
+    Then the board reports the session unavailable and names what is missing
+    And the board offers no publishing controls
+    And the board still states that publication is semantic-only and cannot be recalled

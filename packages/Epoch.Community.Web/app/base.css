@@ -759,6 +759,60 @@ body {
 }
 .cw-ws-action:hover, .cw-ws-action:focus-visible { background: var(--cw-warn); color: var(--cw-bg); }
 
+/* ── Live Space host panel ──────────────────────────────────────────────────
+ * Static chrome, like the recovery controls beside it: a generated revision
+ * fills slots and never authors this region. What is published, and to whom,
+ * is not a layout question.
+ *
+ * The border carries the state. Releasing is the only condition that earns
+ * --cw-live, so "bytes are leaving this machine" is legible from across a
+ * room and is never something a theme token can quietly turn off — the rule
+ * is keyed on the host's own data-releasing, which only a receipt sets.
+ */
+.cw-live {
+  flex: 1 1 100%; display: flex; flex-direction: column; gap: .4rem;
+  padding: .5rem .6rem; border: 1px solid var(--cw-rule); background: var(--cw-surface);
+}
+/* An author `display` beats the UA `[hidden] { display: none }` rule at equal
+ * specificity, so without this the panel keeps its layout box while hidden. */
+.cw-live[hidden] { display: none; }
+.cw-live[data-releasing="true"] { border-color: var(--cw-live); }
+.cw-live[data-state="degraded"], .cw-live[data-state="unavailable"] { border-color: var(--cw-warn); }
+.cw-live-title { margin: 0; font-size: 1em; letter-spacing: .06em; }
+/* The creed is the one line that must survive every state, so it is never
+ * conditioned on one. A host who reads nothing else has still read this. */
+.cw-live-creed { margin: 0; color: var(--cw-ink-dim); }
+.cw-live-state { margin: 0; color: var(--cw-ink); }
+.cw-live-state[data-kind="live"] { color: var(--cw-live); }
+.cw-live-state[data-kind="ok"] { color: var(--cw-signed); }
+.cw-live-state[data-kind="unavailable"] { color: var(--cw-warn); }
+.cw-live-state[data-kind="rejected"] { color: var(--cw-danger); }
+.cw-live-facts { display: flex; flex-wrap: wrap; gap: 0 .8rem; margin: 0; }
+.cw-live-fact { display: inline-flex; gap: .35rem; align-items: baseline; }
+.cw-live-fact dt { color: var(--cw-ink-faint); }
+.cw-live-fact dd { margin: 0; color: var(--cw-ink); }
+.cw-live-preflight { display: flex; flex-direction: column; gap: .3rem; }
+.cw-live-list { display: flex; gap: .4rem; align-items: baseline; flex-wrap: wrap; }
+.cw-live-list-title { color: var(--cw-ink-faint); }
+.cw-live-list ul { display: flex; flex-wrap: wrap; gap: 0 .6rem; margin: 0; padding: 0; list-style: none; }
+.cw-live-list[data-kind="denied"] li { color: var(--cw-danger); text-decoration: line-through; }
+.cw-live-list[data-kind="error"] li { color: var(--cw-danger); }
+.cw-live-list[data-kind="warn"] li { color: var(--cw-warn); }
+.cw-live-list[data-kind="allowed"] li { color: var(--cw-signed); }
+.cw-live-verdict { margin: 0; color: var(--cw-danger); }
+.cw-live-verdict[data-allowed="true"] { color: var(--cw-signed); }
+.cw-live-row { display: flex; flex-wrap: wrap; gap: .4rem .8rem; }
+/* Bracket Rule: flat terminal chrome, not a filled primary. */
+.cw-live-act {
+  min-height: 2.25rem; padding: .15rem .2rem; border: 0; border-radius: 0;
+  background: none; color: var(--cw-ink); font: inherit; cursor: pointer;
+}
+.cw-live-act::before { content: "["; color: var(--cw-ink-faint); }
+.cw-live-act::after { content: "]"; color: var(--cw-ink-faint); }
+.cw-live-act:hover, .cw-live-act:focus-visible { color: var(--cw-accent); }
+.cw-live-act[disabled] { color: var(--cw-ink-faint); cursor: default; }
+[data-live-badge] { color: var(--cw-live); letter-spacing: .06em; }
+
 /* ── Compose panel ──────────────────────────────────────────────────────────
  * The prompt-to-proposal surface, and the theme garden inside it. Static
  * chrome: a generated revision fills slots, it never authors this.

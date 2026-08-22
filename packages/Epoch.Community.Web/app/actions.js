@@ -66,6 +66,17 @@
     { actionId: "macro.manage", label: "Manage macros", description: "Define and invoke safe reusable registered actions", commandAliases: ["macro", "skill"], commandArg: "macro", run: "macro" },
     { actionId: "board.status", label: "Status", description: "Show Epoch board status", commandAliases: ["stat"], run: "stat" },
     { actionId: "stream.protect", label: "Mute stream inputs", description: "Stop livestreaming input events and protected fields", keyBindings: [{ key: "Ctrl+Shift+.", contexts: ["board"] }, { key: "Ctrl+Shift+>", contexts: ["board"] }], run: "stream-protect" },
+    // Live Space hosting. `sideEffect: "shared"` on every mutation because a
+    // Live Session is other people's view of this work, not a local preference,
+    // and `permission` so an agent cannot start or end one on a host's behalf.
+    { actionId: "live.show", label: "Open Live Session", description: "Show a Live Session's state, policy digest, and participants", sideEffect: "read", commandAliases: ["live"], commandArg: "sessionId", slashAliases: ["/live"], slashArg: "sessionId", run: "live-show", mcp: { toolName: "board_live_show", inputSchema: { type: "object", properties: { sessionId: { type: "string" } }, required: ["sessionId"] } } },
+    { actionId: "live.preflight", label: "Live preflight", description: "Report exactly what an audience would receive before anything is published", sideEffect: "read", keyBindings: [{ key: "Ctrl+Shift+L", contexts: ["board"] }] },
+    { actionId: "live.openLobby", label: "Open Live lobby", description: "Let authorized participants join before any release", sideEffect: "shared", permission: "community.participate" },
+    { actionId: "live.start", label: "Start publishing", description: "Begin releasing semantic actions; published bytes cannot be recalled", sideEffect: "shared", permission: "community.participate" },
+    { actionId: "live.pause", label: "Pause publishing", description: "Hold release at the current sequence", sideEffect: "shared", permission: "community.participate" },
+    { actionId: "live.resume", label: "Resume publishing", description: "Resume releasing at the held sequence", sideEffect: "shared", permission: "community.participate" },
+    { actionId: "live.end", label: "End Live Session", description: "Stop release and close the log to new joins", sideEffect: "shared", permission: "community.participate" },
+    { actionId: "live.checkpoint", label: "Record checkpoint", description: "Record a point spectators can resync and fork from", sideEffect: "shared", permission: "community.participate" },
     { actionId: "help.open", label: "Help", description: "Show generated action help", commandAliases: ["help"], slashAliases: ["/help"], run: "slash-help" },
     { actionId: "transcript.clear", label: "Clear transcript", description: "Clear this workspace transcript", commandAliases: ["clear"], run: "clear" },
     { actionId: "prompt.mode", label: "Prompt mode", description: "Set AI or CLI prompt interpretation", slashAliases: ["/mode"], slashArg: "mode", run: "mode" },

@@ -184,6 +184,115 @@ const CASES = [
     },
   },
   {
+    name: "LIVE-HOST-001 a board with no deployment says so instead of pretending to host",
+    run: async (page, log) => {
+      const probe = await page.evaluate(async () => {
+        window.CW_LIVE.reset();
+        // The bus answers rather than throws: a browser holds no Live Session
+        // state, so this is the honest steady state of the shipped page.
+        await window.CW_LIVE.show("live-anything");
+        const note = window.CW_LIVE.note();
+        const host = document.querySelector("[data-live-host]");
+        return {
+          label: window.CW_LIVE.label(),
+          noteKind: note.kind,
+          noteText: note.text,
+          snapshot: window.CW_LIVE.snapshot(),
+          releasing: window.CW_LIVE.releasing(),
+          badgeHidden: document.querySelector("[data-live-badge]").hidden,
+          controls: document.querySelector("[data-live-controls]").innerHTML.trim(),
+          hostVisible: !!host && !host.hidden,
+          bodyState: document.body.dataset.liveHosting || "",
+        };
+      });
+      if (probe.label !== "unavailable" || probe.noteKind !== "unavailable") {
+        return log("no-deployment state not labelled unavailable: " + JSON.stringify(probe));
+      }
+      if (probe.snapshot !== null || probe.releasing) {
+        return log("a refused show invented a session: " + JSON.stringify(probe));
+      }
+      if (!probe.badgeHidden) return log("live badge shown without release: " + JSON.stringify(probe));
+      if (probe.controls !== "") return log("controls offered with no deployment: " + JSON.stringify(probe));
+      if (!probe.hostVisible || probe.bodyState !== "unavailable") {
+        return log("unavailable state not surfaced: " + JSON.stringify(probe));
+      }
+      // "unavailable" alone is not an answer. The reason has to name the thing
+      // that is missing, or a host cannot tell a misconfiguration from a bug.
+      if (!/port|configur/i.test(probe.noteText)) {
+        return log("unavailable reason names nothing: " + JSON.stringify(probe));
+      }
+      return true;
+    },
+  },
+  {
+    name: "LIVE-HOST-002 the safety statement is static chrome a generated revision cannot remove",
+    run: async (page, log) => {
+      const probe = await page.evaluate(() => {
+        const host = document.querySelector("[data-live-host]");
+        const creed = document.querySelector("[data-live-creed]");
+        const mount = document.querySelector("[data-mount]");
+        return {
+          // A slot is filled from a manifest; this region deliberately is not
+          // one, so no placement can decline to render it.
+          isSlot: !!host && host.hasAttribute("data-cw-slot"),
+          insideHarness: !!host && !!host.closest("[data-cw-harness]"),
+          insideMount: !!mount && !!host && mount.contains(host),
+          creedText: creed ? creed.textContent.replace(/\s+/gu, " ").trim() : "",
+          titled: !!host && host.getAttribute("aria-labelledby") === "cw-live-title",
+          region: host ? host.getAttribute("role") : "",
+        };
+      });
+      if (probe.isSlot) return log("safety chrome is manifest-placed: " + JSON.stringify(probe));
+      if (!probe.insideHarness || probe.insideMount) {
+        return log("safety chrome is inside the morph mount: " + JSON.stringify(probe));
+      }
+      if (!/never your screen/i.test(probe.creedText) || !/never your keystrokes/i.test(probe.creedText)) {
+        return log("semantic-only statement missing: " + JSON.stringify(probe));
+      }
+      if (!/cannot be recalled/i.test(probe.creedText)) {
+        return log("irrecoverability statement missing: " + JSON.stringify(probe));
+      }
+      if (probe.region !== "region" || !probe.titled) {
+        return log("live region is not a labelled landmark: " + JSON.stringify(probe));
+      }
+      return true;
+    },
+  },
+  {
+    name: "LIVE-HOST-003 live actions reach one registry with honest annotations",
+    run: async (page, log) => {
+      const probe = await page.evaluate(() => {
+        const rows = window.CW_ACTIONS.list().filter((row) => row.actionId.indexOf("live.") === 0);
+        const mutations = rows.filter((row) => row.actionId !== "live.show" && row.actionId !== "live.preflight");
+        return {
+          ids: rows.map((row) => row.actionId).sort(),
+          // Hosting is other people's view of this work, so no live mutation
+          // may be annotated as a local preference.
+          localMutations: mutations.filter((row) => row.sideEffect !== "shared").map((row) => row.actionId),
+          unpermissioned: mutations.filter((row) => !row.permission).map((row) => row.actionId),
+          preflightChord: window.CW_KEYMAP.chords("live.preflight"),
+        };
+      });
+      const expected = [
+        "live.checkpoint", "live.end", "live.openLobby", "live.pause",
+        "live.preflight", "live.resume", "live.show", "live.start",
+      ];
+      if (JSON.stringify(probe.ids) !== JSON.stringify(expected)) {
+        return log("live action set drifted: " + JSON.stringify(probe.ids));
+      }
+      if (probe.localMutations.length) {
+        return log("live mutation marked local: " + JSON.stringify(probe.localMutations));
+      }
+      if (probe.unpermissioned.length) {
+        return log("live mutation has no permission: " + JSON.stringify(probe.unpermissioned));
+      }
+      if (!probe.preflightChord || !probe.preflightChord.length) {
+        return log("preflight has no keyboard chord: " + JSON.stringify(probe));
+      }
+      return true;
+    },
+  },
+  {
     name: "HONEST-002 guest compose stays unsigned and /act lists promote",
     run: async (page, log) => {
       await go(page, "/projects/community/channels/general");

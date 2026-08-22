@@ -146,6 +146,26 @@
     }
   }
 
+  /**
+   * The Live Space port, or nothing.
+   *
+   * A Live Session is signed against a Space that a deployment owns, so the
+   * browser is a client of one or it is not hosting at all. There is no
+   * in-memory stand-in here on purpose: a local fake would look identical to
+   * the real thing right up to the moment someone believed an audience was
+   * watching.
+   */
+  function livePort() {
+    return undefined;
+  }
+
+  function liveExtensions(actorId) {
+    if (!window.CW_RUNTIME || !globalThis.CW_VALUE.isFunction(window.CW_RUNTIME.createLiveSpaceCommandExtensions)) {
+      return [];
+    }
+    return window.CW_RUNTIME.createLiveSpaceCommandExtensions(livePort(), function () { return actorId; });
+  }
+
   function boot(actorId) {
     if (!window.CW_RUNTIME || !globalThis.CW_VALUE.isFunction(window.CW_RUNTIME.createCommunityRuntime)) {
       lastError = "runtime bundle missing";
@@ -170,6 +190,14 @@
         policies: { capabilities: ["*"] },
         defaultSource: "web",
         initialManifest: INITIAL_MANIFEST,
+        // The live command family is registered whether or not a deployment is
+        // reachable. A browser holds no Live Session state — the sessions are
+        // signed against a Space on a host — so with no port these commands
+        // answer `unavailable` with a reason. Registering them anyway is what
+        // makes that answer possible: a missing command is indistinguishable
+        // from a broken page, and the host surface would have nothing true to
+        // say. `livePort()` returns undefined until a remote is configured.
+        extensions: liveExtensions(actorId),
       });
       return runtime;
     } catch (error) {

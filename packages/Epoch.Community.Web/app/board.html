@@ -53,6 +53,21 @@
     title="Propose a change to your own interface">Compose interface</button>
   <div class="cw-harness-slot" data-cw-slot="board.context-panel" role="region" aria-label="Context panel" hidden></div>
   <div class="cw-harness-slot" data-cw-slot="board.recovery" role="region" aria-label="Workspace recovery" hidden></div>
+  <!-- Live Space host panel. Deliberately NOT a data-cw-slot: a slot is filled
+       from a manifest, and a manifest a model wrote could place nothing here.
+       What is published, and to whom, is not a layout question. The dynamic
+       layer can neither remove this region nor author what it says. -->
+  <section class="cw-live" data-live-host role="region" aria-labelledby="cw-live-title" hidden>
+    <h2 id="cw-live-title" class="cw-live-title">Live Space</h2>
+    <p class="cw-live-creed" data-live-creed>
+      A Live Space publishes named actions and the paths you allow — never your screen,
+      never your keystrokes. Anything released is public bytes and cannot be recalled.
+    </p>
+    <p class="cw-live-state" data-live-state role="status"></p>
+    <dl class="cw-live-facts" data-live-facts></dl>
+    <div class="cw-live-preflight" data-live-preflight hidden></div>
+    <div class="cw-live-row" data-live-controls></div>
+  </section>
 </aside>
 
 <!-- Compose: prompt an interface change, see what it does, then decide.
@@ -118,6 +133,7 @@
 <footer data-region="status" role="contentinfo">
   <span data-sample-stream hidden>SAMPLE STREAM</span>
   <span data-stream-protect-state hidden></span>
+  <span data-live-badge hidden></span>
   <span data-status-line></span>
   <span class="cw-harness-slot cw-harness-status" data-cw-slot="shell.workspace-status"
     role="status" aria-label="Workspace status" hidden></span>
@@ -206,6 +222,7 @@
 <script src="generate.js"></script>
 <script src="theme.js"></script>
 <script src="workspace.js"></script>
+<script src="live.js"></script>
 <script src="compose.js"></script>
 <script src="openui-parser.js"></script>
 <script src="openui-library.js"></script>

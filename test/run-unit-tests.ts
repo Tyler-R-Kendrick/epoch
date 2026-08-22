@@ -22,6 +22,7 @@ import { runCommunityWebAppThemeTests } from "./unit/community-web-app-themes.te
 import { runCommunityWebLanguageModelAbsenceTests } from "./unit/community-web-app-language-model-absence.test";
 import { runCommunityWebAppWebMcpTests } from "./unit/community-web-app-webmcp.test";
 import { runCommunityWebAppNavigationRuntimeTests } from "./unit/community-web-app-navigation-runtime.test";
+import { runCommunityWebLiveHostTests } from "./unit/community-web-live-host.test";
 import { runCommunityWebTextBudgetTests } from "./unit/community-web-text-budget.test";
 import { runCommunityWebVercelTests } from "./unit/community-web-vercel.test";
 import { runEpochIntegrationSuiteTests } from "./unit/epoch-integration-suite.test";
@@ -148,6 +149,7 @@ async function main(): Promise<void> {
   await runCommunityWebLanguageModelAbsenceTests();
   await runCommunityWebAppWebMcpTests();
   await runCommunityWebAppNavigationRuntimeTests();
+  runCommunityWebLiveHostTests();
   await runCommunityWebTextBudgetTests();
   await runEpochIntegrationSuiteTests();
   await runPlatformBoundaryTests();
