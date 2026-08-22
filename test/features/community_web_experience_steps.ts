@@ -3270,19 +3270,71 @@ Then("the ideas channel nav badge counts one fewer active member", async functio
  * ready. Keyed items are the settled signal because that is what the
  * assertion enumerates.
  */
+interface MembersRollRuntime {
+  readonly CW_APP: {
+    navigate(path: string, options?: JsonObject): boolean;
+    readonly state: { readonly path: string };
+  };
+  readonly CW_MAP?: { findMember(handle: string): { state?: string } | null };
+}
+
+interface MembersRollProbe {
+  readonly path: string;
+  readonly mapReady: boolean;
+  readonly bladePaths: readonly string[];
+  readonly keyedItems: number;
+}
+
+/**
+ * Open a members roll and prove it actually rendered keyed rows.
+ *
+ * `CW_APP.navigate` renders synchronously, so the roll is either on the page by
+ * the time the call returns or it is never coming. Two things used to hide that:
+ * navigate's `false` refusal was discarded, and the wait keyed on the *requested*
+ * path while the assertion below reads the *resolved* one. Either mismatch spent
+ * the whole timeout and then reported nothing but "Timeout exceeded", which is
+ * why this failed in CI without ever saying what was wrong.
+ */
 async function openMembersRoll(path: string): Promise<void> {
   const page = requirePage();
-  await page.evaluate((target: string) => {
+  const arrived = await page.evaluate((target: string) => {
     // SAFETY: The scenario fixture establishes this test-only contract before the value is consumed.
-    (window as { CW_APP: { navigate(path: string, options?: JsonObject): void } })
-      .CW_APP.navigate(target, { keepCli: true });
+    return (window as MembersRollRuntime).CW_APP.navigate(target, { keepCli: true });
   }, path);
-  await page.waitForFunction((target: string) => {
+  assert.notEqual(arrived, false, `the board refused to navigate to ${path}`);
+
+  const probe = async (): Promise<MembersRollProbe> => page.evaluate(() => {
     // SAFETY: The scenario fixture establishes this test-only contract before the value is consumed.
-    const runtime = (window as { CW_MAP?: { findMember(handle: string): { state?: string } | null } });
-    const items = document.querySelectorAll(`[data-blade-path="${target}"] .cn-item[data-key]`);
-    return !!runtime.CW_MAP && items.length > 0;
-  }, path, { timeout: 10_000 });
+    const runtime = window as MembersRollRuntime;
+    const current = runtime.CW_APP.state.path;
+    return {
+      path: current,
+      mapReady: !!runtime.CW_MAP,
+      bladePaths: Array.from(document.querySelectorAll("[data-blade-path]"))
+        .map((el) => el.getAttribute("data-blade-path") ?? ""),
+      keyedItems: document
+        .querySelectorAll(`[data-blade-path="${current}"] .cn-item[data-key]`).length,
+    };
+  });
+
+  try {
+    await page.waitForFunction(() => {
+      // SAFETY: The scenario fixture establishes this test-only contract before the value is consumed.
+      const runtime = window as MembersRollRuntime;
+      if (!runtime.CW_MAP) return false;
+      const current = runtime.CW_APP.state.path;
+      return document
+        .querySelectorAll(`[data-blade-path="${current}"] .cn-item[data-key]`).length > 0;
+    }, undefined, { timeout: 10_000 });
+  } catch (cause) {
+    // Name the state that never converged. A bare timeout here cost a CI cycle
+    // to diagnose and still did not say which of the two mismatches it hit.
+    const observed = await probe();
+    throw new Error(
+      `members roll requested at ${path} never rendered keyed rows: ${JSON.stringify(observed)}`,
+      { cause },
+    );
+  }
 }
 
 When("I open the board members roll", async function () {
