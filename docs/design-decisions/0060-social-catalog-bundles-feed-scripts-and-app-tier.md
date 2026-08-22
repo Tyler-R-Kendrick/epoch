@@ -1,4 +1,4 @@
-# ADR-0059: Social catalog, community bundles, feed-skeleton scripts, and a reserved app tier
+# ADR-0060: Social catalog, community bundles, feed-skeleton scripts, and a reserved app tier
 
 - Status: Proposed
 - Date: 2026-08-22
