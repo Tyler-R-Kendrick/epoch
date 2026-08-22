@@ -68,6 +68,24 @@
     <div class="cw-live-preflight" data-live-preflight hidden></div>
     <div class="cw-live-row" data-live-controls></div>
   </section>
+  <!-- Spectator view. Static like the host panel and for the same reason: a
+       spectator cannot verify anything themselves, so the account this region
+       gives of its own state is the only thing they have. A manifest must not
+       be able to remove it or reword what it says about gaps. -->
+  <section class="cw-spec" data-live-spectator role="region" aria-labelledby="cw-spec-title" hidden>
+    <h2 id="cw-spec-title" class="cw-spec-title">Watching</h2>
+    <p class="cw-spec-creed" data-spec-creed>
+      You are seeing the actions this session chose to publish, in the order it released them.
+      Anything missing is named below — never quietly filled in.
+    </p>
+    <p class="cw-spec-status" data-spec-status role="status"></p>
+    <p class="cw-spec-gap" data-spec-gap role="status" hidden></p>
+    <dl class="cw-spec-facts" data-spec-facts></dl>
+    <!-- role="log": an append-only stream announced politely, so a new release
+         is spoken without stealing focus from whatever is being read. -->
+    <ol class="cw-spec-feed" data-spec-feed role="log" aria-live="polite" aria-relevant="additions"
+      aria-label="Released actions"></ol>
+  </section>
 </aside>
 
 <!-- Compose: prompt an interface change, see what it does, then decide.
@@ -223,6 +241,7 @@
 <script src="theme.js"></script>
 <script src="workspace.js"></script>
 <script src="live.js"></script>
+<script src="live-spectator.js"></script>
 <script src="compose.js"></script>
 <script src="openui-parser.js"></script>
 <script src="openui-library.js"></script>

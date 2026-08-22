@@ -293,6 +293,172 @@ const CASES = [
     },
   },
   {
+    name: "LIVE-SPEC-001 a spectator sees released actions in order and is told about a hole",
+    run: async (page, log) => {
+      const probe = await page.evaluate(() => {
+        // Real envelopes from the shared publisher: a hand-made one would not
+        // carry a verifiable digest, and the projection would rightly refuse it.
+        const R = window.CW_RUNTIME;
+        const policy = R.normalizeLivePublicationPolicy({
+          visibility: "community",
+          presentationViewRef: "views/present",
+          allowedPathPatterns: ["packages/app/**"],
+          allowedActionIds: ["view.open"],
+        });
+        let clock = 0;
+        const publisher = R.createLivePresentationPublisher({
+          sessionId: "live-spec",
+          policy: policy.policy,
+          catalog: R.createLiveActionCatalog({ "view.open": { streamSafe: true, replayEffect: "presentation-local" } }),
+          sessionSalt: "spec-entropy",
+          now: () => { clock += 10; return clock; },
+        });
+        for (const view of ["one", "two", "three"]) {
+          publisher.capture({
+            actorId: "host", actionId: "view.open", args: { view },
+            path: "packages/app/board.ts", sourceEventIds: [], sourceViewRef: "views/present", sourceVerified: true,
+          });
+        }
+        const released = publisher.release();
+
+        window.CW_LIVE_SPECTATOR.reset();
+        window.CW_LIVE_SPECTATOR.watch("live-spec");
+        // Deliver the first and the third: the second is the hole.
+        window.CW_LIVE_SPECTATOR.receive(released[0]);
+        window.CW_LIVE_SPECTATOR.receive(released[2]);
+
+        const host = document.querySelector("[data-live-spectator]");
+        const gapEl = host.querySelector("[data-spec-gap]");
+        return {
+          releasedCount: released.length,
+          sequences: released.map((envelope) => envelope.sequence),
+          state: window.CW_LIVE_SPECTATOR.state(),
+          gaps: window.CW_LIVE_SPECTATOR.gaps(),
+          gapHidden: gapEl.hidden,
+          gapText: gapEl.textContent,
+          statusText: host.querySelector("[data-spec-status]").textContent,
+          feedCount: host.querySelectorAll("[data-spec-feed] .cw-spec-entry").length,
+        };
+      });
+
+      if (probe.releasedCount !== 3) return log("publisher did not release three: " + JSON.stringify(probe));
+      if (probe.state.lastSequence !== 1) {
+        return log("a hole must not advance the applied sequence: " + JSON.stringify(probe));
+      }
+      if (probe.state.pendingCount !== 1) {
+        return log("the early envelope must be held, not applied: " + JSON.stringify(probe));
+      }
+      if (!probe.gaps.length || probe.gapHidden) {
+        return log("the hole was not surfaced: " + JSON.stringify(probe));
+      }
+      if (!/Missing #2/.test(probe.gapText)) return log("the gap does not name what is missing: " + JSON.stringify(probe));
+      if (!/not showing you everything/i.test(probe.statusText)) {
+        return log("status does not admit being out of sync: " + JSON.stringify(probe));
+      }
+      return true;
+    },
+  },
+  {
+    name: "LIVE-SPEC-002 resyncing from a checkpoint closes the hole and never invents the missing state",
+    run: async (page, log) => {
+      const probe = await page.evaluate(() => {
+        const R = window.CW_RUNTIME;
+        const policy = R.normalizeLivePublicationPolicy({
+          visibility: "community",
+          presentationViewRef: "views/present",
+          allowedPathPatterns: ["packages/app/**"],
+          allowedActionIds: ["view.open"],
+        });
+        let clock = 0;
+        const publisher = R.createLivePresentationPublisher({
+          sessionId: "live-spec",
+          policy: policy.policy,
+          catalog: R.createLiveActionCatalog({ "view.open": { streamSafe: true, replayEffect: "presentation-local" } }),
+          sessionSalt: "spec-entropy",
+          now: () => { clock += 10; return clock; },
+        });
+        for (const view of ["one", "two"]) {
+          publisher.capture({
+            actorId: "host", actionId: "view.open", args: { view },
+            path: "packages/app/board.ts", sourceEventIds: [], sourceViewRef: "views/present", sourceVerified: true,
+          });
+        }
+        publisher.release();
+        const checkpoint = publisher.checkpoint();
+        publisher.capture({
+          actorId: "host", actionId: "view.open", args: { view: "three" },
+          path: "packages/app/board.ts", sourceEventIds: [], sourceViewRef: "views/present", sourceVerified: true,
+        });
+        const after = publisher.release();
+
+        window.CW_LIVE_SPECTATOR.reset();
+        window.CW_LIVE_SPECTATOR.watch("live-spec");
+        const results = window.CW_LIVE_SPECTATOR.resync(checkpoint, after);
+        const host = document.querySelector("[data-live-spectator]");
+        return {
+          checkpointSequence: checkpoint.sequence,
+          results: results.map((result) => result.kind),
+          state: window.CW_LIVE_SPECTATOR.state(),
+          gaps: window.CW_LIVE_SPECTATOR.gaps(),
+          gapHidden: host.querySelector("[data-spec-gap]").hidden,
+          statusText: host.querySelector("[data-spec-status]").textContent,
+        };
+      });
+
+      // A late joiner adopts the checkpoint, so the state before it is not
+      // replayed as if it had been watched — it is simply where they start.
+      if (probe.checkpointSequence !== 2) return log("checkpoint not at the released head: " + JSON.stringify(probe));
+      if (probe.state.lastSequence !== 3) return log("resync did not converge: " + JSON.stringify(probe));
+      if (probe.gaps.length || !probe.gapHidden) {
+        return log("a resynced spectator still claims a hole: " + JSON.stringify(probe));
+      }
+      if (!/In sync through #3/.test(probe.statusText)) {
+        return log("status does not state where the reader actually is: " + JSON.stringify(probe));
+      }
+      return true;
+    },
+  },
+  {
+    name: "LIVE-SPEC-003 the spectator surface states its account and cannot be arranged away",
+    run: async (page, log) => {
+      const probe = await page.evaluate(() => {
+        const host = document.querySelector("[data-live-spectator]");
+        const feed = host.querySelector("[data-spec-feed]");
+        const mount = document.querySelector("[data-mount]");
+        return {
+          isSlot: host.hasAttribute("data-cw-slot"),
+          insideHarness: !!host.closest("[data-cw-harness]"),
+          insideMount: !!mount && mount.contains(host),
+          region: host.getAttribute("role"),
+          titled: host.getAttribute("aria-labelledby") === "cw-spec-title",
+          creed: host.querySelector("[data-spec-creed]").textContent.replace(/\s+/gu, " ").trim(),
+          feedRole: feed.getAttribute("role"),
+          feedLive: feed.getAttribute("aria-live"),
+          feedLabel: feed.getAttribute("aria-label"),
+          gapRole: host.querySelector("[data-spec-gap]").getAttribute("role"),
+        };
+      });
+
+      if (probe.isSlot) return log("spectator chrome is manifest-placed: " + JSON.stringify(probe));
+      if (!probe.insideHarness || probe.insideMount) {
+        return log("spectator chrome sits inside the morph mount: " + JSON.stringify(probe));
+      }
+      if (probe.region !== "region" || !probe.titled) {
+        return log("spectator region is not a labelled landmark: " + JSON.stringify(probe));
+      }
+      // role=log announces appends politely; assertive would interrupt a
+      // reader on every release, and off would hide the stream from them.
+      if (probe.feedRole !== "log" || probe.feedLive !== "polite" || !probe.feedLabel) {
+        return log("released actions are not an announced log: " + JSON.stringify(probe));
+      }
+      if (probe.gapRole !== "status") return log("a hole is not announced: " + JSON.stringify(probe));
+      if (!/never quietly filled in/i.test(probe.creed)) {
+        return log("the spectator is not told holes are named: " + JSON.stringify(probe));
+      }
+      return true;
+    },
+  },
+  {
     name: "HONEST-002 guest compose stays unsigned and /act lists promote",
     run: async (page, log) => {
       await go(page, "/projects/community/channels/general");

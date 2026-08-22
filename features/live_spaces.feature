@@ -85,3 +85,12 @@ Feature: Live Spaces
     Then the board reports the session unavailable and names what is missing
     And the board offers no publishing controls
     And the board still states that publication is semantic-only and cannot be recalled
+
+  @persona.github_open_source_contributor
+  Scenario: Spectator is told when the stream has a hole rather than shown a whole one
+    Given a live session has released a sequence of presentation envelopes
+    When a spectator receives an envelope out of order so one is missing
+    Then the board names the missing range and says it is not showing everything
+    And the board does not advance the applied sequence past the hole
+    When the spectator resynchronizes from a checkpoint
+    Then the board states where the reader now is

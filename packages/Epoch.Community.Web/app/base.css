@@ -813,6 +813,40 @@ body {
 .cw-live-act[disabled] { color: var(--cw-ink-faint); cursor: default; }
 [data-live-badge] { color: var(--cw-live); letter-spacing: .06em; }
 
+/* ── Spectator view ─────────────────────────────────────────────────────────
+ * Static chrome beside the host panel. The gap notice is the load-bearing
+ * element: it uses --cw-danger and is never conditioned away, because a
+ * stream that hides its holes is worse than one that visibly stalls.
+ */
+.cw-spec {
+  flex: 1 1 100%; display: flex; flex-direction: column; gap: .4rem;
+  padding: .5rem .6rem; border: 1px solid var(--cw-rule); background: var(--cw-surface);
+}
+/* An author `display` beats the UA `[hidden]` rule at equal specificity. */
+.cw-spec[hidden] { display: none; }
+.cw-spec-title { margin: 0; font-size: 1em; letter-spacing: .06em; }
+.cw-spec-creed { margin: 0; color: var(--cw-ink-dim); }
+.cw-spec-status { margin: 0; color: var(--cw-ink); }
+.cw-spec-status[data-kind="ok"] { color: var(--cw-signed); }
+.cw-spec-status[data-kind="unavailable"] { color: var(--cw-warn); }
+.cw-spec-status[data-kind="rejected"] { color: var(--cw-danger); }
+.cw-spec-gap { margin: 0; color: var(--cw-danger); }
+.cw-spec-facts { display: flex; flex-wrap: wrap; gap: 0 .8rem; margin: 0; }
+.cw-spec-fact { display: inline-flex; gap: .35rem; align-items: baseline; }
+.cw-spec-fact dt { color: var(--cw-ink-faint); }
+.cw-spec-fact dd { margin: 0; color: var(--cw-ink); }
+.cw-spec-feed {
+  display: flex; flex-direction: column; gap: .1rem;
+  margin: 0; padding: 0; list-style: none; max-block-size: 12rem; overflow-y: auto;
+}
+.cw-spec-entry { display: flex; gap: .5rem; align-items: baseline; }
+.cw-spec-seq { color: var(--cw-ink-faint); font-variant-numeric: tabular-nums; }
+.cw-spec-entry[data-kind="applied"] .cw-spec-label { color: var(--cw-ink); }
+/* Not-content outcomes read as dimmer than content, but are never absent. */
+.cw-spec-entry[data-kind="duplicate"] .cw-spec-label { color: var(--cw-ink-faint); }
+.cw-spec-entry[data-kind="skipped"] .cw-spec-label { color: var(--cw-ink-dim); }
+.cw-spec-entry[data-kind="quarantined"] .cw-spec-label { color: var(--cw-danger); }
+
 /* ── Compose panel ──────────────────────────────────────────────────────────
  * The prompt-to-proposal surface, and the theme garden inside it. Static
  * chrome: a generated revision fills slots, it never authors this.
