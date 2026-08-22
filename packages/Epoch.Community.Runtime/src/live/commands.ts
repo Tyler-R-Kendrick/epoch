@@ -22,6 +22,7 @@ import {
   type LiveSessionLifecycle,
 } from "./contracts";
 import { runLivePreflight, type LivePreflightReport } from "./publication-policy";
+import { evaluateLiveModeration, liveTelemetryRecord, projectLiveOperations } from "./moderation";
 import {
   createLiveActionCatalog,
   createLivePresentationPublisher,
@@ -180,6 +181,12 @@ export interface LiveSpaceApplicationPort {
   }): LiveOutcome;
   showSession(sessionId: string): LiveOutcome;
   listSessions(): LiveOutcome;
+  /**
+   * Operational standing and privacy-preserving counters for one session.
+   * Read-only, and deliberately carries no principal ids, paths, or arguments:
+   * an operations projection is delivered to browsers.
+   */
+  operations(sessionId: string): LiveOutcome;
   bindThread(input: {
     readonly sessionId: string;
     readonly actor: string;
@@ -465,6 +472,35 @@ export function createLocalLiveSpacePort(options: LocalLiveSpacePortOptions): Li
 
     listSessions() {
       return { data: [...sessions.values()].map(snapshot) };
+    },
+
+    operations(sessionId) {
+      const session = requireSession(sessionId);
+      const state = session.publisher.state();
+      const quarantinedCount = session.publisher.quarantined().length;
+      const mediaLabel = mediaGateway === undefined ? "provider-disabled" : "experimental";
+      const projection = projectLiveOperations({
+        sessionId: session.sessionId,
+        lifecycle: session.lifecycle,
+        health: state.health,
+        releasedThroughSequence: state.sequence,
+        quarantinedCount,
+        mediaLabel,
+        // No caption provider is wired into this port, and saying so is the
+        // honest answer rather than inheriting the media label.
+        captionLabel: "provider-disabled",
+      });
+      const telemetry = liveTelemetryRecord({
+        lifecycle: session.lifecycle,
+        releasedCount: state.releasedCount,
+        quarantinedCount,
+        participantCount: session.participants.size,
+        // The publisher never reports a gap; gaps are a spectator-side
+        // observation, so this is honestly zero here rather than invented.
+        gapCount: 0,
+        mediaLabel,
+      });
+      return { data: { projection, telemetry } };
     },
 
     bindThread(input) {
@@ -756,12 +792,31 @@ export function createLocalLiveSpacePort(options: LocalLiveSpacePortOptions): Li
       };
     },
 
+    /**
+     * Recording a report is not moderating. The receipt says what a responder
+     * could still do and — more importantly — what nothing can do, because a
+     * reporter who believes the bytes were pulled back stops chasing copies.
+     */
     report(input) {
       const session = requireSession(input.sessionId);
       if (input.reason.trim().length === 0) fail("invalid-input", "a report requires a reason");
       const reportId = identifier("livereport", { sessionId: session.sessionId, index: session.reports.length });
       session.reports.push({ reportId, principalId: input.actor });
-      return { data: { reportId, recorded: true } };
+      const state = session.publisher.state();
+      const outcome = evaluateLiveModeration({
+        action: "pause",
+        lifecycle: session.lifecycle,
+        releasedThroughSequence: state.sequence,
+        sealed: session.lifecycle === "sealed",
+      });
+      return {
+        data: {
+          reportId,
+          recorded: true,
+          releasedThroughSequence: outcome.releasedThroughSequence,
+          cannotUndo: outcome.cannotUndo,
+        },
+      };
     },
 
     /**
@@ -937,6 +992,12 @@ export function createLiveSpaceCommandExtensions(
       descriptor: descriptor("live.session.list", "List Live Sessions known to this workspace.",
         "live.session.read", true, false, emptySchema()),
       run: withPort((live) => live.listSessions()),
+    },
+    {
+      descriptor: descriptor("live.session.operations",
+        "Report operational standing and privacy-preserving counters for one session.",
+        "live.session.read", true, false, schema({ sessionId: stringProperty("Live session id.") }, ["sessionId"])),
+      run: withPort((live, input) => live.operations(requiredString(input, "sessionId"))),
     },
     {
       descriptor: descriptor("live.session.bindThread",

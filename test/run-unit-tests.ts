@@ -18,6 +18,7 @@ import { runCommunitySqliteSearchTests } from "./unit/community-sqlite-search.te
 import { runCommunitySearchCliTests } from "./unit/community-search-cli.test";
 import { runCliLiveRemoteTests } from "./unit/cli-live-remote.test";
 import { runLiveSpacesCommunityBindingTests } from "./unit/live-spaces-community-binding.test";
+import { runLiveSpacesModerationTests } from "./unit/live-spaces-moderation.test";
 import { runCommunityWebRenderParityTests } from "./unit/community-web-render-parity.test";
 import { runCommunityWebAppThemeTests } from "./unit/community-web-app-themes.test";
 import { runCommunityWebAppWebMcpTests } from "./unit/community-web-app-webmcp.test";
@@ -137,6 +138,7 @@ async function main(): Promise<void> {
   await runCommunitySearchCliTests();
   await runCliLiveRemoteTests();
   await runLiveSpacesCommunityBindingTests();
+  await runLiveSpacesModerationTests();
   await runCommunityApiProjectionTests();
   await runCommunityCoverageTests();
   await runCommunityRuntimeTests();

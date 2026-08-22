@@ -34,6 +34,8 @@ import {
   type LiveSessionSnapshot,
   type LiveSpaceApplicationPort,
   type LiveSpectatorProjection,
+  type LiveOperationsProjection,
+  type LiveTelemetryRecord,
 } from "@epoch/community-runtime";
 
 interface PublishDecisionData {
@@ -74,6 +76,8 @@ interface LiveWorld {
   forkLogHead?: string;
   boardBus?: CommunityCommandBus;
   boardReceipt?: EpochCommandReceipt;
+  liveReport?: ReportData;
+  liveOperations?: OperationsData;
 }
 
 let world: LiveWorld = { createdDirs: [] };
@@ -705,4 +709,65 @@ When("the spectator resynchronizes from a checkpoint", function () {
 Then("the board states where the reader now is", function () {
   const spectator = world.spectator ?? (() => { throw new Error("no spectator in scope"); })();
   assert.equal(spectator.state().lastSequence, 3, "a resynced reader converges on the released head");
+});
+
+
+// ------------------------------------------- moderation, operations, telemetry
+
+interface ReportData {
+  readonly reportId: string;
+  readonly recorded: boolean;
+  readonly releasedThroughSequence: number;
+  readonly cannotUndo: readonly string[];
+}
+
+interface OperationsData {
+  readonly projection: LiveOperationsProjection;
+  readonly telemetry: LiveTelemetryRecord;
+}
+
+When("a responder reports the session", async function () {
+  const outcome = await port().report({
+    sessionId: sessionId(), actor: GUEST, reason: "a participant published something they should not have",
+  });
+  // SAFETY: the local live space port returns report receipt data.
+  world.liveReport = outcome.data as ReportData;
+  const operations = await port().operations(sessionId());
+  // SAFETY: the local live space port returns the operations projection and telemetry record.
+  world.liveOperations = operations.data as OperationsData;
+});
+
+Then("the receipt names the released sequence and states that released bytes cannot be recalled", function () {
+  const report = world.liveReport ?? (() => { throw new Error("no report in scope"); })();
+  assert.equal(report.recorded, true);
+  assert.equal(report.releasedThroughSequence, 1, "one allow-listed action reached the audience");
+  // The reporter must not read this as "handled". A responder who believes the
+  // bytes were pulled back stops chasing the copies that still exist.
+  assert.match(report.cannotUndo.join(" "), /cannot be recalled/u);
+});
+
+Then("the operations projection reports the worst component rather than an average", function () {
+  const operations = world.liveOperations ?? (() => { throw new Error("no operations in scope"); })();
+  assert.equal(operations.projection.overall, "provider-disabled",
+    "a disabled media provider must set the overall label, not be averaged away");
+  assert.equal(operations.projection.quarantinedCount, 1);
+  assert.match(operations.projection.attention.join(" "), /refused before release/u);
+});
+
+Then("the operations projection carries no principal ids, paths, or action arguments", function () {
+  const operations = world.liveOperations ?? (() => { throw new Error("no operations in scope"); })();
+  const serialized = JSON.stringify(operations.projection);
+  assert.equal(serialized.includes(SECRET), false, "a refused secret must never reach an operations panel");
+  assert.equal(serialized.includes("packages/app/board.ts"), false, "paths are content");
+  assert.equal(serialized.includes(HOST), false, "principals are not operational standing");
+});
+
+Then("the telemetry record carries counts and declared labels but no session id", function () {
+  const operations = world.liveOperations ?? (() => { throw new Error("no operations in scope"); })();
+  const telemetry = operations.telemetry;
+  assert.equal(telemetry.releasedCount, 1);
+  assert.equal(telemetry.quarantinedCount, 1);
+  assert.equal(telemetry.mediaLabel, "provider-disabled");
+  // A session id plus a timestamp is a re-identifier, so the shape omits it.
+  assert.equal(JSON.stringify(telemetry).includes(sessionId()), false);
 });

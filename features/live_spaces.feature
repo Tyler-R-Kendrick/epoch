@@ -94,3 +94,13 @@ Feature: Live Spaces
     And the board does not advance the applied sequence past the hole
     When the spectator resynchronizes from a checkpoint
     Then the board states where the reader now is
+
+  @persona.security_compliance_responder
+  Scenario: Responder is told what a report cannot undo
+    Given a live session is publishing from an allow-listed application path
+    When the host's tooling emits an action whose nested arguments carry an API key
+    And a responder reports the session
+    Then the receipt names the released sequence and states that released bytes cannot be recalled
+    And the operations projection reports the worst component rather than an average
+    And the operations projection carries no principal ids, paths, or action arguments
+    And the telemetry record carries counts and declared labels but no session id

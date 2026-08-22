@@ -28,5 +28,6 @@ export * from "./live/presentation-log";
 export * from "./live/transport";
 export * from "./live/commands";
 export * from "./live/client";
+export * from "./live/moderation";
 export * from "./board-honesty";
 export * from "./atproto-oauth";

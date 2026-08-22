@@ -427,8 +427,62 @@ notice is a `role="status"`. Both live in `board.html` beside the host panel
 and outside the morph mount, so no generated revision can remove them or
 reword what they say about holes.
 
+## Moderation, operations, telemetry
+
+Three surfaces owed to people who are not the host. They share one file
+(`live/moderation.ts`) because they share one rule: none of them may overstate
+what the system did.
+
+**A report is not a recall.** `report` records who raised what, and its receipt
+carries `releasedThroughSequence` alongside a `cannotUndo` list. Once anything
+has been released that list is never empty — it says in the operator's own
+words that released envelopes are already public, that spectators may hold
+copies, and that they cannot be recalled. This is stated in the same receipt as
+the effect rather than in documentation a responder can skip, because a
+reporter who believes the bytes were pulled back stops chasing the copies that
+still exist.
+
+Every moderation action `evaluateLiveModeration` knows about — pause, revoke a
+participant, end the session, quarantine an action id — is forward-looking.
+None of them reaches an audience's machine, and the outcome names the future it
+restrains rather than implying a past it repairs. A sealed session reports
+`applied: false` with no effects at all: there is nothing further to restrain,
+and reporting a quiet success would be the same lie as a spinner that never
+resolves.
+
+**Operations health is worst-first.** `live.session.operations` is a read-only
+command (`live.session.read`) that projects one session's standing: lifecycle,
+released sequence, quarantine count, and the media and caption labels exactly
+as the providers declared them. The overall label is the *least* reassuring
+component, never an average, so a disabled media provider cannot be smoothed
+into a green panel by a healthy transport. A label the projection does not
+recognise is treated as the worst case — guessing "probably fine" about an
+unknown provider state is how an operations panel starts lying.
+
+The projection carries no principal ids, no paths, and no action arguments. It
+is delivered to browsers, and the fastest way to leak a session's content is to
+put it on a dashboard. A feature scenario publishes a secret-bearing action
+into a session and asserts the serialized projection contains neither the
+secret, nor the published path, nor the host's principal id.
+
+**Telemetry answers "is the feature working", not "what did that person do".**
+`liveTelemetryRecord` returns a closed, enumerated shape: lifecycle, released
+count, quarantined count, participant count, gap count, media label. The fields
+are enumerated rather than copied from a session, so adding a field to a
+session can never widen telemetry by accident. There is deliberately no session
+id: a session id plus a timestamp is a re-identifier, linking a person's
+activity across records that were supposed to be aggregate.
+
 ## Honest limitations
 
+- Moderation is forward-looking only. Pause, revoke, end and quarantine
+  restrain what happens next; nothing in this feature reaches a spectator's
+  machine, and the receipts say so rather than implying otherwise.
+- `live.session.operations` reports the local port's own view. It has no
+  cross-deployment aggregation and no history, so it answers "how is this
+  session standing right now", not "how has this deployment behaved".
+- The telemetry record is built but not emitted anywhere. No exporter, sink, or
+  sampling policy ships, so today it is a shape with tests, not a pipeline.
 - Released public bytes may be copied by spectators and **cannot be
   recalled**; revocation and retention stop future access and delete
   controlled copies only. Pre-publication filtering is the boundary.
