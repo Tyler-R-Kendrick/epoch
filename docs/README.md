@@ -142,6 +142,8 @@ decisions, operations, or contribution workflow.
 | [ADR-0056: Vendored anti-slop Oxlint rules for agent-authored TypeScript](design-decisions/0056-anti-slop-oxlint.md) | Vendor anti-slop as Oxlint JS-plugin rules; required in `gate:fast` and CI Lint alongside ESLint. |
 | [ADR-0057: Community Channel Nav Badges Show Active Presence](design-decisions/0057-community-channel-nav-presence-badges.md) | Channel nav badges count active members per room from declared presence and live `channel.presence` events, never subscriber counts. |
 | [ADR-0058: Lua-Scriptable Generative UI Customization](design-decisions/0058-lua-scriptable-generative-ui-customization.md) | Proposed wasmoon pooled Lua runtime, extended OpenUI catalog and spec abstraction, DTCG `--cw-*` token overlays, three-tier CONTRACT amendment, advisory `view` extension distribution, and persisted GraphQL operations. |
+| [ADR-0059: Live Spaces — Signed Semantic Live Sessions Over Spaces](design-decisions/0059-live-spaces-semantic-sessions.md) | Signed live-session lifecycle over existing Spaces, fail-closed recursive publication engine, deterministic presentation log with checkpoints and exact-point forking, and provider-neutral optional media ports. |
+| [Live Spaces](live-spaces.md) | The Live Spaces architecture: what ships, security modes, the publication security engine, ordering/replay/fork behavior, threat model summary, and honest limitations. |
 | [Fuzz Lanes And Corpora](../test/fuzz/README.md) | How smoke, fast-check, Jazzer.js, corpora, and regression promotion relate. |
 | [Dependency Exceptions](dependency-exceptions.md) | Security-sensitive dependency overrides and rationale. |
 

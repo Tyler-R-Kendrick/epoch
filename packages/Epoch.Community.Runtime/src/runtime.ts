@@ -1,5 +1,5 @@
 import type { EpochIntegrationStorage } from "@epoch/integration-core";
-import { createCommunityCommandBus, type CommunityCommandBus, type EpochPolicySet } from "./commands";
+import { createCommunityCommandBus, type CommunityCommandBus, type EpochCommandExtension, type EpochPolicySet } from "./commands";
 import { createStaticHarnessRelease, type StaticHarnessRelease } from "./harness";
 import type { EpochCommandReceipt, EpochCommandSource } from "./receipts";
 import type { DynamicUiManifest } from "./ui";
@@ -25,6 +25,8 @@ export interface CreateCommunityRuntimeOptions {
   readonly initialManifest?: DynamicUiManifest;
   /** Injected so receipts stay reproducible in tests and deterministic replays. */
   readonly now?: () => string;
+  /** Additional command families (for example Live Spaces) on the same bus. */
+  readonly extensions?: readonly EpochCommandExtension[];
 }
 
 export interface CommunityRuntime {
@@ -55,6 +57,7 @@ export function createCommunityRuntime(options: CreateCommunityRuntimeOptions): 
     policies: options.policies ?? readOnlyPolicies,
     defaultSource: options.defaultSource ?? "sdk",
     now: options.now ?? (() => new Date().toISOString()),
+    ...(!(options.extensions === undefined) && { extensions: options.extensions }),
     onReceipt: (receipt) => {
       for (const listener of listeners) listener(receipt);
     },
