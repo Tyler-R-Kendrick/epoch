@@ -43,6 +43,14 @@ const mutants = [
     replace: "  return false;",
   },
   {
+    // `?` goes back to reaching the compiled expression as a quantifier, so a
+    // deny rule spelled `**/secret?.txt` releases `secrets.txt` again.
+    name: "single-char-glob-is-a-quantifier",
+    file: POLICY,
+    find: '    .replaceAll("?", "\\0chr\\0")\n',
+    replace: '',
+  },
+  {
     // Unverified captures enter the stream: publication stops requiring that
     // the source attested against signed history.
     name: "unverified-source-accepted",

@@ -599,8 +599,29 @@ credential also eats ordinary prose, and a filter that swallows a session's
 legitimate content gets turned off, which protects nobody. Key-name matching
 remains the primary defence; this is the second line for when the label lies.
 
+### What review of the pattern compiler found
+
+Path patterns are compiled to a regular expression by turning wildcards into
+placeholders, escaping what remains, then expanding the placeholders. `?` was
+not in either set, so it survived escaping and reached the compiled expression
+as a quantifier over the preceding character.
+
+The effect was worst in the direction that matters. A deny rule spelled
+`**/secret?.txt`, written to hide `secrets.txt`, compiled to `secret?` —
+"secre" followed by an optional "t" — so it released the file it named and hid
+`secre.txt` instead. A deny rule that fails open on its own subject is worse
+than no rule, because the author believes the file is covered.
+
+`?` is now a single-character glob and, like `*`, never spans a separator. The
+unit test asserts both directions, including the deny-path consequence, and a
+mutant that removes the placeholder step is killed by that test.
+
 ## Honest limitations
 
+- Path patterns support `*`, `**`, and `?`. There is no character-class or
+  brace syntax, and no way to express "not this" inside a single pattern —
+  negation exists only as a separate `!`-prefixed rule, which the immutable
+  baseline ignores by design.
 - Value-shaped secret detection covers named vendor formats and PEM blocks
   only. A bespoke or unprefixed credential — a raw password, an internal token
   with no distinguishing shape — is caught by its key name or not at all.
