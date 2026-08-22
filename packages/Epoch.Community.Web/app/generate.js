@@ -111,7 +111,10 @@
       status("The OpenUI parser did not load. Run build-openui.mjs to regenerate it.", "rejected");
       return;
     }
-    if (globalThis.CW_VALUE.isUndefined(LanguageModel)) {
+    // `window.LanguageModel`, not the bare global: a browser without the
+    // Prompt API has no such binding, so naming it directly throws a
+    // ReferenceError before this guard can report the fallback below.
+    if (globalThis.CW_VALUE.isUndefined(window.LanguageModel)) {
       status(
         "On-device generation is unavailable in this browser.\n\n" +
         "The OpenUI Lang system prompt is still available below — paste it into " +

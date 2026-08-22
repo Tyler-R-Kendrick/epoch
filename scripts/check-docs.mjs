@@ -147,4 +147,37 @@ if (orphanedDocs.length > 0) {
   process.exit(1);
 }
 
+// Two sessions that each pick "the next ADR number" off main pick the same
+// one. Nothing caught that: each branch is internally consistent, so lint,
+// links and reachability all pass on both sides, and the duplicate only
+// appears once the second one merges. Whichever branch updates second now
+// fails here instead, while renumbering is still cheap.
+const decisionsDir = path.join(repoRoot, "docs/design-decisions");
+if (fs.existsSync(decisionsDir)) {
+  const byNumber = new Map();
+  for (const entry of fs.readdirSync(decisionsDir)) {
+    const match = /^(\d{4})-.*\.md$/u.exec(entry);
+    if (match === null) {
+      continue;
+    }
+    const number = match[1];
+    const claimants = byNumber.get(number) ?? [];
+    claimants.push(entry);
+    byNumber.set(number, claimants);
+  }
+
+  const duplicates = [...byNumber.entries()]
+    .filter(([, claimants]) => claimants.length > 1)
+    .sort(([left], [right]) => left.localeCompare(right));
+
+  if (duplicates.length > 0) {
+    console.error("Design decisions claiming the same ADR number:");
+    for (const [number, claimants] of duplicates) {
+      console.error(`- ${number}: ${claimants.sort().join(", ")}`);
+    }
+    console.error("Renumber the record that claimed it later to the next free number.");
+    process.exit(1);
+  }
+}
+
 console.log(`Docs check passed: ${markdownFiles.length} Markdown files and ${discoverableFiles.length} docs/spec files checked.`);

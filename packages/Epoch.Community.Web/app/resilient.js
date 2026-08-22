@@ -50,7 +50,11 @@
    * stable — it can change between the check and the call.
    */
   async function availability() {
-    if (globalThis.CW_VALUE.isUndefined(LanguageModel)) return "absent";
+    // `window.LanguageModel`, not the bare global: a browser without the
+    // Prompt API has no such binding, so naming it directly throws a
+    // ReferenceError instead of reporting the absence this function exists
+    // to report.
+    if (globalThis.CW_VALUE.isUndefined(window.LanguageModel)) return "absent";
     try {
       var state = await LanguageModel.availability({
         expectedInputs: [{ type: "text", languages: ["en"] }],
