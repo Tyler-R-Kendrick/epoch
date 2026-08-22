@@ -33,6 +33,7 @@ export function runLiveSpacesPolicyTests(): void {
   immutableDenyBaselineCannotBeNegated();
   allowListStartsFromNothingVisible();
   recursiveSanitizerCatchesNestedSecrets();
+  credentialsAreRefusedUnderAnyKeyName();
   recursiveSanitizerRejectsHostileValues();
   recursiveSanitizerBoundsDepthAndSize();
   rewriteRulesAreConstrainedAndCompiledSafely();
@@ -321,5 +322,46 @@ function cipherOutputLeaksNoLengthAndPreflightIsHonest(): void {
       consentScopes: ["semantic-capture"],
     });
     assert.equal(report.startAllowed, false);
+  }
+}
+
+/**
+ * A credential filed under an honest label is caught by its key name. This is
+ * the other half: a credential filed under a lie.
+ *
+ * A property test published an AWS access key id under `view` and the stream
+ * released it, because the only value-shaped checks were a PEM block and a
+ * `Bearer` header. Vendor formats carry their own prefix, so the value can be
+ * refused on its own evidence without consulting the key at all.
+ */
+function credentialsAreRefusedUnderAnyKeyName(): void {
+  const context = contextOf();
+  // Innocuous key names throughout: the value is the only thing giving it away.
+  const credentials = [
+    "AKIAIOSFODNN7EXAMPLE",
+    "ASIAY34FZKBOKMUTVV7A",
+    "ghp_16C7e42F292c6912E7710c838347Ae178B4a",
+    "sk-live-51HxFuzzCredentialABCDEF",
+    "xoxb-2411-2415-abcdefghijklmno",
+    "AIzaSyD-1234567890abcdefghijklmnopqrstuv",
+    "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.dozjgNryP4J3jVmNHl0w5N_XgL0n3I9PlFUP0THsR8U",
+  ];
+  for (const credential of credentials) {
+    assert.deepEqual(sanitizeLiveArgs({ view: credential }, context),
+      { kind: "drop", reason: "immutable-deny" }, `released a credential under an innocuous key: ${credential}`);
+    assert.deepEqual(sanitizeLiveArgs({ note: { label: [credential] } }, context),
+      { kind: "drop", reason: "immutable-deny" }, `released a nested credential: ${credential}`);
+  }
+
+  // An OPENSSH block is the same material as a PEM one under a different header.
+  assert.deepEqual(sanitizeLiveArgs({ view: "-----BEGIN OPENSSH PRIVATE KEY-----" }, context),
+    { kind: "drop", reason: "immutable-deny" });
+
+  // Narrow on purpose: ordinary prose that merely resembles a prefix stays.
+  // A filter that eats a session's legitimate content gets turned off.
+  const ordinary = ["sk-1", "the AKIA prefix", "ghp_", "review skateboard designs", "xox"];
+  for (const text of ordinary) {
+    assert.equal(sanitizeLiveArgs({ view: text }, context).kind, "emit",
+      `refused ordinary text as if it were a credential: ${text}`);
   }
 }

@@ -379,9 +379,44 @@ export function isSecretKeyName(key: string): boolean {
   return SECRET_KEY_MARKERS.some((marker) => normalized.includes(marker));
 }
 
+/**
+ * Credential shapes that are recognisable on their own, without help from the
+ * key they were stored under.
+ *
+ * `isSecretKeyName` catches a credential filed under an honest label. Nothing
+ * caught it when the label lied: a property test published an AWS access key
+ * id under `view` and the publisher released it, because the only value-shaped
+ * checks were a PEM block and a `Bearer` header. These are the vendor formats
+ * that carry their own prefix and enough entropy after it to be unambiguous —
+ * matching one is not a guess about intent, it is the format saying what it is.
+ *
+ * Deliberately narrow. A pattern loose enough to catch every possible
+ * credential also drops ordinary prose, and a filter that eats a live session's
+ * legitimate content gets turned off, which protects nobody.
+ */
+const SECRET_VALUE_PATTERNS: readonly RegExp[] = Object.freeze([
+  // Authorization headers pasted into an argument.
+  /\bBearer\s+[A-Za-z0-9._~+/-]{8,}/u,
+  // AWS access key ids: a fixed four-character type prefix and 16 more.
+  /\b(?:AKIA|ASIA|AIDA|AROA|AIPA|ANPA|ANVA|ABIA|ACCA)[A-Z0-9]{16}\b/u,
+  // GitHub personal access, OAuth, user-to-server, server-to-server, refresh.
+  /\bgh[pousr]_[A-Za-z0-9]{16,}/u,
+  // OpenAI- and Anthropic-style secret keys.
+  /\bsk-[A-Za-z0-9_-]{16,}/u,
+  // Slack bot, app, personal, and legacy tokens.
+  /\bxox[abporse]-[A-Za-z0-9-]{10,}/u,
+  // Google API keys. Length is a range, not the exact 35 the format uses
+  // today: a filter that a one-character drift slips past is not a filter.
+  /\bAIza[A-Za-z0-9_-]{30,}/u,
+  // A signed JWT: three base64url segments, the first two JSON objects.
+  /\bey[A-Za-z0-9_-]{8,}\.ey[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}/u,
+]);
+
 function containsSecretMaterial(value: string): boolean {
-  if (value.includes("-----BEGIN") && value.includes("PRIVATE KEY")) return true;
-  return /\bBearer\s+[A-Za-z0-9._~+/-]{8,}/u.test(value);
+  // Any PEM-armoured private key, not only the ones spelled "PRIVATE KEY":
+  // an OPENSSH block is the same material under a different header.
+  if (value.includes("-----BEGIN") && /PRIVATE KEY|OPENSSH/u.test(value)) return true;
+  return SECRET_VALUE_PATTERNS.some((pattern) => pattern.test(value));
 }
 
 function isDictionary(value: DictionaryValue): value is { readonly [key: string]: DictionaryValue } {

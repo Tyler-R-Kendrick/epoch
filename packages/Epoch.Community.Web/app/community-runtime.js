@@ -4271,9 +4271,26 @@ ${source ?? ""}`.split("\n");
     const normalized = key.normalize("NFKC").toLowerCase().replaceAll(/[^a-z0-9]/gu, "");
     return SECRET_KEY_MARKERS.some((marker) => normalized.includes(marker));
   }
+  var SECRET_VALUE_PATTERNS = Object.freeze([
+    // Authorization headers pasted into an argument.
+    /\bBearer\s+[A-Za-z0-9._~+/-]{8,}/u,
+    // AWS access key ids: a fixed four-character type prefix and 16 more.
+    /\b(?:AKIA|ASIA|AIDA|AROA|AIPA|ANPA|ANVA|ABIA|ACCA)[A-Z0-9]{16}\b/u,
+    // GitHub personal access, OAuth, user-to-server, server-to-server, refresh.
+    /\bgh[pousr]_[A-Za-z0-9]{16,}/u,
+    // OpenAI- and Anthropic-style secret keys.
+    /\bsk-[A-Za-z0-9_-]{16,}/u,
+    // Slack bot, app, personal, and legacy tokens.
+    /\bxox[abporse]-[A-Za-z0-9-]{10,}/u,
+    // Google API keys. Length is a range, not the exact 35 the format uses
+    // today: a filter that a one-character drift slips past is not a filter.
+    /\bAIza[A-Za-z0-9_-]{30,}/u,
+    // A signed JWT: three base64url segments, the first two JSON objects.
+    /\bey[A-Za-z0-9_-]{8,}\.ey[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}/u
+  ]);
   function containsSecretMaterial(value) {
-    if (value.includes("-----BEGIN") && value.includes("PRIVATE KEY")) return true;
-    return /\bBearer\s+[A-Za-z0-9._~+/-]{8,}/u.test(value);
+    if (value.includes("-----BEGIN") && /PRIVATE KEY|OPENSSH/u.test(value)) return true;
+    return SECRET_VALUE_PATTERNS.some((pattern) => pattern.test(value));
   }
   function isDictionary(value) {
     return typeof value === "object" && value !== null && !Array.isArray(value);
