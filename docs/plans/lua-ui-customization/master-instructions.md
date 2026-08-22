@@ -208,6 +208,14 @@ convention with no new npm dependency, and the target is the vanilla-JS
   operation manifest. Scripts may reference only operation hashes declared in
   their own manifest. The dynamic in-browser engine remains for interactive
   use.
+- **(g) Reserved app tier** *(added by ADR-0059)*. A fourth customization tier
+  — reviewed, sandboxed-iframe apps on a platform-controlled origin, with a
+  message bridge instead of DOM access, host-minted scoped identity, declared
+  network egress, and the persisted-operation set as their entire query
+  surface — is NAMED and RESERVED, exactly as the Luau adapter slot in (a) is
+  reserved. No swarm implements it in this initiative; claiming the slot
+  requires its own ADR. A swarm that finds itself building an iframe host has
+  left this initiative's scope.
 
 ---
 
@@ -326,6 +334,21 @@ Clauses:
   one adapter. A future A2UI adapter is additive (§3(b)).
 - C3.5 LLM-facing output is constrained by the OpenUI Lang schema + Zod
   parse; free-form JSON prompting is not an accepted channel (T6).
+- C3.6 *(added by ADR-0059)* The catalog carries a named social-primitive set
+  beside the shipped `Panel` / `Post` / `Notice` / `Channel` / `Fact` /
+  `Theme` components: `PostCard`, `ThreadView`, `ChannelList`, `ChatLine`,
+  `AnswerBlock`, `VoteControls`, `LivePanel`, `BotCard`, `EmbedCard`,
+  `UserLine`. Each declares complete a11y fields and its allowed
+  `placementClass` set under C3.1; a member of the set missing either fails
+  the build exactly as any other component does.
+- C3.7 *(added by ADR-0059)* Consequential affordances on those components —
+  vote, accept answer, follow, repost, compose, send — are expressible only as
+  `IntentProposal`s under C8.1. No catalog component may bind a consequential
+  action to a script- or LLM-placed element in a way that commits without a
+  member gesture on platform chrome.
+- C3.8 *(added by ADR-0059)* `BotCard` carries a non-removable AI provenance
+  label: the label is a schema-required prop rendered by the host, not a
+  string the emitting script or model supplies or can suppress.
 
 ### C4 — Script manifest (extends the Epoch.Extensions manifest)
 
@@ -473,6 +496,65 @@ Clauses:
 Every swarm reports in exactly the §10 format. Every REQ row in §7 names a
 gate command from §1.2. A claim without its gate's exit code is REJECTED
 (§0).
+
+### C13 — Community bundle manifest *(added by ADR-0059)*
+
+```ts
+export type BundleMemberKind = "overlay" | "css-tier" | "script" | "bot";
+
+export interface BundleMember {
+  readonly kind: BundleMemberKind;
+  readonly hash: string;   // sha256 of the member artifact; installs resolve by hash only
+  readonly name: string;   // human label; not load-bearing
+}
+
+export interface BundleManifest {
+  readonly kind: "bundle";
+  readonly tier: "advisory";
+  readonly publisher: string;
+  readonly signature: string;
+  readonly members: ReadonlyArray<BundleMember>;
+}
+```
+
+Clauses:
+- C13.1 A bundle is an Epoch.Extensions citizen. Publisher identity, signing,
+  rotation, revocation, staged rollout, and reputation are the C9 machinery
+  unchanged; a bundle introduces no distribution or identity system of its own.
+- C13.2 Members are content-hash-pinned. Installation resolves each member by
+  `hash`; a member whose bytes do not match its declared hash fails the whole
+  bundle install, and no member installs partially.
+- C13.3 Each member installs through the machinery its kind already has:
+  `script` members through C4 manifest validation, `overlay` members through
+  the C6 resolver and its contrast floor, `css-tier` members through the C5
+  sanitizer, `bot` members through the C9.5 agent-principal path.
+- C13.4 Killbit granularity is both bundle and member. Killing either leaves a
+  typed tombstone at the installed position and notifies, per C9.2; a killed
+  member cannot be re-enabled by reinstalling its bundle.
+- C13.5 The store install surface shows a bundle's full member list, by kind
+  and name, before the install gesture. A bundle never installs members it did
+  not disclose.
+
+### C14 — Feed-skeleton interface *(added by ADR-0059)*
+
+```ts
+export interface SkeletonItem { readonly id: string; readonly reason?: string; }
+export interface SkeletonBatch { readonly items: ReadonlyArray<SkeletonItem>; }
+```
+
+Clauses:
+- C14.1 A `view`-kind script may return one `SkeletonBatch` per dispatch under
+  the same C2 rules as `SpecMutationBatch`: one round trip, transactional
+  application, whole-batch rejection on any invalid item.
+- C14.2 Skeleton output is identifiers only. A script never returns hydrated
+  content, and never receives content in its snapshot that it was not already
+  granted through its declared persisted operations (C4.3).
+- C14.3 The host hydrates identifiers through its own persisted operations and
+  applies blocks, labels, and permission checks after hydration. Hydration is
+  never delegated to the script.
+- C14.4 Skeleton output is advisory: it orders items the requesting member can
+  already see. An identifier the member cannot see is dropped at hydration, and
+  dropping is not observable to the script as a distinct outcome.
 
 ---
 
@@ -884,10 +966,19 @@ exited 0 on the merged tree and the owning swarm's report quotes it.
 | REQ-8 | Security red team: real CSP, adversarial corpus with zero-mechanism control, fuzz + mutants | C8 policy + corpus + lanes | `npm test` and `npm run fuzz:fast-check` | S8 |
 | REQ-9 | A11y/design gates: lint/audit/axe extended to generated subtrees; persona Gherkin green | C10 floor + S9 extensions | `npm run community-web:app:a11y-lint` and `npm run community-web:app:design-lint` and `npm run a11y:community-web` | S9 |
 | REQ-10 | Docs/governance/verify: tier amendment, ADRs, goldens, inventory/matrix, full verify | C11 + C12 | `npm run docs:check` and `npm run verify` | S10 |
+| REQ-11 *(ADR-0059)* | Social catalog set ships with complete a11y fields, placement sets, gesture-only consequential actions, and a host-rendered `BotCard` provenance label | C3.6–C3.8 catalog + renderer | `npm run community-web:app:parity` | S3 |
+| REQ-12 *(ADR-0059)* | Bundles: hash-pinned members, per-kind install paths, bundle- and member-granular killbit with tombstone, disclosed member list before install | C13 on Epoch.Extensions | `npm run test:unit:runtime` | S7 |
+| REQ-13 *(ADR-0059)* | Feed skeletons: identifier-only output under one round trip, host-side hydration with blocks/labels/permissions applied after hydration | C14 bridge + hydration ops | `npm run test:unit:runtime` | S2 |
 
 Contract consumption coverage (each C consumed by ≥1 swarm): C0 all; C1 S1/S8;
 C2 S2/S8; C3 S2/S3/S9; C4 S1/S6/S7; C5 S4/S8/S9; C6 S5/S9; C7 S2/S6;
 C8 S2/S3/S8; C9 S7/S8; C10 S3/S4/S5/S9; C11 S7/S10; C12 S10/all.
+*(Added by ADR-0059)* C13 S7; C14 S2/S6. The social catalog clauses C3.6–C3.8
+are consumed by S3 (catalog and renderer) and S9 (a11y and design lint) inside
+their existing globs; C13 falls to S7's distribution/trust globs, including the
+bundle surface in `app/script-store.js`; C14 splits across S2's bridge globs
+(skeleton batch handling) and S6's persisted-operation globs (hydration ops).
+No new glob ownership is created, so §5 is unchanged.
 
 ---
 
