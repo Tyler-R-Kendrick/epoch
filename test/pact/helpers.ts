@@ -9,6 +9,7 @@ export const PACT_DIR = join(process.cwd(), "pacts");
 export const PactConsumers = {
   communityCore: "Epoch.Community.Core",
   epochCoreGossip: "Epoch.Core.GossipClient",
+  cliLiveSpaces: "Epoch.CLI.LiveSpaceClient",
 } as const;
 
 export const PactProviders = {

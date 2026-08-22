@@ -473,8 +473,72 @@ session can never widen telemetry by accident. There is deliberately no session
 id: a session id plus a timestamp is a re-identifier, linking a person's
 activity across records that were supposed to be aggregate.
 
+## Cross-surface proof
+
+Three lanes, each proving something the others cannot.
+
+**Contract (Pact).** The CLI's Live Space port is a real consumer of the
+deployment's live routes, so it drives a consumer-driven contract
+(`Epoch.CLI.LiveSpaceClient` → `Epoch.Community.API`) rather than a hand-rolled
+request nobody ships. Four interactions pin the parts a surface would silently
+misread: where the receipt lives on a read, that the command kind travels in
+the body rather than the path, that a refusal is a 403 carrying the
+deployment's own reason instead of a transport error, and — by declaring no
+interaction for it at all — that asking for a media credential never reaches
+the network. If the port ever did reach for that route, the mock server would
+record an unexpected request and fail. Provider verification composes the live
+routes and the Community API handler on one server, exactly as a deployment
+mounts them.
+
+**Property (fast-check).** Two invariants that hand-written cases cannot
+cover, because both are about inputs nobody thought of:
+
+- *Nothing an author typed reaches an audience if the policy denies it.* The
+  generator emits arguments up to three levels deep, mixing ordinary values
+  with credentials under keys that read as harmless. The assertion is over the
+  serialized envelope set and the quarantine records, not over named fields — a
+  leak that arrives somewhere nobody thought to check is the leak worth
+  catching.
+- *A reader is never silently behind.* For any permutation of a released set,
+  with duplicates and drops, the reader's reported position equals the
+  contiguous run it actually received, nothing is applied twice, and anything
+  past a hole is held rather than discarded or applied.
+
+The first property found a real defect on its first run, described below.
+
+**Scenario (Gherkin) and unit tests** carry the cases with a named persona
+behind them. Nothing here replaces those; the generated lanes exist because a
+security filter is only as good as the shapes it has seen.
+
+### What the property lane found
+
+The value-shaped secret check recognised exactly two things: a PEM private-key
+block and a `Bearer` header. Everything else relied on `isSecretKeyName`,
+which reads the *key* a value was filed under. A credential filed under an
+honest label (`apiKey`, `token`) was refused; the same credential filed under
+`view` or `note` was published.
+
+The property published an AWS access key id under `view` and the stream
+released it. `containsSecretMaterial` now also refuses the vendor formats that
+carry their own prefix and enough entropy after it to be unambiguous — AWS
+access key ids, GitHub tokens, `sk-` style keys, Slack tokens, Google API keys,
+signed JWTs — and any PEM-armoured private key, not only the ones spelled
+"PRIVATE KEY".
+
+It stays deliberately narrow. A pattern loose enough to catch every possible
+credential also eats ordinary prose, and a filter that swallows a session's
+legitimate content gets turned off, which protects nobody. Key-name matching
+remains the primary defence; this is the second line for when the label lies.
+
 ## Honest limitations
 
+- Value-shaped secret detection covers named vendor formats and PEM blocks
+  only. A bespoke or unprefixed credential — a raw password, an internal token
+  with no distinguishing shape — is caught by its key name or not at all.
+  Pre-publication policy, not pattern matching, is the boundary that holds.
+- The property lane runs a bounded number of cases per seed. It raises
+  confidence; it is not a proof, and a passing run is not evidence that no
+  counterexample exists.
 - Moderation is forward-looking only. Pause, revoke, end and quarantine
   restrain what happens next; nothing in this feature reaches a spectator's
   machine, and the receipts say so rather than implying otherwise.
