@@ -1650,6 +1650,7 @@ var CW_RUNTIME = (() => {
     DEFAULT_WEBMCP_EXCLUDED_KINDS: () => DEFAULT_WEBMCP_EXCLUDED_KINDS,
     EpochCommandError: () => EpochCommandError,
     IMMUTABLE_LIVE_DENY_PATHS: () => IMMUTABLE_LIVE_DENY_PATHS,
+    LIVE_MODERATION_ACTIONS: () => LIVE_MODERATION_ACTIONS,
     LIVE_POLICY_BOUNDS: () => LIVE_POLICY_BOUNDS,
     LIVE_SANITIZER_BOUNDS: () => LIVE_SANITIZER_BOUNDS,
     STREAM_CIPHER_ALPHABET: () => STREAM_CIPHER_ALPHABET,
@@ -1684,6 +1685,7 @@ var CW_RUNTIME = (() => {
     digestOf: () => digestOf,
     ensureProject: () => ensureProject,
     evaluateLiveForkEligibility: () => evaluateLiveForkEligibility,
+    evaluateLiveModeration: () => evaluateLiveModeration,
     evaluateLivePath: () => evaluateLivePath,
     executeCommunityRuntimeCommand: () => executeCommunityRuntimeCommand,
     exportWorkspaceBundle: () => exportWorkspaceBundle,
@@ -1712,6 +1714,7 @@ var CW_RUNTIME = (() => {
     listFeeds: () => listFeeds,
     listProjects: () => listProjects,
     livePolicyDigest: () => livePolicyDigest,
+    liveTelemetryRecord: () => liveTelemetryRecord,
     nextLiveLifecycle: () => nextLiveLifecycle,
     normalizeAtprotoHandle: () => normalizeAtprotoHandle,
     normalizeLivePath: () => normalizeLivePath,
@@ -1726,6 +1729,7 @@ var CW_RUNTIME = (() => {
     policyReceipt: () => policyReceipt,
     preservedSearchAfterJump: () => preservedSearchAfterJump,
     projectEntity: () => projectEntity,
+    projectLiveOperations: () => projectLiveOperations,
     readProject: () => readProject,
     recordsOf: () => recordsOf,
     registerWebMcpTools: () => registerWebMcpTools,
@@ -4841,6 +4845,90 @@ ${source ?? ""}`.split("\n");
     };
   }
 
+  // packages/Epoch.Community.Runtime/src/live/moderation.ts
+  var LIVE_MODERATION_ACTIONS = ["pause", "revokeParticipant", "endSession", "quarantineAction"];
+  var FUTURE_EFFECT = {
+    pause: "release is held at the current sequence; nothing new reaches the audience",
+    revokeParticipant: "the participant's grant ends; their future publishes and media are denied",
+    endSession: "release stops and no further joins are accepted",
+    quarantineAction: "the action id is denied for the rest of the session"
+  };
+  function evaluateLiveModeration(input) {
+    const released = Math.max(0, Math.trunc(input.releasedThroughSequence));
+    const cannotUndo = [];
+    if (released > 0) {
+      cannotUndo.push(
+        `${released} released envelope(s) are already public; spectators may hold copies and they cannot be recalled`
+      );
+    }
+    if (input.sealed) {
+      cannotUndo.push("the replay manifest is sealed; its contents are immutable evidence and are not edited by moderation");
+    }
+    const applied = !input.sealed && !(input.lifecycle === "ended" && input.action === "pause");
+    const effects = applied ? [FUTURE_EFFECT[input.action]] : [];
+    if (!applied) {
+      cannotUndo.push(
+        input.sealed ? "a sealed session cannot be paused, revoked from, or ended: there is nothing further to restrain" : "the session has already ended; pausing it changes nothing"
+      );
+    }
+    return {
+      action: input.action,
+      effects,
+      cannotUndo,
+      releasedThroughSequence: released,
+      applied
+    };
+  }
+  var LABEL_SEVERITY = /* @__PURE__ */ new Map([
+    ["unavailable", 4],
+    ["degraded", 3],
+    ["provider-disabled", 2],
+    ["experimental", 1],
+    ["production", 0]
+  ]);
+  function severityOf(label) {
+    return LABEL_SEVERITY.get(label) ?? 4;
+  }
+  function projectLiveOperations(input) {
+    const candidates = [
+      input.health === "degraded" ? "degraded" : "production",
+      input.mediaLabel,
+      input.captionLabel
+    ];
+    const overall = candidates.reduce((worst, label) => severityOf(label) > severityOf(worst) ? label : worst, "production");
+    const attention = [];
+    if (input.health === "degraded") attention.push("presentation transport is degraded");
+    if (input.quarantinedCount > 0) {
+      attention.push(`${input.quarantinedCount} capture(s) were refused before release`);
+    }
+    if (severityOf(input.mediaLabel) > 0) attention.push(`media: ${input.mediaLabel}`);
+    if (severityOf(input.captionLabel) > 0) attention.push(`captions: ${input.captionLabel}`);
+    return {
+      sessionId: input.sessionId,
+      lifecycle: input.lifecycle,
+      releasedThroughSequence: Math.max(0, Math.trunc(input.releasedThroughSequence)),
+      quarantinedCount: Math.max(0, Math.trunc(input.quarantinedCount)),
+      mediaLabel: input.mediaLabel,
+      captionLabel: input.captionLabel,
+      overall,
+      attention
+    };
+  }
+  function counted(value) {
+    return Number.isFinite(value) ? Math.max(0, Math.trunc(value)) : 0;
+  }
+  function liveTelemetryRecord(input) {
+    return {
+      kind: "live.session",
+      lifecycle: input.lifecycle,
+      releasedCount: counted(input.releasedCount),
+      quarantinedCount: counted(input.quarantinedCount),
+      participantCount: counted(input.participantCount),
+      gapCount: counted(input.gapCount),
+      mediaLabel: input.mediaLabel
+    };
+  }
+
   // packages/Epoch.Community.Runtime/src/live/commands.ts
   function __epochIsString7(value) {
     return typeof value === "string";
@@ -4966,6 +5054,34 @@ ${source ?? ""}`.split("\n");
       },
       listSessions() {
         return { data: [...sessions.values()].map(snapshot) };
+      },
+      operations(sessionId) {
+        const session = requireSession(sessionId);
+        const state = session.publisher.state();
+        const quarantinedCount = session.publisher.quarantined().length;
+        const mediaLabel = mediaGateway === void 0 ? "provider-disabled" : "experimental";
+        const projection = projectLiveOperations({
+          sessionId: session.sessionId,
+          lifecycle: session.lifecycle,
+          health: state.health,
+          releasedThroughSequence: state.sequence,
+          quarantinedCount,
+          mediaLabel,
+          // No caption provider is wired into this port, and saying so is the
+          // honest answer rather than inheriting the media label.
+          captionLabel: "provider-disabled"
+        });
+        const telemetry = liveTelemetryRecord({
+          lifecycle: session.lifecycle,
+          releasedCount: state.releasedCount,
+          quarantinedCount,
+          participantCount: session.participants.size,
+          // The publisher never reports a gap; gaps are a spectator-side
+          // observation, so this is honestly zero here rather than invented.
+          gapCount: 0,
+          mediaLabel
+        });
+        return { data: { projection, telemetry } };
       },
       bindThread(input) {
         const session = requireSession(input.sessionId);
@@ -5230,12 +5346,31 @@ ${source ?? ""}`.split("\n");
           }
         };
       },
+      /**
+       * Recording a report is not moderating. The receipt says what a responder
+       * could still do and — more importantly — what nothing can do, because a
+       * reporter who believes the bytes were pulled back stops chasing copies.
+       */
       report(input) {
         const session = requireSession(input.sessionId);
         if (input.reason.trim().length === 0) fail("invalid-input", "a report requires a reason");
         const reportId = identifier("livereport", { sessionId: session.sessionId, index: session.reports.length });
         session.reports.push({ reportId, principalId: input.actor });
-        return { data: { reportId, recorded: true } };
+        const state = session.publisher.state();
+        const outcome = evaluateLiveModeration({
+          action: "pause",
+          lifecycle: session.lifecycle,
+          releasedThroughSequence: state.sequence,
+          sealed: session.lifecycle === "sealed"
+        });
+        return {
+          data: {
+            reportId,
+            recorded: true,
+            releasedThroughSequence: outcome.releasedThroughSequence,
+            cannotUndo: outcome.cannotUndo
+          }
+        };
       },
       /**
        * A media token is derived authority, never a source of it. Epoch decides
@@ -5386,6 +5521,17 @@ ${source ?? ""}`.split("\n");
           emptySchema2()
         ),
         run: withPort((live) => live.listSessions())
+      },
+      {
+        descriptor: descriptor(
+          "live.session.operations",
+          "Report operational standing and privacy-preserving counters for one session.",
+          "live.session.read",
+          true,
+          false,
+          schema2({ sessionId: stringProperty2("Live session id.") }, ["sessionId"])
+        ),
+        run: withPort((live, input) => live.operations(requiredString2(input, "sessionId")))
       },
       {
         descriptor: descriptor(
