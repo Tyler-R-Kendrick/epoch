@@ -3273,9 +3273,13 @@ Then("the ideas channel nav badge counts one fewer active member", async functio
 interface MembersRollRuntime {
   readonly CW_APP: {
     navigate(path: string, options?: JsonObject): boolean;
-    readonly state: { readonly path: string };
+    readonly state: { readonly path: string; readonly merged?: JsonObject };
   };
-  readonly CW_MAP?: { findMember(handle: string): { state?: string } | null };
+  readonly CW_MAP?: {
+    findMember(handle: string): { state?: string } | null;
+    resolve(from: string, to: string): string;
+    isDir(path: string, merged?: JsonObject): boolean;
+  };
 }
 
 interface MembersRollProbe {
@@ -3297,11 +3301,6 @@ interface MembersRollProbe {
  */
 async function openMembersRoll(path: string): Promise<void> {
   const page = requirePage();
-  const arrived = await page.evaluate((target: string) => {
-    // SAFETY: The scenario fixture establishes this test-only contract before the value is consumed.
-    return (window as MembersRollRuntime).CW_APP.navigate(target, { keepCli: true });
-  }, path);
-  assert.notEqual(arrived, false, `the board refused to navigate to ${path}`);
 
   const probe = async (): Promise<MembersRollProbe> => page.evaluate(() => {
     // SAFETY: The scenario fixture establishes this test-only contract before the value is consumed.
@@ -3317,24 +3316,55 @@ async function openMembersRoll(path: string): Promise<void> {
     };
   });
 
-  try {
-    await page.waitForFunction(() => {
-      // SAFETY: The scenario fixture establishes this test-only contract before the value is consumed.
-      const runtime = window as MembersRollRuntime;
-      if (!runtime.CW_MAP) return false;
-      const current = runtime.CW_APP.state.path;
-      return document
-        .querySelectorAll(`[data-blade-path="${current}"] .cn-item[data-key]`).length > 0;
-    }, undefined, { timeout: 10_000 });
-  } catch (cause) {
-    // Name the state that never converged. A bare timeout here cost a CI cycle
-    // to diagnose and still did not say which of the two mismatches it hit.
-    const observed = await probe();
-    throw new Error(
-      `members roll requested at ${path} never rendered keyed rows: ${JSON.stringify(observed)}`,
-      { cause },
-    );
-  }
+  const settle = async (why: string, wait: Promise<unknown>): Promise<void> => {
+    try {
+      await wait;
+    } catch (cause) {
+      // Never let a wait here die as a bare timeout: that is what cost a CI
+      // cycle to diagnose and still did not say what had not converged.
+      throw new Error(`${why} for ${path}: ${JSON.stringify(await probe())}`, { cause });
+    }
+  };
+
+  // The roll must be a directory before we ask for it. `navigate` reports
+  // success for a path that is not one yet: it falls back to selecting the
+  // name as a leaf of the parent, leaves `state.path` on the parent, and still
+  // returns true (app.js, "File selection opens/focuses detail"). That is the
+  // intermittent failure — the board data had not merged yet, so the step
+  // "arrived" at `/` and the assertion then read the wrong roll.
+  await settle("the members roll never became a directory", page.waitForFunction((target: string) => {
+    // SAFETY: The scenario fixture establishes this test-only contract before the value is consumed.
+    const runtime = window as MembersRollRuntime;
+    const map = runtime.CW_MAP;
+    if (!map) return false;
+    return map.isDir(map.resolve(runtime.CW_APP.state.path, target), runtime.CW_APP.state.merged);
+  }, path, { timeout: 10_000 }));
+
+  const moved = await page.evaluate((target: string) => {
+    // SAFETY: The scenario fixture establishes this test-only contract before the value is consumed.
+    const runtime = window as MembersRollRuntime;
+    const to = runtime.CW_MAP?.resolve(runtime.CW_APP.state.path, target) ?? target;
+    return { to, arrived: runtime.CW_APP.navigate(target, { keepCli: true }), at: runtime.CW_APP.state.path };
+  }, path);
+  assert.notEqual(moved.arrived, false, `the board refused to navigate to ${path}`);
+  // Landing is what the assertion downstream depends on, and `arrived` does
+  // not imply it. Check the board actually moved rather than trust the flag.
+  assert.equal(
+    moved.at,
+    moved.to,
+    `navigating to ${path} reported success but left the board on ${moved.at}`,
+  );
+
+  // Key on the path we asserted we landed on, never on live state: a wait that
+  // re-reads `state.path` is satisfied by whatever blade happens to be
+  // showing, so it passes on the root and defers the failure downstream.
+  await settle("the members roll never rendered keyed rows", page.waitForFunction((landed: string) => {
+    // SAFETY: The scenario fixture establishes this test-only contract before the value is consumed.
+    const runtime = window as MembersRollRuntime;
+    if (!runtime.CW_MAP) return false;
+    return document
+      .querySelectorAll(`[data-blade-path="${landed}"] .cn-item[data-key]`).length > 0;
+  }, moved.to, { timeout: 10_000 }));
 }
 
 When("I open the board members roll", async function () {
