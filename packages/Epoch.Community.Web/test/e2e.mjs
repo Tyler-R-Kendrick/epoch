@@ -4035,6 +4035,11 @@ const CASES = [
         document.querySelector('.cn-blade[data-blade-kind="list"] .cn-item[aria-current="true"]')
           ?.focus({ preventScroll: true });
       });
+      // focusColumns() also focuses a column on a later frame, which can land
+      // after the synchronous focus above. Pressing Tab before focus settles
+      // sends it to the native tab order instead of the yield-back chord, and
+      // the prompt never arrives.
+      await settleColumnFocus(page, '.cn-blade[data-blade-kind="list"] .cn-item');
       await page.keyboard.press("Tab");
       await page.waitForFunction(() => document.activeElement === document.querySelector("[data-cli]"));
       await page.fill("[data-cli]", "");
