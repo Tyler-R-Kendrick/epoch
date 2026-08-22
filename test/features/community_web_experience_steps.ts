@@ -3259,26 +3259,38 @@ Then("the ideas channel nav badge counts one fewer active member", async functio
   assert.equal(Number(probe.text), ideasActiveBefore - 1, "the badge must repaint in place, without navigation");
 });
 
-When("I open the board members roll", async function () {
+/**
+ * Opens a members roll and waits for the settled state.
+ *
+ * Entering the board resolves as soon as CW_APP exists, which can precede the
+ * boot that seeds fixture members and paints the roll — the same race the
+ * active-badge step above guards against. Waiting only for the first
+ * `.cn-item` leaves the roll able to paint before `CW_MAP` is seeded, and the
+ * assertion that follows reads member state through `CW_MAP`, so both must be
+ * ready. Keyed items are the settled signal because that is what the
+ * assertion enumerates.
+ */
+async function openMembersRoll(path: string): Promise<void> {
   const page = requirePage();
-  await page.evaluate(() => {
+  await page.evaluate((target: string) => {
     // SAFETY: The scenario fixture establishes this test-only contract before the value is consumed.
     (window as { CW_APP: { navigate(path: string, options?: JsonObject): void } })
-      .CW_APP.navigate("/members", { keepCli: true });
-  });
-  await page.locator('[data-blade-path="/members"] .cn-item').first()
-    .waitFor({ state: "visible", timeout: 5_000 });
+      .CW_APP.navigate(target, { keepCli: true });
+  }, path);
+  await page.waitForFunction((target: string) => {
+    // SAFETY: The scenario fixture establishes this test-only contract before the value is consumed.
+    const runtime = (window as { CW_MAP?: { findMember(handle: string): { state?: string } | null } });
+    const items = document.querySelectorAll(`[data-blade-path="${target}"] .cn-item[data-key]`);
+    return !!runtime.CW_MAP && items.length > 0;
+  }, path, { timeout: 10_000 });
+}
+
+When("I open the board members roll", async function () {
+  await openMembersRoll("/members");
 });
 
 When("I open the community project members roll", async function () {
-  const page = requirePage();
-  await page.evaluate(() => {
-    // SAFETY: The scenario fixture establishes this test-only contract before the value is consumed.
-    (window as { CW_APP: { navigate(path: string, options?: JsonObject): void } })
-      .CW_APP.navigate("/projects/community/members", { keepCli: true });
-  });
-  await page.locator('[data-blade-path="/projects/community/members"] .cn-item').first()
-    .waitFor({ state: "visible", timeout: 5_000 });
+  await openMembersRoll("/projects/community/members");
 });
 
 Then("members who are here sort before members who are away", async function () {
