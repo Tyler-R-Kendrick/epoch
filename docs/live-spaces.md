@@ -544,6 +544,29 @@ manifest listed the same id twice. Marking a position that is already marked
 now returns the existing checkpoint; advancing the stream is what makes a new
 one.
 
+**Chaos / fault injection.** `packages/Epoch.Community.API/test/chaos-live.test.mjs`
+asks what one broken participant can do to everyone else: a spectator whose
+socket died mid-write, publishes racing, a subscriber flood, a session torn
+down with envelopes in flight, a callback that unsubscribes or subscribes
+during delivery. The rule under test is containment — one spectator's failure
+is one spectator's problem.
+
+### What the chaos lane found
+
+Fan-out delivered in a bare loop, so a spectator callback that threw aborted
+it. An SSE writer whose client has vanished throws on the next write, and that
+one throw meant every subscriber after it in the set lost that envelope and
+every later one — while the broadcast cursor had already advanced past them, so
+nothing redelivered. One dead peer silently truncated the session for everybody.
+
+A subscriber that cannot receive is now removed, told why, and the fan-out
+continues. Iteration runs over a snapshot, so removing one — or a callback that
+subscribes another — cannot change who sees the envelope currently in flight.
+
+The race the lane was also written to catch turned out not to exist: two
+publishes in flight at once, and twelve, each deliver every envelope exactly
+once in sequence order.
+
 ### What the property lane found
 
 The value-shaped secret check recognised exactly two things: a PEM private-key
