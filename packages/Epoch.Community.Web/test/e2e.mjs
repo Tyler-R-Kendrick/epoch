@@ -3998,6 +3998,7 @@ const CASES = [
         return log("Tab did not yield to prompt: " + JSON.stringify(toPrompt));
       }
       await page.keyboard.press("Tab");
+      await settleColumnFocus(page, ".cn-comment");
       const back = await page.evaluate(() => ({
         key: document.activeElement?.closest?.(".cn-comment")?.getAttribute("data-key"),
         mark: window.CW_APP.state.feedMark,
@@ -4010,6 +4011,7 @@ const CASES = [
       await page.keyboard.press("Tab");
       await page.waitForFunction(() => document.activeElement === document.querySelector("[data-cli]"));
       await page.keyboard.press("Shift+Tab");
+      await settleColumnFocus(page, ".cn-comment");
       const shiftBack = await page.evaluate(() => ({
         key: document.activeElement?.closest?.(".cn-comment")?.getAttribute("data-key"),
         mark: window.CW_APP.state.feedMark,
@@ -4037,7 +4039,7 @@ const CASES = [
       await page.waitForFunction(() => document.activeElement === document.querySelector("[data-cli]"));
       await page.fill("[data-cli]", "");
       await page.keyboard.press("Tab");
-      await page.waitForTimeout(60);
+      await settleColumnFocus(page, '.cn-blade[data-blade-kind="list"] .cn-item');
       const restored = await page.evaluate(() => ({
         columnFocus: !!window.CW_APP.state.columnFocus,
         onCli: document.activeElement === document.querySelector("[data-cli]"),
@@ -10626,6 +10628,25 @@ const CASES = [
 async function path(page) {
   await page.waitForTimeout(120);
   return page.evaluate(() => window.CW_APP.state.path);
+}
+/**
+ * Wait for DOM focus to reach a column, after a chord that hands it back.
+ *
+ * `focusColumns()` sets `state.columnFocus` synchronously but focuses the
+ * element in a later animation frame, so reading `document.activeElement` in
+ * the same tick as the key press reports the state before the frame ran. A
+ * fixed sleep is the same race with a budget; this waits for the condition the
+ * assertion is about.
+ *
+ * It swallows the timeout on purpose: the caller's own assertion then reports
+ * what it actually found, which is a far better failure than a bare timeout.
+ */
+async function settleColumnFocus(page, selector) {
+  await page.waitForFunction(
+    (sel) => !!document.activeElement?.closest?.(sel),
+    selector,
+    { timeout: 10000 },
+  ).catch(() => { /* the assertion below reports what it found */ });
 }
 async function go(page, to) {
   await page.evaluate((t) => window.CW_APP.navigate(t, { keepCli: true }), to);
