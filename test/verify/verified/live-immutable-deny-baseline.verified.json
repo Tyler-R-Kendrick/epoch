@@ -1,0 +1,26 @@
+{
+  "deniedPaths": [
+    "**/.env",
+    "**/.env.*",
+    "**/*.pem",
+    "**/*.key",
+    "**/*.p12",
+    "**/id_rsa*",
+    "**/id_ed25519*",
+    "**/credentials*",
+    "**/secrets/**",
+    "**/.aws/**",
+    "**/.ssh/**",
+    "dms/**",
+    "**/private/**"
+  ],
+  "sanitizerBounds": {
+    "maxArrayElements": 512,
+    "maxCanonicalBytes": 65536,
+    "maxDepth": 12,
+    "maxObjectKeys": 128,
+    "maxRewriteLiteralLength": 256,
+    "maxRewriteRules": 64,
+    "maxStringLength": 8192
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "gapCount": 1,
+  "kind": "live.session",
+  "lifecycle": "live",
+  "mediaLabel": "provider-disabled",
+  "participantCount": 3,
+  "quarantinedCount": 2,
+  "releasedCount": 7
+}

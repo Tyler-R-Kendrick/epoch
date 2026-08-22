@@ -506,6 +506,21 @@ cover, because both are about inputs nobody thought of:
 
 The first property found a real defect on its first run, described below.
 
+**Characterization (Verify-style goldens).** Seven `.verified.json` goldens
+under `test/verify/verified/` pin the shapes that are promises to something
+outside this process: the signed-history vocabulary, the command authority
+surface (`capability`, `readOnly`, `requiresConfirmation` per command), the
+normalized policy and its digest, the immutable deny baseline, the released
+envelope and checkpoint, the two payloads that leave the trust boundary
+(operations projection and telemetry record), and the `cannotUndo` wording.
+
+Unit tests assert a rule holds; these assert a shape has not moved. They catch
+the failure where every test still passes and yet a previously signed session
+no longer verifies, a read command has quietly become a write, or a field
+nobody meant to publish is on a dashboard. Refresh with
+`EPOCH_UPDATE_VERIFIED=1` and read the diff before accepting it — a golden
+accepted unread is worse than no golden, because it launders the change.
+
 **Scenario (Gherkin) and unit tests** carry the cases with a named persona
 behind them. Nothing here replaces those; the generated lanes exist because a
 security filter is only as good as the shapes it has seen.

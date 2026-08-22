@@ -37,6 +37,7 @@ import { runNatsStreamCoverageTests } from "./unit/nats-stream-coverage.test";
 import { runNatsServiceDiscoveryTests } from "./unit/nats-service-discovery.test";
 import { runNatsMutationOracleTests } from "./unit/nats-mutation-oracles.test";
 import { runVerifyCharacterizationTests } from "./unit/verify-characterization.test";
+import { runLiveSpacesCharacterizationTests } from "./unit/live-spaces-characterization.test";
 import { runVerifyHelperTests } from "./unit/verify-helper.test";
 import { runOpenZlCodecTests } from "./unit/openzl-codec.test";
 import { runPlatformFabricCredentialTests } from "./unit/platform-fabric-credentials.test";
@@ -110,6 +111,7 @@ async function main(): Promise<void> {
   await runNatsServiceDiscoveryTests();
   runNatsMutationOracleTests();
   await runVerifyCharacterizationTests();
+  runLiveSpacesCharacterizationTests();
   runVerifyHelperTests();
   runPlatformProductionCoreTests();
   runPlatformFabricCredentialTests();

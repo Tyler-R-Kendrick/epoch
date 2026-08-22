@@ -1,0 +1,40 @@
+{
+  "digest": "livepol_ad398d6a",
+  "policy": {
+    "allowedActionIds": [
+      "diff.show",
+      "view.open"
+    ],
+    "allowedPathPatterns": [
+      "docs/**",
+      "packages/app/**"
+    ],
+    "audience": {
+      "joinLocked": false,
+      "maxPublishers": 4,
+      "maxSpectators": 100
+    },
+    "deniedPathPatterns": [
+      "packages/app/secrets/**"
+    ],
+    "includeAgentReceipts": false,
+    "includeChecks": false,
+    "media": {
+      "audio": false,
+      "camera": false,
+      "captions": "disabled",
+      "externalEgress": [],
+      "recording": false,
+      "screenShare": false
+    },
+    "presentationViewRef": "views/present",
+    "publicationDelayMs": 0,
+    "retention": {
+      "days": 0,
+      "mode": "session-only"
+    },
+    "schemaVersion": 1,
+    "securityMode": "semantic-only",
+    "visibility": "community"
+  }
+}
