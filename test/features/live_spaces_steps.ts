@@ -5,8 +5,12 @@ import { join } from "node:path";
 import { After, Given, Then, When } from "@cucumber/cucumber";
 import { EpochRepository, SignedLiveSessionStore, SignedSpaceStore, SpaceError } from "@epoch/core";
 import { assertProtocolEvent } from "@epoch/protocol";
+import { validateCommunityEntity, type CommunityEntity } from "@epoch/community-core";
 import {
   captionsGateAllowsStart,
+  createLiveCommunityBinding,
+  createMemoryCommunityStateStore,
+  type CommunityStateStore,
   createDisabledLiveCaptionProvider,
   createDisabledLiveMediaProvider,
   evaluateLiveMediaMode,
@@ -63,6 +67,10 @@ interface LiveWorld {
   applyResults?: readonly LiveApplyResult[];
   mediaReadiness?: LiveMediaReadiness;
   preflight?: LivePreflightReport;
+  communityStore?: CommunityStateStore;
+  annotationObjectId?: string;
+  forkChangeId?: string;
+  forkLogHead?: string;
   boardBus?: CommunityCommandBus;
   boardReceipt?: EpochCommandReceipt;
 }
@@ -153,13 +161,56 @@ async function statusData(): Promise<StatusData> {
   return outcome.data as StatusData;
 }
 
+const LIVE_THREAD_ID = "obj-live-thread";
+const FEATURE_NOW = "2026-08-22T00:00:00.000Z";
+
+/**
+ * The session's canonical Community thread. Annotations and forks are records
+ * on it, so the scenarios drive the real record store rather than asserting
+ * against a private array nobody could moderate or search.
+ */
+function newThreadStore(): CommunityStateStore {
+  const thread: CommunityEntity = validateCommunityEntity({
+    ref: { objectId: LIVE_THREAD_ID, kind: "thread" },
+    fields: { objectId: LIVE_THREAD_ID, kind: "thread", title: "Nightboard live", state: "open" },
+    searchableText: { title: "Nightboard live" },
+    relations: [],
+    visibility: "public",
+    participantIds: [],
+    createdAt: FEATURE_NOW,
+    updatedAt: FEATURE_NOW,
+    provenance: { sourceId: "feature", nativeId: LIVE_THREAD_ID, observedAt: FEATURE_NOW },
+  });
+  return createMemoryCommunityStateStore({
+    schemaVersion: 3,
+    metadata: {
+      createdAt: FEATURE_NOW, updatedAt: FEATURE_NOW, migratedAt: FEATURE_NOW,
+      migrationTimestamp: FEATURE_NOW, sourceSchemaVersion: 3, migrationId: "migration-current",
+    },
+    entities: [thread],
+    relations: [],
+    projectionDefinitions: [],
+    namespaceMounts: [],
+    sourceCheckpoints: [],
+    quarantinedDefinitions: [],
+  });
+}
+
 function newSemanticPort(): LiveSpaceApplicationPort {
   let now = 0;
+  let minted = 0;
+  const store = newThreadStore();
+  world.communityStore = store;
   return createLocalLiveSpacePort({
     now: () => { now += 10; return now; },
     sessionSalt: "feature-entropy",
     resolveSpace: () => ({ viewRef: "views/present" }),
     catalog: FEATURE_CATALOG,
+    community: createLiveCommunityBinding({
+      store,
+      now: () => FEATURE_NOW,
+      nextObjectId: (kind) => { minted += 1; return `obj-${kind}-${minted}`; },
+    }),
   });
 }
 
@@ -176,6 +227,7 @@ async function startSession(portInstance: LiveSpaceApplicationPort, allowedPathP
   await portInstance.recordConsent({ sessionId: created.sessionId, actor: HOST, scopes: ["semantic-capture"] });
   await portInstance.lifecycle({ sessionId: created.sessionId, actor: HOST, command: "openLobby" });
   await portInstance.lifecycle({ sessionId: created.sessionId, actor: HOST, command: "start" });
+  await portInstance.bindThread({ sessionId: created.sessionId, actor: HOST, threadObjectId: LIVE_THREAD_ID });
   return created.sessionId;
 }
 
@@ -330,18 +382,55 @@ When("the contributor annotates that checkpoint on the board file", async functi
     body: "the rail is two columns too wide", path: "packages/app/board.ts",
   });
   // SAFETY: the local live space port returns annotation data.
-  assert.match((outcome.data as { annotationId: string }).annotationId, /^liveanno_/u);
+  const annotation = outcome.data as { annotationId: string; objectId: string; threadRootId: string };
+  assert.match(annotation.annotationId, /^liveanno_/u);
+  assert.equal(annotation.threadRootId, LIVE_THREAD_ID);
+  world.annotationObjectId = annotation.objectId;
+});
+
+Then("the annotation is a record on the session's Community thread", async function () {
+  const store = world.communityStore ?? (() => { throw new Error("no community store in scope"); })();
+  const objectId = world.annotationObjectId ?? (() => { throw new Error("no annotation in scope"); })();
+  const stored = await store.read((snapshot) => snapshot.entity(objectId));
+  assert.ok(stored !== undefined, "the annotation must exist as a Community record");
+  assert.equal(stored.fields.parentId, LIVE_THREAD_ID);
+  // The words survive, and the anchor says which released state they are about.
+  assert.equal(stored.searchableText.body, "the rail is two columns too wide");
+  assert.equal(stored.provenance.checkpoint, world.checkpointId);
+  assert.equal(stored.fields.liveAnchorPath, "packages/app/board.ts");
 });
 
 When("the contributor forks the session at that checkpoint", async function () {
   if (world.checkpointId === undefined) throw new Error("no checkpoint in scope");
   const outcome = await port().forkAt({ sessionId: sessionId(), actor: GUEST, checkpointId: world.checkpointId });
   // SAFETY: the local live space port returns fork provenance data.
-  world.forkProvenance = (outcome.data as { provenance: { sessionId: string; checkpointId: string } }).provenance;
+  const data = outcome.data as {
+    changeId: string;
+    provenance: { sessionId: string; checkpointId: string; presentationLogHead: string; policyDigest: string };
+  };
+  world.forkProvenance = { sessionId: data.provenance.sessionId, checkpointId: data.provenance.checkpointId };
+  world.forkChangeId = data.changeId;
+  world.forkLogHead = data.provenance.presentationLogHead;
 });
 
 Then("the fork records provenance back to the session and checkpoint", function () {
   assert.deepEqual(world.forkProvenance, { sessionId: sessionId(), checkpointId: world.checkpointId });
+  // A checkpoint is a branch point; a wall-clock moment is not. The released
+  // log head is what makes that difference checkable.
+  assert.ok((world.forkLogHead ?? "").length > 0, "a fork names the released state it came from");
+});
+
+Then("the fork opens a Change carrying that provenance", async function () {
+  const store = world.communityStore ?? (() => { throw new Error("no community store in scope"); })();
+  const changeId = world.forkChangeId ?? (() => { throw new Error("no fork in scope"); })();
+  const stored = await store.read((snapshot) => snapshot.entity(changeId));
+  assert.ok(stored !== undefined, "the fork must open a real Change");
+  assert.equal(stored.ref.kind, "change");
+  assert.equal(stored.provenance.checkpoint, world.checkpointId);
+  assert.deepEqual(
+    stored.relations.map((relation) => ({ type: relation.type, target: relation.target.objectId })),
+    [{ type: "provenance", target: LIVE_THREAD_ID }],
+  );
 });
 
 Given("the host has granted a contributor temporary collaborator capability", async function () {

@@ -322,6 +322,38 @@ Consequences worth stating:
   from the CLI; only a host that satisfied confirmation through real
   interaction can pass it on.
 
+## Community binding
+
+A Live Session is a canonical Community entity, not a thing that sits beside
+one. `live.session.bindThread` names the single object id that `#live`,
+Activity, search, a channel list, and the replay list all target — the session
+is *mounted* into those projections rather than copied into each of them. The
+binding is a signed `live.session.bound` event, so a rebinding is visible as
+history instead of silently moving where an audience was told to look, and a
+sealed session refuses to be rebound for the same reason the rest of it is
+frozen.
+
+**An annotation is a reply on that thread.** It used to be an entry in a
+private array — and the body was validated and then discarded, so the surface
+accepted someone's words and kept only an id. Now the words survive as a
+Community record, which means they are searchable, moderatable, and visible to
+every projection that already knows how to render a thread. Annotating without
+a bound thread is refused rather than kept privately: an annotation with
+nowhere canonical to live is exactly the parallel store this design exists to
+avoid.
+
+**A fork opens a Change.** `live.presentation.forkAt` writes a Change whose
+provenance edge points back at the session's thread, and whose anchor is the
+checkpoint's **presentation log head** rather than a wall-clock moment. That is
+what makes "this work continues from that state" checkable: a spectator can
+verify the head against the released log, where a timestamp would only be a
+claim. The receipt carries the `changeId`, so a fork that opened nothing could
+not pretend otherwise.
+
+The record store itself is a server seam (`LiveCommunityBinding`), implemented
+in the Community API over the real entity store. A surface with no store
+configured gets `unavailable` with a reason — never a private array.
+
 ## The board as host
 
 Community Web hosts through the same bus and adds nothing of its own. The
@@ -378,6 +410,9 @@ from a broken page.
   a real deployment is required before any deployment relabels it.
 - Self-hosted LiveKit egress is a separate operational dependency. Until an
   operator deploys it, recording and egress report `unavailable` and refuse.
+- Bookmarks remain session-local. Unlike annotations and forks they are a
+  reader's private position, not a contribution, so they are not Community
+  records and no projection shows them.
 - The board hosts against a configured deployment only. No deployment is
   configured in the shipped page, so the honest steady state of Community Web
   today is `unavailable` — the panel is real and the refusal is real, but no

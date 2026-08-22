@@ -68,6 +68,7 @@
         "live.session.policy",
         "live.session.consent",
         "live.session.sealed",
+        "live.session.bound",
         "channel.create",
         "channel.message",
         "channel.presence",
@@ -794,6 +795,20 @@
         },
         "body": {
           "$ref": "#/$defs/liveSessionSealedBody"
+        }
+      },
+      "required": [
+        "type",
+        "body"
+      ]
+    },
+    {
+      "properties": {
+        "type": {
+          "const": "live.session.bound"
+        },
+        "body": {
+          "$ref": "#/$defs/liveSessionBoundBody"
         }
       },
       "required": [
@@ -2467,6 +2482,41 @@
             "semantic-only",
             "media-missing",
             "partial"
+          ]
+        }
+      }
+    },
+    "liveSessionBoundBody": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "spaceId",
+        "sessionId",
+        "principalId",
+        "objectId",
+        "objectKind"
+      ],
+      "properties": {
+        "spaceId": {
+          "type": "string",
+          "pattern": "^epoch:space:[a-z2-7]{52}$"
+        },
+        "sessionId": {
+          "type": "string",
+          "pattern": "^epoch:session:[a-z2-7]{52}$"
+        },
+        "principalId": {
+          "type": "string",
+          "pattern": "^epoch:principal:[a-z2-7]{52}$"
+        },
+        "objectId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "objectKind": {
+          "enum": [
+            "thread",
+            "change"
           ]
         }
       }

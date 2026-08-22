@@ -5283,7 +5283,7 @@ var require_events = __commonJS({
   "packages/Epoch.Protocol/dist/events.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
-    exports.LIVE_SESSION_COMPLETENESS = exports.LIVE_SESSION_POLICY_CHANGES = exports.LIVE_SESSION_CONSENT_SCOPES = exports.LIVE_SESSION_SECURITY_MODES = exports.LIVE_SESSION_VISIBILITIES = exports.LIVE_SESSION_LIFECYCLE_COMMANDS = exports.LIVE_SESSION_LIFECYCLE_STATES = exports.PROTOCOL_EVENT_SCHEMAS = void 0;
+    exports.LIVE_SESSION_BINDING_KINDS = exports.LIVE_SESSION_COMPLETENESS = exports.LIVE_SESSION_POLICY_CHANGES = exports.LIVE_SESSION_CONSENT_SCOPES = exports.LIVE_SESSION_SECURITY_MODES = exports.LIVE_SESSION_VISIBILITIES = exports.LIVE_SESSION_LIFECYCLE_COMMANDS = exports.LIVE_SESSION_LIFECYCLE_STATES = exports.PROTOCOL_EVENT_SCHEMAS = void 0;
     exports.assertProtocolEvent = assertProtocolEvent;
     var errors_1 = require_errors2();
     var ids_1 = require_ids();
@@ -5345,6 +5345,7 @@ var require_events = __commonJS({
       "live.session.policy",
       "live.session.consent",
       "live.session.sealed",
+      "live.session.bound",
       "channel.create",
       "channel.message",
       "channel.presence",
@@ -5357,6 +5358,7 @@ var require_events = __commonJS({
     exports.LIVE_SESSION_CONSENT_SCOPES = ["semantic-capture", "audio", "camera", "screen-share", "captions", "recording", "external-egress"];
     exports.LIVE_SESSION_POLICY_CHANGES = ["initial", "narrowing", "widening", "mixed"];
     exports.LIVE_SESSION_COMPLETENESS = ["complete", "semantic-only", "media-missing", "partial"];
+    exports.LIVE_SESSION_BINDING_KINDS = ["thread", "change"];
     var typeSet = new Set(exports.PROTOCOL_EVENT_SCHEMAS);
     var digestPattern = /^[a-f0-9]{64}$/u;
     var safePathSegment = /^(?!\.\.?$)[^/\\\0]+$/u;
@@ -5681,6 +5683,17 @@ var require_events = __commonJS({
             ids: { spaceId: "space", sessionId: "session", principalId: "principal" },
             digests: ["manifestDigest"],
             enums: { completeness: exports.LIVE_SESSION_COMPLETENESS }
+          });
+          return;
+        // The session names one canonical Community object rather than copying
+        // itself into each projection. Binding appends, so a rebinding is visible
+        // as history instead of overwriting where an audience was told to look.
+        case "live.session.bound":
+          validateFields(value, {
+            required: ["spaceId", "sessionId", "principalId", "objectId", "objectKind"],
+            ids: { spaceId: "space", sessionId: "session", principalId: "principal" },
+            strings: ["objectId"],
+            enums: { objectKind: exports.LIVE_SESSION_BINDING_KINDS }
           });
           return;
         case "channel.create":
@@ -6642,6 +6655,13 @@ var require_schema = __commonJS({
         manifestDigest: digest,
         completeness: { enum: [...events_1.LIVE_SESSION_COMPLETENESS] }
       }),
+      liveSessionBoundBody: object(["spaceId", "sessionId", "principalId", "objectId", "objectKind"], {
+        spaceId: id("space"),
+        sessionId: id("session"),
+        principalId: id("principal"),
+        objectId: nonemptyString,
+        objectKind: { enum: [...events_1.LIVE_SESSION_BINDING_KINDS] }
+      }),
       channelCreateBody: object(["schema", "channelId", "communityId", "name", "principalId", "visibility"], {
         schema: { const: "epoch.channel/v1" },
         channelId: id("channel"),
@@ -6792,6 +6812,7 @@ var require_schema = __commonJS({
       "live.session.policy": "liveSessionPolicyBody",
       "live.session.consent": "liveSessionConsentBody",
       "live.session.sealed": "liveSessionSealedBody",
+      "live.session.bound": "liveSessionBoundBody",
       "channel.create": "channelCreateBody",
       "channel.message": "channelMessageBody",
       "channel.presence": "channelPresenceBody",

@@ -1,4 +1,6 @@
 import assert from "node:assert/strict";
+import { createLiveCommunityBinding, createMemoryCommunityStateStore, type CommunityStateStore } from "@epoch/community-api";
+import { validateCommunityEntity, type CommunityEntity } from "@epoch/community-core";
 import {
   createCommunityRuntime,
   createLiveSpaceCommandExtensions,
@@ -24,12 +26,53 @@ export async function runLiveSpacesCommandTests(): Promise<void> {
 
 const HOST = "principal-host";
 
+const THREAD_ID = "obj-live-thread";
+const FIXED_NOW = "2026-08-22T00:00:00.000Z";
+
+/**
+ * The host loop runs against the real Community record store, not a stand-in:
+ * an annotation that does not become a reply on a real thread is the parallel
+ * store this design refuses, and a test double would hide exactly that.
+ */
+function threadStore(): CommunityStateStore {
+  const thread: CommunityEntity = validateCommunityEntity({
+    ref: { objectId: THREAD_ID, kind: "thread" },
+    fields: { objectId: THREAD_ID, kind: "thread", title: "Nightboard live", state: "open" },
+    searchableText: { title: "Nightboard live" },
+    relations: [],
+    visibility: "public",
+    participantIds: [],
+    createdAt: FIXED_NOW,
+    updatedAt: FIXED_NOW,
+    provenance: { sourceId: "test", nativeId: THREAD_ID, observedAt: FIXED_NOW },
+  });
+  return createMemoryCommunityStateStore({
+    schemaVersion: 3,
+    metadata: {
+      createdAt: FIXED_NOW, updatedAt: FIXED_NOW, migratedAt: FIXED_NOW,
+      migrationTimestamp: FIXED_NOW, sourceSchemaVersion: 3, migrationId: "migration-current",
+    },
+    entities: [thread],
+    relations: [],
+    projectionDefinitions: [],
+    namespaceMounts: [],
+    sourceCheckpoints: [],
+    quarantinedDefinitions: [],
+  });
+}
+
 function portOf(): LiveSpaceApplicationPort {
   let now = 0;
+  let minted = 0;
   return createLocalLiveSpacePort({
     now: () => { now += 10; return now; },
     sessionSalt: "test-entropy",
     resolveSpace: (spaceId) => spaceId === "space-1" ? { viewRef: "views/present" } : undefined,
+    community: createLiveCommunityBinding({
+      store: threadStore(),
+      now: () => FIXED_NOW,
+      nextObjectId: (kind) => { minted += 1; return `obj-${kind}-${minted}`; },
+    }),
   });
 }
 
@@ -126,15 +169,20 @@ async function semanticOnlyHostLoopWorksEndToEnd(): Promise<void> {
   });
   const checkpointId = checkpoint.data.checkpointId;
   await runtime.commands.execute({ kind: "live.presentation.bookmark", input: { sessionId, checkpointId } });
-  const annotated = await runtime.commands.execute<{ annotationId: string }>({
+  // Annotations and forks are Community records, so the session names the one
+  // canonical thread they belong to before either can happen.
+  await runtime.commands.execute({ kind: "live.session.bindThread", input: { sessionId, threadObjectId: THREAD_ID } });
+  const annotated = await runtime.commands.execute<{ annotationId: string; threadRootId: string }>({
     kind: "live.presentation.annotate",
     input: { sessionId, checkpointId, body: "the rail is too wide here", path: "packages/app/board.ts" },
   });
   assert.match(annotated.data.annotationId, /^liveanno_/u);
-  const fork = await runtime.commands.execute<{ forkId: string; provenance: { checkpointId: string } }>({
+  assert.equal(annotated.data.threadRootId, THREAD_ID);
+  const fork = await runtime.commands.execute<{ forkId: string; changeId: string; provenance: { checkpointId: string } }>({
     kind: "live.presentation.forkAt", input: { sessionId, checkpointId },
   });
   assert.equal(fork.data.provenance.checkpointId, checkpointId);
+  assert.equal(fork.changeId, fork.data.changeId, "a fork's receipt carries the Change it opened");
   // A fork against a fabricated checkpoint (a media timestamp) is refused.
   await assert.rejects(
     runtime.commands.execute({ kind: "live.presentation.forkAt", input: { sessionId, checkpointId: "t=00:12:31" } }),

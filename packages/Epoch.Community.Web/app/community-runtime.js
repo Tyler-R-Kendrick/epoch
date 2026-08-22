@@ -4866,6 +4866,7 @@ ${source ?? ""}`.split("\n");
     const sessions = /* @__PURE__ */ new Map();
     const catalog = options.catalog ?? DEFAULT_LIVE_ACTION_CATALOG;
     const mediaGateway = options.media;
+    const community = options.community;
     let created = 0;
     function requireSession(sessionId) {
       return sessions.get(sessionId) ?? fail("not-found", `live session not found: ${sessionId}`);
@@ -4903,7 +4904,8 @@ ${source ?? ""}`.split("\n");
           role: participant.role,
           active: participant.active
         })),
-        sealed: session.lifecycle === "sealed"
+        sealed: session.lifecycle === "sealed",
+        ...session.boundThreadId !== void 0 && { boundThreadId: session.boundThreadId }
       };
     }
     function preflightReport(session) {
@@ -4964,6 +4966,17 @@ ${source ?? ""}`.split("\n");
       },
       listSessions() {
         return { data: [...sessions.values()].map(snapshot) };
+      },
+      bindThread(input) {
+        const session = requireSession(input.sessionId);
+        if (session.lifecycle === "sealed") fail("conflict", "a sealed session cannot be rebound");
+        requireManager(session, input.actor);
+        const threadObjectId = input.threadObjectId.trim();
+        if (threadObjectId.length === 0 || threadObjectId.length > 512) {
+          fail("invalid-input", "a Community thread binding requires a 1..512 character object id");
+        }
+        session.boundThreadId = threadObjectId;
+        return { data: snapshot(session) };
       },
       preflight(sessionId) {
         const session = requireSession(sessionId);
@@ -5126,13 +5139,34 @@ ${source ?? ""}`.split("\n");
         session.bookmarks.push({ principalId: input.actor, checkpointId: input.checkpointId });
         return { data: { checkpointId: input.checkpointId, bookmarks: session.bookmarks.length } };
       },
-      annotate(input) {
+      /**
+       * An annotation is a Community record on the session's thread, not a note
+       * in a private array. Refusing when nothing is bound is the point: an
+       * annotation with nowhere canonical to live is the parallel store this
+       * design exists to avoid, and it would be unmoderatable and unsearchable.
+       */
+      async annotate(input) {
         const session = requireSession(input.sessionId);
         requireActive(session, input.actor);
         const checkpoint = session.checkpoints.get(input.checkpointId) ?? fail("not-found", `checkpoint not found: ${input.checkpointId}`);
         if (input.body.trim().length === 0 || input.body.length > 4096) {
           fail("invalid-input", "annotation body must be 1..4096 characters");
         }
+        const threadObjectId = session.boundThreadId ?? fail("failed-precondition", "this session is not bound to a Community thread; bind one before annotating");
+        if (community === void 0) {
+          fail("unavailable", "no Community record store is configured for this workspace");
+        }
+        const record = await community.recordAnnotation({
+          sessionId: session.sessionId,
+          threadObjectId,
+          principalId: input.actor,
+          body: input.body,
+          checkpointId: checkpoint.checkpointId,
+          // The head is what makes the anchor verifiable: a path alone says
+          // where, this says against exactly which released state.
+          presentationLogHead: checkpoint.presentationLogHead,
+          ...input.path !== void 0 && { path: input.path }
+        });
         const annotation = {
           annotationId: identifier("liveanno", {
             sessionId: session.sessionId,
@@ -5141,12 +5175,14 @@ ${source ?? ""}`.split("\n");
           }),
           principalId: input.actor,
           checkpointId: checkpoint.checkpointId,
+          objectId: record.objectId,
+          threadRootId: record.threadRootId,
           ...input.path !== void 0 && { path: input.path }
         };
         session.annotations.push(annotation);
         return { data: annotation };
       },
-      forkAt(input) {
+      async forkAt(input) {
         const session = requireSession(input.sessionId);
         const participant = session.participants.get(input.actor);
         const checkpoint = session.checkpoints.get(input.checkpointId);
@@ -5157,16 +5193,40 @@ ${source ?? ""}`.split("\n");
           policyPermitsCopy: session.policy.visibility !== "private" || participant?.active === true
         });
         if (eligibility.kind === "refused") fail("policy-denied", eligibility.reason);
+        const forked = session.checkpoints.get(eligibility.checkpointId) ?? fail("not-found", `checkpoint not found: ${input.checkpointId}`);
+        const threadObjectId = session.boundThreadId ?? fail("failed-precondition", "this session is not bound to a Community thread; bind one before forking");
+        if (community === void 0) {
+          fail("unavailable", "no Community record store is configured for this workspace");
+        }
         const forkId = identifier("livefork", {
           sessionId: session.sessionId,
           checkpointId: eligibility.checkpointId,
           actor: input.actor
         });
+        const record = await community.openFork({
+          sessionId: session.sessionId,
+          threadObjectId,
+          principalId: input.actor,
+          checkpointId: eligibility.checkpointId,
+          presentationLogHead: forked.presentationLogHead,
+          sourceViewRef: eligibility.sourceViewRef,
+          policyDigest: forked.policyDigest
+        });
         return {
+          changeId: record.changeId,
           data: {
             forkId,
             sourceViewRef: eligibility.sourceViewRef,
-            provenance: { sessionId: session.sessionId, checkpointId: eligibility.checkpointId }
+            changeId: record.changeId,
+            objectId: record.objectId,
+            // Provenance names the released state, not a wall-clock moment: the
+            // log head is what a spectator can verify the fork was taken from.
+            provenance: {
+              sessionId: session.sessionId,
+              checkpointId: eligibility.checkpointId,
+              presentationLogHead: forked.presentationLogHead,
+              policyDigest: forked.policyDigest
+            }
           }
         };
       },
@@ -5326,6 +5386,24 @@ ${source ?? ""}`.split("\n");
           emptySchema2()
         ),
         run: withPort((live) => live.listSessions())
+      },
+      {
+        descriptor: descriptor(
+          "live.session.bindThread",
+          "Bind the session to the one canonical Community thread every projection targets.",
+          "live.session.manage",
+          false,
+          false,
+          schema2({
+            sessionId: stringProperty2("Live session id."),
+            threadObjectId: stringProperty2("Canonical Community object id for the session's thread.")
+          }, ["sessionId", "threadObjectId"])
+        ),
+        run: withPort((live, input, actor) => live.bindThread({
+          sessionId: requiredString2(input, "sessionId"),
+          actor,
+          threadObjectId: requiredString2(input, "threadObjectId")
+        }))
       },
       {
         descriptor: descriptor(

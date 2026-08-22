@@ -1,4 +1,5 @@
 import {
+  LIVE_SESSION_BINDING_KINDS,
   LIVE_SESSION_COMPLETENESS,
   LIVE_SESSION_CONSENT_SCOPES,
   LIVE_SESSION_LIFECYCLE_COMMANDS,
@@ -146,6 +147,10 @@ const simpleBodies = {
     spaceId: id("space"), sessionId: id("session"), principalId: id("principal"),
     manifestDigest: digest, completeness: { enum: [...LIVE_SESSION_COMPLETENESS] },
   }),
+  liveSessionBoundBody: object(["spaceId", "sessionId", "principalId", "objectId", "objectKind"], {
+    spaceId: id("space"), sessionId: id("session"), principalId: id("principal"),
+    objectId: nonemptyString, objectKind: { enum: [...LIVE_SESSION_BINDING_KINDS] },
+  }),
   channelCreateBody: object(["schema", "channelId", "communityId", "name", "principalId", "visibility"], {
     schema: { const: "epoch.channel/v1" }, channelId: id("channel"), communityId: id("space"),
     name: nonemptyString, principalId: id("principal"), visibility: { enum: ["public", "shared", "private"] },
@@ -230,7 +235,7 @@ const bodyDefinitionByType = {
   "space.anchor.recorded": "spaceAnchorRecordedBody", "space.turn.receipt": "spaceTurnReceiptBody",
   "live.session.created": "liveSessionCreatedBody", "live.session.lifecycle": "liveSessionLifecycleBody",
   "live.session.policy": "liveSessionPolicyBody", "live.session.consent": "liveSessionConsentBody",
-  "live.session.sealed": "liveSessionSealedBody",
+  "live.session.sealed": "liveSessionSealedBody", "live.session.bound": "liveSessionBoundBody",
   "channel.create": "channelCreateBody", "channel.message": "channelMessageBody",
   "channel.presence": "channelPresenceBody", "channel.read": "channelReadBody",
 };

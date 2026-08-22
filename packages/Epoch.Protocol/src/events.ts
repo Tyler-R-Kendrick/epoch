@@ -26,7 +26,7 @@ export const PROTOCOL_EVENT_SCHEMAS = [
   "space.capture.opened", "space.capture.closed", "space.capture.operation",
   "space.anchor.recorded", "space.turn.receipt",
   "live.session.created", "live.session.lifecycle", "live.session.policy",
-  "live.session.consent", "live.session.sealed",
+  "live.session.consent", "live.session.sealed", "live.session.bound",
   "channel.create", "channel.message", "channel.presence", "channel.read",
 ] as const;
 
@@ -38,6 +38,15 @@ export const LIVE_SESSION_SECURITY_MODES = ["semantic-only", "private-e2ee", "pr
 export const LIVE_SESSION_CONSENT_SCOPES = ["semantic-capture", "audio", "camera", "screen-share", "captions", "recording", "external-egress"] as const;
 export const LIVE_SESSION_POLICY_CHANGES = ["initial", "narrowing", "widening", "mixed"] as const;
 export const LIVE_SESSION_COMPLETENESS = ["complete", "semantic-only", "media-missing", "partial"] as const;
+/**
+ * What a Live Session may bind itself to in Community.
+ *
+ * A session is a canonical Community entity, not a copy of one per projection,
+ * so the binding names the single object every surface targets. `thread` is
+ * where questions, moderation, and annotation live; `change` is what a fork
+ * continues into.
+ */
+export const LIVE_SESSION_BINDING_KINDS = ["thread", "change"] as const;
 
 export type ProtocolEventType = typeof PROTOCOL_EVENT_SCHEMAS[number];
 
@@ -256,6 +265,15 @@ function validateBody(type: ProtocolEventType, value: BoundaryValue): void {
       ids: { spaceId: "space", sessionId: "session", principalId: "principal" },
       digests: ["manifestDigest"],
       enums: { completeness: LIVE_SESSION_COMPLETENESS },
+    }); return;
+    // The session names one canonical Community object rather than copying
+    // itself into each projection. Binding appends, so a rebinding is visible
+    // as history instead of overwriting where an audience was told to look.
+    case "live.session.bound": validateFields(value, {
+      required: ["spaceId", "sessionId", "principalId", "objectId", "objectKind"],
+      ids: { spaceId: "space", sessionId: "session", principalId: "principal" },
+      strings: ["objectId"],
+      enums: { objectKind: LIVE_SESSION_BINDING_KINDS },
     }); return;
     case "channel.create": validateFields(value, {
       required: ["schema", "channelId", "communityId", "name", "principalId", "visibility"],
