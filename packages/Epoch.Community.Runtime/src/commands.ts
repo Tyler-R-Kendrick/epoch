@@ -81,16 +81,30 @@ export interface EpochCommandOutcome {
   readonly validation?: EpochValidationReceipt;
 }
 
+/** What the bus already resolved about this call, handed to every handler. */
+export interface EpochCommandContext {
+  /** The caller the bus authenticated: `request.actor`, or the workspace actor. */
+  readonly actor: string;
+  readonly source: EpochCommandSource;
+  readonly confirmed: boolean;
+}
+
 interface CommandHandler {
   readonly descriptor: EpochCommandDescriptor;
   /** Handlers may be synchronous or promise-returning; the bus awaits both. */
-  run(input: Readonly<Record<string, DictionaryValue>>): EpochCommandOutcome | Promise<EpochCommandOutcome>;
+  run(
+    input: Readonly<Record<string, DictionaryValue>>,
+    context: EpochCommandContext,
+  ): EpochCommandOutcome | Promise<EpochCommandOutcome>;
 }
 
 /** A command contributed by another module (for example Live Spaces). */
 export interface EpochCommandExtension {
   readonly descriptor: EpochCommandDescriptor;
-  run(input: Readonly<Record<string, DictionaryValue>>): EpochCommandOutcome | Promise<EpochCommandOutcome>;
+  run(
+    input: Readonly<Record<string, DictionaryValue>>,
+    context: EpochCommandContext,
+  ): EpochCommandOutcome | Promise<EpochCommandOutcome>;
 }
 
 export interface CreateCommandBusOptions {
@@ -554,7 +568,11 @@ export function createCommunityCommandBus(options: CreateCommandBusOptions): Com
       }));
     }
 
-    const outcome = await handler.run(input);
+    const outcome = await handler.run(input, {
+      actor: base.actor,
+      source: base.source,
+      confirmed: request.confirmed === true,
+    });
     // SAFETY: The module validates or constructs this value before applying the asserted contract.
     return emit(createCommandReceipt<TData>({
       ...base,

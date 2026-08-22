@@ -1,4 +1,12 @@
-import { EpochCommandError, type EpochCommandReceipt, type LivePresentationEnvelopeV2 } from "@epoch/community-runtime";
+import {
+  EpochCommandError,
+  type EpochCommandReceipt,
+  type LivePresentationEnvelopeV2,
+  type LiveSessionSnapshot,
+} from "@epoch/community-runtime";
+import type { LiveJoinLinkStore } from "./join-links";
+import { liveWebhookBodyDigest } from "./media-gateway";
+import type { LiveMediaProvider } from "./media-provider";
 import type { LiveSessionService } from "./live-session-service";
 type BoundaryValue = null | undefined | boolean | number | string | bigint | symbol | Readonly<object>;
 type DictionaryValue = null | undefined | boolean | number | string | bigint | readonly DictionaryValue[] | { readonly [key: string]: DictionaryValue };
@@ -42,10 +50,17 @@ export interface LiveRouteOptions {
   readonly scheduleInterval?: (delayMs: number, callback: () => void) => () => void;
   readonly heartbeatMs?: number;
   readonly maxEventPageSize?: number;
+  /** Opaque expiring join links; absent means link-based joining is unavailable. */
+  readonly joinLinks?: LiveJoinLinkStore;
+  /** Provider used only to verify inbound webhooks; never reachable from a command. */
+  readonly webhookProvider?: LiveMediaProvider;
+  readonly maxWebhookBodyBytes?: number;
 }
 
 const DEFAULT_BASE_PATH = "/community/live";
 const DEFAULT_MAX_EVENT_PAGE = 256;
+const DEFAULT_MAX_WEBHOOK_BODY_BYTES = 64 * 1024;
+const WEBHOOK_CONTENT_TYPE = "application/webhook+json";
 const SCHEMA_VERSION = 1;
 /** Media and token routes are deliberately absent from the generic command endpoint. */
 const COMMAND_KIND_PREFIX = "live.";
@@ -96,6 +111,12 @@ export function createLiveSessionFetchHandler(options: LiveRouteOptions): (reque
     const route = url.pathname.slice(basePath.length);
     const segments = route.split("/").filter((segment) => segment !== "");
 
+    // The webhook route is provider-authenticated, not principal-authenticated:
+    // it verifies a signature over the raw body and nothing else grants entry.
+    if (request.method === "POST" && segments.length === 3
+      && segments[0] === "provider" && segments[2] === "webhook") {
+      return webhookResponse(request, segments[1] ?? "");
+    }
     if (request.method === "POST" && segments.length === 1 && segments[0] === "sessions") {
       return runCommand(request, "live.session.create", actor);
     }
@@ -109,7 +130,13 @@ export function createLiveSessionFetchHandler(options: LiveRouteOptions): (reque
       return runCommand(request, undefined, actor, sessionId);
     }
     if (request.method === "POST" && segments.length === 3 && segments[2] === "join") {
-      return runCommand(request, "live.participant.join", actor, sessionId);
+      return joinResponse(request, sessionId, actor);
+    }
+    if (request.method === "POST" && segments.length === 3 && segments[2] === "join-links") {
+      return issueJoinLinkResponse(request, sessionId, actor);
+    }
+    if (request.method === "POST" && segments.length === 4 && segments[2] === "media" && segments[3] === "token") {
+      return mediaTokenResponse(request, sessionId, actor);
     }
     if (request.method === "GET" && segments.length === 4 && segments[2] === "presentation") {
       if (segments[3] === "checkpoint") return checkpointResponse(sessionId, actor);
@@ -151,6 +178,145 @@ export function createLiveSessionFetchHandler(options: LiveRouteOptions): (reque
 
   async function readCommand(kind: string, sessionId: string, actor: string): Promise<Response> {
     return execute({ kind, input: { sessionId }, source: "api", actor });
+  }
+
+  /**
+   * Joining accepts either an authenticated principal or a join-link token.
+   * A token never carries more than the observer grant it was minted for, and
+   * a token for another session is simply not a token for this one.
+   */
+  async function joinResponse(request: Request, sessionId: string, actor: string): Promise<Response> {
+    let body: Readonly<Record<string, DictionaryValue>>;
+    try {
+      body = await objectBody(request);
+    } catch {
+      return problem(400, "invalid-body", "Request body must be a JSON object.");
+    }
+    const token = stringField(body, "token");
+    if (token === undefined) {
+      return execute({ kind: "live.participant.join", input: { sessionId }, source: "api", actor });
+    }
+    if (options.joinLinks === undefined) return problem(404, "not-found", NOT_FOUND_DETAIL);
+    const redemption = options.joinLinks.redeem(token);
+    if (redemption.kind === "refused" || redemption.sessionId !== sessionId) {
+      // Every refusal reads the same from outside: a guessed, expired, revoked,
+      // exhausted, or cross-session token is one indistinguishable failure.
+      return problem(404, "not-found", NOT_FOUND_DETAIL);
+    }
+    return execute({
+      kind: "live.participant.join",
+      input: { sessionId },
+      source: "api",
+      actor: redemption.observerPrincipalId,
+    });
+  }
+
+  async function issueJoinLinkResponse(request: Request, sessionId: string, actor: string): Promise<Response> {
+    if (options.joinLinks === undefined) return problem(404, "not-found", NOT_FOUND_DETAIL);
+    let body: Readonly<Record<string, DictionaryValue>>;
+    try {
+      body = await objectBody(request);
+    } catch {
+      return problem(400, "invalid-body", "Request body must be a JSON object.");
+    }
+    // Minting a link is a session-management act, so it is authorized by the
+    // same command the host would run anywhere else.
+    const authorized = await options.service.run<LiveSessionSnapshot>({
+      kind: "live.session.show",
+      input: { sessionId },
+      source: "api",
+      actor,
+    });
+    if (authorized.policy.decision !== "allow") return problem(403, "policy-denied", "The command was refused by policy.");
+    if (authorized.data.ownerPrincipalId !== actor) {
+      return problem(403, "policy-denied", "Only the session owner may mint join links.");
+    }
+    const lifetimeMs = numberField(body, "lifetimeMs") ?? 60 * 60 * 1000;
+    try {
+      const issued = options.joinLinks.issue({
+        sessionId,
+        issuedByPrincipalId: actor,
+        lifetimeMs,
+        ...(numberField(body, "maxRedemptions") !== undefined && { maxRedemptions: numberField(body, "maxRedemptions") ?? 1 }),
+      });
+      // The token appears exactly once, in this response.
+      return json({
+        schemaVersion: SCHEMA_VERSION,
+        token: issued.token,
+        link: issued.record,
+      });
+    } catch {
+      return problem(409, "join-link-limit", "This session already has the maximum number of active join links.");
+    }
+  }
+
+  async function mediaTokenResponse(request: Request, sessionId: string, actor: string): Promise<Response> {
+    let body: Readonly<Record<string, DictionaryValue>>;
+    try {
+      body = await objectBody(request);
+    } catch {
+      return problem(400, "invalid-body", "Request body must be a JSON object.");
+    }
+    const sources = Array.isArray(body.sources) ? body.sources.filter(__epochIsString) : [];
+    return execute({
+      kind: "live.media.issueToken",
+      input: { sessionId, sources },
+      source: "api",
+      actor,
+    });
+  }
+
+  /**
+   * Provider webhooks are untrusted input until the signature over the raw
+   * body verifies. Size and content type are checked before any parsing, the
+   * event is bound to a known session, and the result enters the domain as a
+   * command — never as a direct write.
+   */
+  async function webhookResponse(request: Request, providerKind: string): Promise<Response> {
+    const provider = options.webhookProvider;
+    if (provider === undefined || provider.kind !== providerKind) {
+      return problem(404, "not-found", NOT_FOUND_DETAIL);
+    }
+    const contentType = request.headers.get("content-type") ?? "";
+    if (!contentType.startsWith(WEBHOOK_CONTENT_TYPE)) {
+      return problem(415, "unsupported-media-type", "Provider webhooks must use application/webhook+json.");
+    }
+    const rawBody = await request.text();
+    const maxBytes = options.maxWebhookBodyBytes ?? DEFAULT_MAX_WEBHOOK_BODY_BYTES;
+    if (rawBody.length > maxBytes) {
+      return problem(413, "payload-too-large", "Provider webhook body exceeds the accepted size.");
+    }
+    const verified = await provider.verifyWebhook({
+      rawBody,
+      signature: request.headers.get("authorization") ?? "",
+      contentType: WEBHOOK_CONTENT_TYPE,
+    });
+    if (verified.outcome === "rejected") {
+      return problem(401, "webhook-unverified", "Provider webhook signature did not verify.");
+    }
+    // A duplicate is an already-handled delivery, acknowledged without
+    // re-entering the domain — so it is answered before any binding work.
+    if (verified.outcome === "duplicate") {
+      return json({ schemaVersion: SCHEMA_VERSION, accepted: true, duplicate: true });
+    }
+    const sessionId = stringField(dictionaryField(await safeJson(rawBody), "epoch"), "sessionId");
+    if (sessionId === undefined || verified.roomRef === undefined) {
+      return problem(400, "webhook-unbound", "Provider webhook is not bound to a known live session.");
+    }
+    return execute({
+      kind: "live.media.providerEvent",
+      input: {
+        sessionId,
+        providerKind,
+        eventKind: verified.eventKind ?? "unknown",
+        roomRef: verified.roomRef,
+        eventDigest: liveWebhookBodyDigest(rawBody),
+      },
+      source: "api",
+      // Provider ingress runs as a system principal; it holds no session grant
+      // and can therefore never act as a participant.
+      actor: `liveprovider_${providerKind}`,
+    });
   }
 
   async function execute(request: {
@@ -342,6 +508,23 @@ function dictionaryField(
 
 function integerParameter(url: URL, name: string, fallback: number): number {
   return toInteger(url.searchParams.get(name), fallback);
+}
+
+function __epochIsNumber<T>(value: T): value is T & number { return typeof value === "number"; }
+
+function numberField(body: Readonly<Record<string, DictionaryValue>>, key: string): number | undefined {
+  const value = body[key];
+  return __epochIsNumber(value) && Number.isSafeInteger(value) && value > 0 ? value : undefined;
+}
+
+/** Read the session binding a provider embeds in its webhook payload. */
+async function safeJson(rawBody: string): Promise<Readonly<Record<string, DictionaryValue>>> {
+  try {
+    const value: DictionaryValue = JSON.parse(rawBody);
+    return isDictionary(value) ? value : {};
+  } catch {
+    return {};
+  }
 }
 
 function toInteger(value: string | null, fallback: number): number {
