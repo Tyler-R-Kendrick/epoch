@@ -368,7 +368,7 @@ Append-only outcomes for SDLC coordinator runs. Newest entries appear at the bot
 | Failure class | n/a |
 | Notes | Authored `docs/plans/lua-ui-customization/master-instructions.md` (frozen resolutions, contracts C0–C12, swarms S1–S10, acceptance matrix REQ-1..10) and ADR-0058 (Proposed). No implementation dispatched. |
 
-## 2026-08-22 — Customization pattern evaluation and ADR-0059 amendments (planned)
+## 2026-08-22 — Customization pattern evaluation and ADR-0060 amendments (planned)
 
 | Field | Value |
 |---|---|
@@ -377,4 +377,4 @@ Append-only outcomes for SDLC coordinator runs. Newest entries appear at the bot
 | Branch | `claude/lua-ui-customization-0p0rld` |
 | Result | **planned** |
 | Failure class | n/a |
-| Notes | Evaluated cross-industry scripted and generative customization patterns against ADR-0058 in `pattern-evaluation.md`; audit found runtime, bridge, style, token, and a11y contracts already correct and four social gaps open. ADR-0059 (Proposed) adds the social-primitive catalog (C3.6–C3.8), community bundles (C13), feed-skeleton scripts (C14), and a reserved iframe app tier; acceptance rows REQ-11..13 added. Contracts stayed additive-only and §3/§5 were not reopened. |
+| Notes | Evaluated cross-industry scripted and generative customization patterns against ADR-0058 in `pattern-evaluation.md`; audit found runtime, bridge, style, token, and a11y contracts already correct and four social gaps open. ADR-0060 (Proposed) adds the social-primitive catalog (C3.6–C3.8), community bundles (C13), feed-skeleton scripts (C14), and a reserved iframe app tier; acceptance rows REQ-11..13 added. Contracts stayed additive-only and §3/§5 were not reopened. |

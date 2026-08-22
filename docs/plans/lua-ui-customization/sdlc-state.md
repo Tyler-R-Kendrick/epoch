@@ -10,7 +10,7 @@ tags: [epoch, plans, sdlc, lua, community-web]
 - Initiative: `lua-ui-customization`
 - Phase: planned
 - Branches: `claude/lua-ui-customization-g87ju7` (plan and ADR-0058),
-  `claude/lua-ui-customization-0p0rld` (pattern evaluation and the ADR-0059
+  `claude/lua-ui-customization-0p0rld` (pattern evaluation and the ADR-0060
   amendment set)
 
 ## Goal
@@ -29,13 +29,13 @@ The complete execution prompt for the delivery run is
 freezes design resolutions (§3) and contracts C0–C14 (§4) ahead of dispatch.
 The design commitments are recorded in
 [ADR-0058](../../design-decisions/0058-lua-scriptable-generative-ui-customization.md)
-and [ADR-0059](../../design-decisions/0059-social-catalog-bundles-feed-scripts-and-app-tier.md).
+and [ADR-0060](../../design-decisions/0060-social-catalog-bundles-feed-scripts-and-app-tier.md).
 
 The cross-industry evaluation behind the scope — the expressiveness ladder, the
 trust patterns, the social-surface mapping, and the audit of ADR-0058 against
 both — is [`pattern-evaluation.md`](pattern-evaluation.md).
 
-## Amendment set (ADR-0059)
+## Amendment set (ADR-0060)
 
 Additive over ADR-0058; no frozen resolution reopened and no existing contract
 clause changed:
