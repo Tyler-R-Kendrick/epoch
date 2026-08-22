@@ -109,7 +109,7 @@ export interface LiveSessionServiceOptions {
 
 export interface LiveSessionService {
   /** Run a live command, then deliver whatever it released. */
-  run(request: EpochCommandRequest): Promise<EpochCommandReceipt>;
+  run<TData = unknown>(request: EpochCommandRequest): Promise<EpochCommandReceipt<TData>>;
   status(sessionId: string, actor: string): Promise<LivePresentationStatusData>;
   snapshot(input: {
     readonly sessionId: string;
@@ -164,7 +164,7 @@ export function createLiveSessionService(options: LiveSessionServiceOptions): Li
 
   return {
     async run(request) {
-      const receipt = await options.execute(request);
+      const receipt = await options.execute<never>(request);
       const sessionId = sessionIdOf(request.input);
       if (sessionId === undefined || receipt.policy.decision !== "allow") return receipt;
       const actor = request.actor ?? receipt.actor;

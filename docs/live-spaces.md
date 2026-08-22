@@ -26,6 +26,9 @@ for the executable persona journeys.
 | Provider-neutral media + caption ports; `disabled` and deterministic `fake` providers; E2EE/recording refusal; caption gate | Implemented (`@epoch/community-api`) |
 | Semantic transport port, deterministic in-memory transport, spectator client with gap recovery and bounded reconnect | Implemented (`@epoch/community-runtime`) |
 | Hosted HTTP surface: session/command routes, checkpoint and event paging, SSE stream with `Last-Event-ID` resume, origin allow-list, rate limits, bounded subscribers | Implemented (`@epoch/community-api`) |
+| Opaque expiring join links hashed at rest, redeeming to single-session observer grants | Implemented (`@epoch/community-api`) |
+| Media token derivation after Epoch grant, role, policy, and consent checks | Implemented (`@epoch/community-api`, honest `unavailable` with no gateway) |
+| Provider webhook ingress: raw-body verification, size and content-type bounds, session binding, dedup, command-path entry | Implemented (`@epoch/community-api`) |
 | Community Web host/spectator UI, telemetry, moderation service | Not yet implemented |
 | LiveKit adapter | Not implemented; `livekit` is a declared provider kind only, and no media SDK dependency exists |
 
@@ -74,6 +77,9 @@ cannot see, then hands everything to the shared command bus.
 | `GET /community/live/sessions/:id/presentation/checkpoint` | Late-join checkpoint plus deltas |
 | `GET /community/live/sessions/:id/presentation/events?after=&limit=` | Keyset paging by sequence |
 | `GET /community/live/sessions/:id/presentation/stream` | SSE with `Last-Event-ID` resume |
+| `POST /community/live/sessions/:id/join-links` | Owner mints an opaque expiring link |
+| `POST /community/live/sessions/:id/media/token` | Derive a least-privilege media credential |
+| `POST /community/live/provider/:kind/webhook` | Verified provider event ingress |
 
 Controls that live in the route layer rather than the domain:
 
@@ -102,6 +108,38 @@ Latency is whatever the deployment's SSE path costs: released envelopes are
 pushed to open subscribers as the releasing command completes, with no polling
 interval in between. Publication delay, when configured, is a deliberate policy
 choice applied before release — not transport lag.
+
+## Access at the edge
+
+Three credentials meet the outside world, and none of them is authority.
+
+**Join links** are bearer credentials treated like one. The secret exists only
+in the response that mints it; the store keeps a SHA-256 digest, so a stolen
+database yields no working links. A link is bound to one session, expires,
+counts redemptions, and can be revoked. Redemption produces an opaque
+single-session **observer** principal — never the issuer's identity and never a
+publish grant. Every failure mode (guessed, expired, revoked, exhausted, or
+valid-but-for-another-session) returns the same `404`, so the endpoint cannot
+be used to probe which links exist.
+
+**Media tokens** are derived, never asserted. Epoch decides first — the session
+is live, the caller holds an active grant, the role permits those sources, the
+policy enables them, and the required consent scopes are recorded — and only
+then does the provider mint a short-lived credential (bounded to at most 15
+minutes) carrying exactly the sources that survived those checks. Observers and
+agents publish nothing by default; a camera request against an audio-only
+policy is refused rather than quietly trimmed; a revoked participant gets
+nothing on their next request. Semantic-only sessions have no media plane at
+all, and with no gateway configured the command returns an honest `unavailable`
+receipt instead of a token or a crash.
+
+**Provider webhooks** are untrusted input until proven otherwise. Content type
+and body size are checked before parsing, the signature is verified over the
+raw body, the event must name a session the deployment knows, replays are
+acknowledged once and re-enter nothing, and the verified result enters the
+domain as a command — carrying only a digest of the body, never the body — run
+as a system principal that holds no session grant and therefore can never act
+as a participant.
 
 Canonical authority never moves: signed Epoch events, Views, grants, and
 receipts stay canonical; transports, browser memory, and media rooms are

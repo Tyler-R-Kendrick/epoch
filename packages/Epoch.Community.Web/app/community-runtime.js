@@ -3060,7 +3060,11 @@ var CW_RUNTIME = (() => {
           data: { refused: "confirmation" }
         }));
       }
-      const outcome = await handler.run(input);
+      const outcome = await handler.run(input, {
+        actor: base.actor,
+        source: base.source,
+        confirmed: request.confirmed === true
+      });
       return emit(createCommandReceipt({
         ...base,
         policy: policyReceipt("allow", descriptor2.capability),
@@ -4665,6 +4669,7 @@ ${source ?? ""}`.split("\n");
   function createLocalLiveSpacePort(options) {
     const sessions = /* @__PURE__ */ new Map();
     const catalog = options.catalog ?? DEFAULT_LIVE_ACTION_CATALOG;
+    const mediaGateway = options.media;
     let created = 0;
     function requireSession(sessionId) {
       return sessions.get(sessionId) ?? fail("not-found", `live session not found: ${sessionId}`);
@@ -4975,20 +4980,114 @@ ${source ?? ""}`.split("\n");
         const reportId = identifier("livereport", { sessionId: session.sessionId, index: session.reports.length });
         session.reports.push({ reportId, principalId: input.actor });
         return { data: { reportId, recorded: true } };
+      },
+      /**
+       * A media token is derived authority, never a source of it. Epoch decides
+       * first — session state, live grant, join lock, consent, security mode —
+       * and only then does the provider mint a short-lived credential scoped to
+       * the least privilege that role actually holds.
+       */
+      async issueMediaToken(input) {
+        const session = requireSession(input.sessionId);
+        const participant = requireActive(session, input.actor);
+        if (session.lifecycle === "ended" || session.lifecycle === "sealed") {
+          fail("policy-denied", "media tokens are not issued after a session ends");
+        }
+        if (session.policy.securityMode === "semantic-only") {
+          fail("policy-denied", "semantic-only sessions have no media plane");
+        }
+        const permitted = permittedSourcesFor(participant.role, session.policy);
+        const granted = input.requestedSources.filter((source) => permitted.includes(source));
+        const refused = input.requestedSources.filter((source) => !permitted.includes(source));
+        if (refused.length > 0) {
+          fail("policy-denied", `role '${participant.role}' may not publish: ${refused.join(", ")}`);
+        }
+        if (granted.length > 0) {
+          const consent = session.consent.get(input.actor) ?? /* @__PURE__ */ new Set();
+          const missing = granted.map((source) => consentScopeForSource(source)).filter((scope) => !consent.has(scope));
+          if (missing.length > 0) fail("policy-denied", `publishing requires consent: ${[...new Set(missing)].join(", ")}`);
+        }
+        if (mediaGateway === void 0) {
+          return {
+            data: { refused: "unavailable", reason: MEDIA_UNAVAILABLE },
+            validation: validationReceipt("live.media", [MEDIA_UNAVAILABLE])
+          };
+        }
+        const grant = await mediaGateway.issueToken({
+          sessionId: session.sessionId,
+          participantRef: identifier("livepart", { sessionId: session.sessionId, principalId: input.actor }),
+          role: participant.role,
+          securityMode: session.policy.securityMode,
+          publishSources: granted
+        });
+        return {
+          data: {
+            token: grant.token,
+            expiresAtMs: grant.expiresAtMs,
+            roomRef: grant.roomRef,
+            canSubscribe: grant.canSubscribe,
+            publishSources: grant.publishSources
+          }
+        };
+      },
+      async recordProviderEvent(input) {
+        const session = requireSession(input.sessionId);
+        if (mediaGateway === void 0) {
+          return {
+            data: { refused: "unavailable", reason: MEDIA_UNAVAILABLE },
+            validation: validationReceipt("live.media", [MEDIA_UNAVAILABLE])
+          };
+        }
+        const record = await mediaGateway.recordProviderEvent({
+          sessionId: session.sessionId,
+          providerKind: input.providerKind,
+          eventKind: input.eventKind,
+          roomRef: input.roomRef,
+          eventDigest: input.eventDigest
+        });
+        return { data: { ...record, sessionId: session.sessionId } };
       }
     };
+  }
+  var MEDIA_UNAVAILABLE = "no media gateway is configured for this deployment";
+  function permittedSourcesFor(role, policy) {
+    if (role === "observer" || role === "agent") return [];
+    const permitted = [];
+    if (policy.media.audio) permitted.push("microphone");
+    if (policy.media.camera) permitted.push("camera");
+    if (policy.media.screenShare) {
+      permitted.push("screen-share");
+      permitted.push("screen-share-audio");
+    }
+    return permitted;
+  }
+  function consentScopeForSource(source) {
+    if (source === "microphone") return "audio";
+    if (source === "camera") return "camera";
+    return "screen-share";
   }
   var PORT_UNAVAILABLE = "no Live Space application port is configured for this workspace";
   function createLiveSpaceCommandExtensions(port, actorOf) {
     function withPort(run) {
-      return (input) => {
+      return (input, context) => {
         if (port === void 0) {
           return {
             data: { refused: "unavailable", reason: PORT_UNAVAILABLE },
             validation: validationReceipt("live", [PORT_UNAVAILABLE])
           };
         }
-        return run(port, input);
+        return run(port, input, context.actor ?? actorOf());
+      };
+    }
+    function withPortAsync(run) {
+      return async (input, context) => {
+        if (port === void 0) {
+          return {
+            data: { refused: "unavailable", reason: PORT_UNAVAILABLE },
+            validation: validationReceipt("live", [PORT_UNAVAILABLE])
+          };
+        }
+        return run(port, input, context.actor ?? actorOf());
       };
     }
     const extensions = [
@@ -5004,9 +5103,9 @@ ${source ?? ""}`.split("\n");
             policy: { type: "object", description: "Publication policy input; allow-list starts empty." }
           }, ["spaceId"])
         ),
-        run: withPort((live, input) => live.createSession({
+        run: withPort((live, input, actor) => live.createSession({
           spaceId: requiredString2(input, "spaceId"),
-          actor: actorOf(),
+          actor,
           policy: policyInput(input)
         }))
       },
@@ -5055,9 +5154,9 @@ ${source ?? ""}`.split("\n");
             policy: { type: "object", description: "Replacement publication policy input." }
           }, ["sessionId"])
         ),
-        run: withPort((live, input) => live.configure({
+        run: withPort((live, input, actor) => live.configure({
           sessionId: requiredString2(input, "sessionId"),
-          actor: actorOf(),
+          actor,
           policy: policyInput(input),
           confirmed: true
         }))
@@ -5074,9 +5173,9 @@ ${source ?? ""}`.split("\n");
             scopes: { type: "array", description: "Consent scopes: semantic-capture, audio, camera, screen-share, captions, recording, external-egress." }
           }, ["sessionId", "scopes"])
         ),
-        run: withPort((live, input) => live.recordConsent({
+        run: withPort((live, input, actor) => live.recordConsent({
           sessionId: requiredString2(input, "sessionId"),
-          actor: actorOf(),
+          actor,
           scopes: consentScopes(input)
         }))
       },
@@ -5097,9 +5196,9 @@ ${source ?? ""}`.split("\n");
             completeness: enumProperty2("Honest replay completeness.", ["complete", "semantic-only", "media-missing", "partial"])
           }, ["sessionId"])
         ),
-        run: withPort((live, input) => live.seal({
+        run: withPort((live, input, actor) => live.seal({
           sessionId: requiredString2(input, "sessionId"),
-          actor: actorOf(),
+          actor,
           completeness: completenessOf(input)
         }))
       },
@@ -5112,7 +5211,7 @@ ${source ?? ""}`.split("\n");
           false,
           schema2({ sessionId: stringProperty2("Live session id.") }, ["sessionId"])
         ),
-        run: withPort((live, input) => live.join({ sessionId: requiredString2(input, "sessionId"), actor: actorOf() }))
+        run: withPort((live, input, actor) => live.join({ sessionId: requiredString2(input, "sessionId"), actor }))
       },
       {
         descriptor: descriptor(
@@ -5126,9 +5225,9 @@ ${source ?? ""}`.split("\n");
             capability: stringProperty2("Requested capability, for example live.presentation.publish.")
           }, ["sessionId", "capability"])
         ),
-        run: withPort((live, input) => live.requestGrant({
+        run: withPort((live, input, actor) => live.requestGrant({
           sessionId: requiredString2(input, "sessionId"),
-          actor: actorOf(),
+          actor,
           capability: requiredString2(input, "capability")
         }))
       },
@@ -5145,9 +5244,9 @@ ${source ?? ""}`.split("\n");
             role: enumProperty2("Session role.", ["cohost", "collaborator", "agent", "observer"])
           }, ["sessionId", "principalId", "role"])
         ),
-        run: withPort((live, input) => live.grant({
+        run: withPort((live, input, actor) => live.grant({
           sessionId: requiredString2(input, "sessionId"),
-          actor: actorOf(),
+          actor,
           principalId: requiredString2(input, "principalId"),
           role: roleOf(input)
         }))
@@ -5164,9 +5263,9 @@ ${source ?? ""}`.split("\n");
             principalId: stringProperty2("Principal to revoke.")
           }, ["sessionId", "principalId"])
         ),
-        run: withPort((live, input) => live.revoke({
+        run: withPort((live, input, actor) => live.revoke({
           sessionId: requiredString2(input, "sessionId"),
-          actor: actorOf(),
+          actor,
           principalId: requiredString2(input, "principalId")
         }))
       },
@@ -5182,9 +5281,9 @@ ${source ?? ""}`.split("\n");
             locked: booleanProperty2("True locks new joins.")
           }, ["sessionId", "locked"])
         ),
-        run: withPort((live, input) => live.lockJoins({
+        run: withPort((live, input, actor) => live.lockJoins({
           sessionId: requiredString2(input, "sessionId"),
-          actor: actorOf(),
+          actor,
           locked: input.locked === true
         }))
       },
@@ -5202,9 +5301,9 @@ ${source ?? ""}`.split("\n");
             path: stringProperty2("Logical Epoch path this action touches.")
           }, ["sessionId", "actionId"])
         ),
-        run: withPort((live, input) => live.publish({
+        run: withPort((live, input, actor) => live.publish({
           sessionId: requiredString2(input, "sessionId"),
-          actor: actorOf(),
+          actor,
           actionId: requiredString2(input, "actionId"),
           args: dictionaryOf(input, "args"),
           ...optionalString2(input, "path") !== void 0 && { path: requiredString2(input, "path") }
@@ -5230,7 +5329,7 @@ ${source ?? ""}`.split("\n");
           false,
           schema2({ sessionId: stringProperty2("Live session id.") }, ["sessionId"])
         ),
-        run: withPort((live, input) => live.checkpoint({ sessionId: requiredString2(input, "sessionId"), actor: actorOf() }))
+        run: withPort((live, input, actor) => live.checkpoint({ sessionId: requiredString2(input, "sessionId"), actor }))
       },
       {
         descriptor: descriptor(
@@ -5244,9 +5343,9 @@ ${source ?? ""}`.split("\n");
             checkpointId: stringProperty2("Checkpoint id.")
           }, ["sessionId", "checkpointId"])
         ),
-        run: withPort((live, input) => live.bookmark({
+        run: withPort((live, input, actor) => live.bookmark({
           sessionId: requiredString2(input, "sessionId"),
-          actor: actorOf(),
+          actor,
           checkpointId: requiredString2(input, "checkpointId")
         }))
       },
@@ -5264,9 +5363,9 @@ ${source ?? ""}`.split("\n");
             path: stringProperty2("Optional logical path anchor.")
           }, ["sessionId", "checkpointId", "body"])
         ),
-        run: withPort((live, input) => live.annotate({
+        run: withPort((live, input, actor) => live.annotate({
           sessionId: requiredString2(input, "sessionId"),
-          actor: actorOf(),
+          actor,
           checkpointId: requiredString2(input, "checkpointId"),
           body: requiredString2(input, "body"),
           ...optionalString2(input, "path") !== void 0 && { path: requiredString2(input, "path") }
@@ -5284,10 +5383,52 @@ ${source ?? ""}`.split("\n");
             checkpointId: stringProperty2("Checkpoint id; a media timestamp is not a branch point.")
           }, ["sessionId", "checkpointId"])
         ),
-        run: withPort((live, input) => live.forkAt({
+        run: withPort((live, input, actor) => live.forkAt({
           sessionId: requiredString2(input, "sessionId"),
-          actor: actorOf(),
+          actor,
           checkpointId: requiredString2(input, "checkpointId")
+        }))
+      },
+      {
+        descriptor: descriptor(
+          "live.media.issueToken",
+          "Derive a short-lived, least-privilege media credential after Epoch checks pass.",
+          "live.media.subscribe",
+          false,
+          false,
+          schema2({
+            sessionId: stringProperty2("Live session id."),
+            sources: { type: "array", description: "Requested publish sources; each is checked against the caller's role, the policy, and consent." }
+          }, ["sessionId"])
+        ),
+        run: withPortAsync((live, input, actor) => live.issueMediaToken({
+          sessionId: requiredString2(input, "sessionId"),
+          actor,
+          requestedSources: publishSources(input)
+        }))
+      },
+      {
+        descriptor: descriptor(
+          "live.media.providerEvent",
+          "Record a verified provider webhook as projected media health.",
+          "live.media.admin",
+          false,
+          false,
+          schema2({
+            sessionId: stringProperty2("Live session id."),
+            providerKind: stringProperty2("Provider kind that signed the event."),
+            eventKind: stringProperty2("Normalized provider event kind."),
+            roomRef: stringProperty2("Opaque provider room reference."),
+            eventDigest: stringProperty2("Digest of the verified raw body.")
+          }, ["sessionId", "providerKind", "eventKind", "roomRef", "eventDigest"])
+        ),
+        run: withPortAsync((live, input, actor) => live.recordProviderEvent({
+          sessionId: requiredString2(input, "sessionId"),
+          actor,
+          providerKind: requiredString2(input, "providerKind"),
+          eventKind: requiredString2(input, "eventKind"),
+          roomRef: requiredString2(input, "roomRef"),
+          eventDigest: requiredString2(input, "eventDigest")
         }))
       },
       {
@@ -5302,9 +5443,9 @@ ${source ?? ""}`.split("\n");
             reason: stringProperty2("Why this is being reported.")
           }, ["sessionId", "reason"])
         ),
-        run: withPort((live, input) => live.report({
+        run: withPort((live, input, actor) => live.report({
           sessionId: requiredString2(input, "sessionId"),
-          actor: actorOf(),
+          actor,
           reason: requiredString2(input, "reason")
         }))
       }
@@ -5321,9 +5462,9 @@ ${source ?? ""}`.split("\n");
           requiresConfirmation,
           schema2({ sessionId: stringProperty2("Live session id.") }, ["sessionId"])
         ),
-        run: withPort((live, input) => live.lifecycle({
+        run: withPort((live, input, actor) => live.lifecycle({
           sessionId: requiredString2(input, "sessionId"),
-          actor: actorOf(),
+          actor,
           command
         }))
       };
@@ -5428,6 +5569,19 @@ ${source ?? ""}`.split("\n");
       fail("invalid-input", `Unknown replay completeness '${value}'.`);
     }
     return value;
+  }
+  function publishSources(input) {
+    const value = input.sources;
+    if (value === void 0 || value === null) return [];
+    if (!Array.isArray(value)) fail("invalid-input", "Command input 'sources' must be an array of publish sources.");
+    const sources = [];
+    for (const source of value) {
+      if (!__epochIsString7(source) || source !== "microphone" && source !== "camera" && source !== "screen-share" && source !== "screen-share-audio") {
+        fail("invalid-input", `Unknown media publish source '${String(source)}'.`);
+      }
+      sources.push(source);
+    }
+    return sources;
   }
   function roleOf(input) {
     const value = requiredString2(input, "role");

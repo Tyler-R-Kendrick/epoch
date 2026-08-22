@@ -1,6 +1,12 @@
 import { identifier } from "../digest";
 import { EpochCommandError, validationReceipt } from "../receipts";
-import type { EpochCommandDescriptor, EpochCommandExtension, EpochCommandOutcome, JsonSchema } from "../commands";
+import type {
+  EpochCommandContext,
+  EpochCommandDescriptor,
+  EpochCommandExtension,
+  EpochCommandOutcome,
+  JsonSchema,
+} from "../commands";
 import {
   isLiveConsentScope,
   isLiveLifecycleCommand,
@@ -39,6 +45,51 @@ function __epochIsNumber<T>(value: T): value is T & number { return typeof value
  */
 
 export type LiveParticipantRole = "owner" | "cohost" | "collaborator" | "agent" | "observer";
+
+export type LiveMediaPublishSource = "microphone" | "camera" | "screen-share" | "screen-share-audio";
+
+/**
+ * The server-side media seam.
+ *
+ * This package stays browser-safe, so it declares what it needs from a media
+ * provider and nothing about how that provider works. A server package
+ * implements this over the real SDK; a browser bundle that never receives one
+ * gets an honest `unavailable` receipt instead of a broken import.
+ */
+export interface LiveMediaTokenGrant {
+  /** The derived transport credential. Handed to exactly one client, never stored. */
+  readonly token: string;
+  readonly expiresAtMs: number;
+  readonly roomRef: string;
+  readonly publishSources: readonly LiveMediaPublishSource[];
+  readonly canSubscribe: boolean;
+}
+
+export interface LiveMediaProviderEventRecord {
+  readonly providerKind: string;
+  readonly eventKind: string;
+  readonly roomRef: string;
+  /** Digest of the verified raw body; the body itself never enters Epoch state. */
+  readonly eventDigest: string;
+  readonly duplicate: boolean;
+}
+
+export interface LiveMediaGateway {
+  issueToken(input: {
+    readonly sessionId: string;
+    readonly participantRef: string;
+    readonly role: LiveParticipantRole;
+    readonly securityMode: string;
+    readonly publishSources: readonly LiveMediaPublishSource[];
+  }): Promise<LiveMediaTokenGrant>;
+  recordProviderEvent(input: {
+    readonly sessionId: string;
+    readonly providerKind: string;
+    readonly eventKind: string;
+    readonly roomRef: string;
+    readonly eventDigest: string;
+  }): Promise<LiveMediaProviderEventRecord>;
+}
 
 export interface LiveParticipantSnapshot {
   readonly principalId: string;
@@ -145,6 +196,21 @@ export interface LiveSpaceApplicationPort {
     readonly actor: string;
     readonly reason: string;
   }): EpochCommandOutcome;
+  /** Derive a media credential only after Epoch grant and session checks pass. */
+  issueMediaToken(input: {
+    readonly sessionId: string;
+    readonly actor: string;
+    readonly requestedSources: readonly LiveMediaPublishSource[];
+  }): Promise<EpochCommandOutcome>;
+  /** Ingest a already-verified provider webhook through the command path. */
+  recordProviderEvent(input: {
+    readonly sessionId: string;
+    readonly actor: string;
+    readonly providerKind: string;
+    readonly eventKind: string;
+    readonly roomRef: string;
+    readonly eventDigest: string;
+  }): Promise<EpochCommandOutcome>;
 }
 
 // ------------------------------------------------------------ local port
@@ -174,6 +240,8 @@ export interface LocalLiveSpacePortOptions {
   readonly resolveSpace: (spaceId: string) => { readonly viewRef: string } | undefined;
   readonly catalog?: LiveActionCatalog;
   readonly maxQueuedEnvelopes?: number;
+  /** Server-side media seam; absent in a browser build, and honestly reported so. */
+  readonly media?: LiveMediaGateway;
 }
 
 interface LocalParticipant {
@@ -219,6 +287,7 @@ function fail(code: string, message: string): never {
 export function createLocalLiveSpacePort(options: LocalLiveSpacePortOptions): LiveSpaceApplicationPort {
   const sessions = new Map<string, LocalLiveSession>();
   const catalog = options.catalog ?? DEFAULT_LIVE_ACTION_CATALOG;
+  const mediaGateway = options.media;
   let created = 0;
 
   function requireSession(sessionId: string): LocalLiveSession {
@@ -559,7 +628,108 @@ export function createLocalLiveSpacePort(options: LocalLiveSpacePortOptions): Li
       session.reports.push({ reportId, principalId: input.actor });
       return { data: { reportId, recorded: true } };
     },
+
+    /**
+     * A media token is derived authority, never a source of it. Epoch decides
+     * first — session state, live grant, join lock, consent, security mode —
+     * and only then does the provider mint a short-lived credential scoped to
+     * the least privilege that role actually holds.
+     */
+    async issueMediaToken(input) {
+      const session = requireSession(input.sessionId);
+      const participant = requireActive(session, input.actor);
+      if (session.lifecycle === "ended" || session.lifecycle === "sealed") {
+        fail("policy-denied", "media tokens are not issued after a session ends");
+      }
+      if (session.policy.securityMode === "semantic-only") {
+        fail("policy-denied", "semantic-only sessions have no media plane");
+      }
+      const permitted = permittedSourcesFor(participant.role, session.policy);
+      const granted = input.requestedSources.filter((source) => permitted.includes(source));
+      const refused = input.requestedSources.filter((source) => !permitted.includes(source));
+      if (refused.length > 0) {
+        fail("policy-denied", `role '${participant.role}' may not publish: ${refused.join(", ")}`);
+      }
+      if (granted.length > 0) {
+        const consent = session.consent.get(input.actor) ?? new Set<LiveConsentScope>();
+        const missing = granted
+          .map((source) => consentScopeForSource(source))
+          .filter((scope) => !consent.has(scope));
+        if (missing.length > 0) fail("policy-denied", `publishing requires consent: ${[...new Set(missing)].join(", ")}`);
+      }
+      if (mediaGateway === undefined) {
+        return {
+          data: { refused: "unavailable", reason: MEDIA_UNAVAILABLE },
+          validation: validationReceipt("live.media", [MEDIA_UNAVAILABLE]),
+        };
+      }
+      const grant = await mediaGateway.issueToken({
+        sessionId: session.sessionId,
+        participantRef: identifier("livepart", { sessionId: session.sessionId, principalId: input.actor }),
+        role: participant.role,
+        securityMode: session.policy.securityMode,
+        publishSources: granted,
+      });
+      // The credential is returned to exactly one caller and never persisted.
+      return {
+        data: {
+          token: grant.token,
+          expiresAtMs: grant.expiresAtMs,
+          roomRef: grant.roomRef,
+          canSubscribe: grant.canSubscribe,
+          publishSources: grant.publishSources,
+        },
+      };
+    },
+
+    async recordProviderEvent(input) {
+      const session = requireSession(input.sessionId);
+      if (mediaGateway === undefined) {
+        return {
+          data: { refused: "unavailable", reason: MEDIA_UNAVAILABLE },
+          validation: validationReceipt("live.media", [MEDIA_UNAVAILABLE]),
+        };
+      }
+      const record = await mediaGateway.recordProviderEvent({
+        sessionId: session.sessionId,
+        providerKind: input.providerKind,
+        eventKind: input.eventKind,
+        roomRef: input.roomRef,
+        eventDigest: input.eventDigest,
+      });
+      // Provider facts are projected state, never Epoch authority: they change
+      // reported media health and nothing about who may do what.
+      return { data: { ...record, sessionId: session.sessionId } };
+    },
   };
+}
+
+const MEDIA_UNAVAILABLE = "no media gateway is configured for this deployment";
+
+/**
+ * Least privilege by role, intersected with what the policy enables. An
+ * observer publishes nothing; an agent gets no microphone, camera, or screen
+ * by default; camera and screen stay separate from the microphone.
+ */
+function permittedSourcesFor(
+  role: LiveParticipantRole,
+  policy: LivePublicationPolicy,
+): readonly LiveMediaPublishSource[] {
+  if (role === "observer" || role === "agent") return [];
+  const permitted: LiveMediaPublishSource[] = [];
+  if (policy.media.audio) permitted.push("microphone");
+  if (policy.media.camera) permitted.push("camera");
+  if (policy.media.screenShare) {
+    permitted.push("screen-share");
+    permitted.push("screen-share-audio");
+  }
+  return permitted;
+}
+
+function consentScopeForSource(source: LiveMediaPublishSource): LiveConsentScope {
+  if (source === "microphone") return "audio";
+  if (source === "camera") return "camera";
+  return "screen-share";
 }
 
 // -------------------------------------------------------- command extensions
@@ -575,15 +745,38 @@ export function createLiveSpaceCommandExtensions(
   port: LiveSpaceApplicationPort | undefined,
   actorOf: () => string,
 ): readonly EpochCommandExtension[] {
-  function withPort(run: (live: LiveSpaceApplicationPort, input: Readonly<Record<string, DictionaryValue>>) => EpochCommandOutcome) {
-    return (input: Readonly<Record<string, DictionaryValue>>): EpochCommandOutcome => {
+  /**
+   * The bus resolves who is calling before a handler runs, so live commands
+   * read the actor from that context rather than a surface-supplied closure.
+   * A server that joins a guest on a redeemed link therefore acts as that
+   * guest, not as whoever happened to configure the runtime.
+   */
+  function withPort(run: (live: LiveSpaceApplicationPort, input: Readonly<Record<string, DictionaryValue>>, actor: string) => EpochCommandOutcome) {
+    return (input: Readonly<Record<string, DictionaryValue>>, context: EpochCommandContext): EpochCommandOutcome => {
       if (port === undefined) {
         return {
           data: { refused: "unavailable", reason: PORT_UNAVAILABLE },
           validation: validationReceipt("live", [PORT_UNAVAILABLE]),
         };
       }
-      return run(port, input);
+      return run(port, input, context.actor ?? actorOf());
+    };
+  }
+
+  function withPortAsync(
+    run: (live: LiveSpaceApplicationPort, input: Readonly<Record<string, DictionaryValue>>, actor: string) => Promise<EpochCommandOutcome>,
+  ) {
+    return async (
+      input: Readonly<Record<string, DictionaryValue>>,
+      context: EpochCommandContext,
+    ): Promise<EpochCommandOutcome> => {
+      if (port === undefined) {
+        return {
+          data: { refused: "unavailable", reason: PORT_UNAVAILABLE },
+          validation: validationReceipt("live", [PORT_UNAVAILABLE]),
+        };
+      }
+      return run(port, input, context.actor ?? actorOf());
     };
   }
 
@@ -594,9 +787,9 @@ export function createLiveSpaceCommandExtensions(
           spaceId: stringProperty("Existing Space id."),
           policy: { type: "object", description: "Publication policy input; allow-list starts empty." },
         }, ["spaceId"])),
-      run: withPort((live, input) => live.createSession({
+      run: withPort((live, input, actor) => live.createSession({
         spaceId: requiredString(input, "spaceId"),
-        actor: actorOf(),
+        actor,
         policy: policyInput(input),
       })),
     },
@@ -621,9 +814,9 @@ export function createLiveSpaceCommandExtensions(
           sessionId: stringProperty("Live session id."),
           policy: { type: "object", description: "Replacement publication policy input." },
         }, ["sessionId"])),
-      run: withPort((live, input) => live.configure({
+      run: withPort((live, input, actor) => live.configure({
         sessionId: requiredString(input, "sessionId"),
-        actor: actorOf(),
+        actor,
         policy: policyInput(input),
         confirmed: true,
       })),
@@ -634,9 +827,9 @@ export function createLiveSpaceCommandExtensions(
           sessionId: stringProperty("Live session id."),
           scopes: { type: "array", description: "Consent scopes: semantic-capture, audio, camera, screen-share, captions, recording, external-egress." },
         }, ["sessionId", "scopes"])),
-      run: withPort((live, input) => live.recordConsent({
+      run: withPort((live, input, actor) => live.recordConsent({
         sessionId: requiredString(input, "sessionId"),
-        actor: actorOf(),
+        actor,
         scopes: consentScopes(input),
       })),
     },
@@ -651,16 +844,16 @@ export function createLiveSpaceCommandExtensions(
           sessionId: stringProperty("Live session id."),
           completeness: enumProperty("Honest replay completeness.", ["complete", "semantic-only", "media-missing", "partial"]),
         }, ["sessionId"])),
-      run: withPort((live, input) => live.seal({
+      run: withPort((live, input, actor) => live.seal({
         sessionId: requiredString(input, "sessionId"),
-        actor: actorOf(),
+        actor,
         completeness: completenessOf(input),
       })),
     },
     {
       descriptor: descriptor("live.participant.join", "Join as a scoped observer. Joining never grants write authority.",
         "live.participant.request", false, false, schema({ sessionId: stringProperty("Live session id.") }, ["sessionId"])),
-      run: withPort((live, input) => live.join({ sessionId: requiredString(input, "sessionId"), actor: actorOf() })),
+      run: withPort((live, input, actor) => live.join({ sessionId: requiredString(input, "sessionId"), actor })),
     },
     {
       descriptor: descriptor("live.participant.requestGrant", "Record a signed request for a capability. Requests never auto-grant.",
@@ -668,9 +861,9 @@ export function createLiveSpaceCommandExtensions(
           sessionId: stringProperty("Live session id."),
           capability: stringProperty("Requested capability, for example live.presentation.publish."),
         }, ["sessionId", "capability"])),
-      run: withPort((live, input) => live.requestGrant({
+      run: withPort((live, input, actor) => live.requestGrant({
         sessionId: requiredString(input, "sessionId"),
-        actor: actorOf(),
+        actor,
         capability: requiredString(input, "capability"),
       })),
     },
@@ -681,9 +874,9 @@ export function createLiveSpaceCommandExtensions(
           principalId: stringProperty("Principal to grant."),
           role: enumProperty("Session role.", ["cohost", "collaborator", "agent", "observer"]),
         }, ["sessionId", "principalId", "role"])),
-      run: withPort((live, input) => live.grant({
+      run: withPort((live, input, actor) => live.grant({
         sessionId: requiredString(input, "sessionId"),
-        actor: actorOf(),
+        actor,
         principalId: requiredString(input, "principalId"),
         role: roleOf(input),
       })),
@@ -694,9 +887,9 @@ export function createLiveSpaceCommandExtensions(
           sessionId: stringProperty("Live session id."),
           principalId: stringProperty("Principal to revoke."),
         }, ["sessionId", "principalId"])),
-      run: withPort((live, input) => live.revoke({
+      run: withPort((live, input, actor) => live.revoke({
         sessionId: requiredString(input, "sessionId"),
-        actor: actorOf(),
+        actor,
         principalId: requiredString(input, "principalId"),
       })),
     },
@@ -706,9 +899,9 @@ export function createLiveSpaceCommandExtensions(
           sessionId: stringProperty("Live session id."),
           locked: booleanProperty("True locks new joins."),
         }, ["sessionId", "locked"])),
-      run: withPort((live, input) => live.lockJoins({
+      run: withPort((live, input, actor) => live.lockJoins({
         sessionId: requiredString(input, "sessionId"),
-        actor: actorOf(),
+        actor,
         locked: input.locked === true,
       })),
     },
@@ -720,9 +913,9 @@ export function createLiveSpaceCommandExtensions(
           args: { type: "object", description: "JSON-shaped action arguments; sanitized recursively." },
           path: stringProperty("Logical Epoch path this action touches."),
         }, ["sessionId", "actionId"])),
-      run: withPort((live, input) => live.publish({
+      run: withPort((live, input, actor) => live.publish({
         sessionId: requiredString(input, "sessionId"),
-        actor: actorOf(),
+        actor,
         actionId: requiredString(input, "actionId"),
         args: dictionaryOf(input, "args"),
         ...(optionalString(input, "path") !== undefined && { path: requiredString(input, "path") }),
@@ -736,7 +929,7 @@ export function createLiveSpaceCommandExtensions(
     {
       descriptor: descriptor("live.presentation.checkpoint", "Record a presentation checkpoint spectators can resync and fork from.",
         "live.presentation.read", false, false, schema({ sessionId: stringProperty("Live session id.") }, ["sessionId"])),
-      run: withPort((live, input) => live.checkpoint({ sessionId: requiredString(input, "sessionId"), actor: actorOf() })),
+      run: withPort((live, input, actor) => live.checkpoint({ sessionId: requiredString(input, "sessionId"), actor })),
     },
     {
       descriptor: descriptor("live.presentation.bookmark", "Bookmark a checkpoint.",
@@ -744,9 +937,9 @@ export function createLiveSpaceCommandExtensions(
           sessionId: stringProperty("Live session id."),
           checkpointId: stringProperty("Checkpoint id."),
         }, ["sessionId", "checkpointId"])),
-      run: withPort((live, input) => live.bookmark({
+      run: withPort((live, input, actor) => live.bookmark({
         sessionId: requiredString(input, "sessionId"),
-        actor: actorOf(),
+        actor,
         checkpointId: requiredString(input, "checkpointId"),
       })),
     },
@@ -758,9 +951,9 @@ export function createLiveSpaceCommandExtensions(
           body: stringProperty("Annotation body."),
           path: stringProperty("Optional logical path anchor."),
         }, ["sessionId", "checkpointId", "body"])),
-      run: withPort((live, input) => live.annotate({
+      run: withPort((live, input, actor) => live.annotate({
         sessionId: requiredString(input, "sessionId"),
-        actor: actorOf(),
+        actor,
         checkpointId: requiredString(input, "checkpointId"),
         body: requiredString(input, "body"),
         ...(optionalString(input, "path") !== undefined && { path: requiredString(input, "path") }),
@@ -772,10 +965,42 @@ export function createLiveSpaceCommandExtensions(
           sessionId: stringProperty("Live session id."),
           checkpointId: stringProperty("Checkpoint id; a media timestamp is not a branch point."),
         }, ["sessionId", "checkpointId"])),
-      run: withPort((live, input) => live.forkAt({
+      run: withPort((live, input, actor) => live.forkAt({
         sessionId: requiredString(input, "sessionId"),
-        actor: actorOf(),
+        actor,
         checkpointId: requiredString(input, "checkpointId"),
+      })),
+    },
+    {
+      descriptor: descriptor("live.media.issueToken",
+        "Derive a short-lived, least-privilege media credential after Epoch checks pass.",
+        "live.media.subscribe", false, false, schema({
+          sessionId: stringProperty("Live session id."),
+          sources: { type: "array", description: "Requested publish sources; each is checked against the caller's role, the policy, and consent." },
+        }, ["sessionId"])),
+      run: withPortAsync((live, input, actor) => live.issueMediaToken({
+        sessionId: requiredString(input, "sessionId"),
+        actor,
+        requestedSources: publishSources(input),
+      })),
+    },
+    {
+      descriptor: descriptor("live.media.providerEvent",
+        "Record a verified provider webhook as projected media health.",
+        "live.media.admin", false, false, schema({
+          sessionId: stringProperty("Live session id."),
+          providerKind: stringProperty("Provider kind that signed the event."),
+          eventKind: stringProperty("Normalized provider event kind."),
+          roomRef: stringProperty("Opaque provider room reference."),
+          eventDigest: stringProperty("Digest of the verified raw body."),
+        }, ["sessionId", "providerKind", "eventKind", "roomRef", "eventDigest"])),
+      run: withPortAsync((live, input, actor) => live.recordProviderEvent({
+        sessionId: requiredString(input, "sessionId"),
+        actor,
+        providerKind: requiredString(input, "providerKind"),
+        eventKind: requiredString(input, "eventKind"),
+        roomRef: requiredString(input, "roomRef"),
+        eventDigest: requiredString(input, "eventDigest"),
       })),
     },
     {
@@ -784,9 +1009,9 @@ export function createLiveSpaceCommandExtensions(
           sessionId: stringProperty("Live session id."),
           reason: stringProperty("Why this is being reported."),
         }, ["sessionId", "reason"])),
-      run: withPort((live, input) => live.report({
+      run: withPort((live, input, actor) => live.report({
         sessionId: requiredString(input, "sessionId"),
-        actor: actorOf(),
+        actor,
         reason: requiredString(input, "reason"),
       })),
     },
@@ -803,9 +1028,9 @@ export function createLiveSpaceCommandExtensions(
     return {
       descriptor: descriptor(kind, summary, command === "end" ? "live.session.end" : "live.session.manage",
         false, requiresConfirmation, schema({ sessionId: stringProperty("Live session id.") }, ["sessionId"])),
-      run: withPort((live, input) => live.lifecycle({
+      run: withPort((live, input, actor) => live.lifecycle({
         sessionId: requiredString(input, "sessionId"),
-        actor: actorOf(),
+        actor,
         command,
       })),
     };
@@ -941,6 +1166,21 @@ function completenessOf(input: Readonly<Record<string, DictionaryValue>>): LiveR
     fail("invalid-input", `Unknown replay completeness '${value}'.`);
   }
   return value;
+}
+
+function publishSources(input: Readonly<Record<string, DictionaryValue>>): readonly LiveMediaPublishSource[] {
+  const value = input.sources;
+  if (value === undefined || value === null) return [];
+  if (!Array.isArray(value)) fail("invalid-input", "Command input 'sources' must be an array of publish sources.");
+  const sources: LiveMediaPublishSource[] = [];
+  for (const source of value) {
+    if (!__epochIsString(source)
+      || (source !== "microphone" && source !== "camera" && source !== "screen-share" && source !== "screen-share-audio")) {
+      fail("invalid-input", `Unknown media publish source '${String(source)}'.`);
+    }
+    sources.push(source);
+  }
+  return sources;
 }
 
 function roleOf(input: Readonly<Record<string, DictionaryValue>>): LiveParticipantRole {
