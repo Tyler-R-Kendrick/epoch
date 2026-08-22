@@ -17,7 +17,7 @@ question-and-answer, live sessions, and bots.
 It is an evaluation, not an execution plan. The delivery contracts live in
 [`master-instructions.md`](master-instructions.md); the design commitments live
 in [ADR-0058](../../design-decisions/0058-lua-scriptable-generative-ui-customization.md)
-and [ADR-0059](../../design-decisions/0059-social-catalog-bundles-feed-scripts-and-app-tier.md).
+and [ADR-0060](../../design-decisions/0060-social-catalog-bundles-feed-scripts-and-app-tier.md).
 Where this document identifies a gap in the frozen plan, the closing amendment
 is named in [§5](#5-audit-of-adr-0058-against-the-patterns).
 
@@ -57,7 +57,7 @@ tier model, which is this ladder in Epoch's vocabulary:
 | Tier 1 — themes | T1-ish (CSS only) | May style; may not add markup, read state, or reach the network | CONTRACT.md, preserved verbatim |
 | Tier 2 — token overlays | T0 | Sparse DTCG overlays onto `--cw-*` only; never platform `--epoch-color-*`; WCAG AA floor is not waivable | ADR-0058 §3(c), contract C6 |
 | Tier 3 — scripts | T2 | Emits UI specs and intent proposals only; never CSS, DOM, network, or signed state | ADR-0058 §3(d)/(e), contracts C1–C4 |
-| Reserved — apps | T3 | Not built. Reviewed, sandboxed-iframe apps with declared egress | ADR-0059, reservation only |
+| Reserved — apps | T3 | Not built. Reviewed, sandboxed-iframe apps with declared egress | ADR-0060, reservation only |
 
 The promotion path is the point: a member edits tokens in the existing theme
 surface, packages the result as a Tier 2 overlay, adds a Tier 3 script when
@@ -99,7 +99,7 @@ posture: reuse the extension store rather than building a second distribution
 system; sign manifests; pin members by content hash; ship a per-version killbit
 that leaves a tombstone at the installed position and notifies; stage rollouts;
 derive reputation from publisher history. What ADR-0058 lacked was the *bundle*
-as a first-class unit; ADR-0059 adds it.
+as a first-class unit; ADR-0060 adds it.
 
 ### 2.3 A static GraphQL API is a governance object, not a performance trick
 
@@ -183,7 +183,7 @@ Web's three planes (`docs/community-web-experience.md`) or in the candidate
 surfaces under [`docs/design-explorations/`](../../design-explorations/00-foundation.md).
 The catalog today ships six components — `Panel`, `Post`, `Notice`, `Channel`,
 `Fact`, `Theme` (generated into `app/openui-library.js`). The social set below
-is the ADR-0059 extension.
+is the ADR-0060 extension.
 
 | Social experience | Community Web home | Catalog components | Gesture-gated intents | Data plane | Realtime |
 |---|---|---|---|---|---|
@@ -213,7 +213,7 @@ without handing scripts query power comes from ATProto feed generators — the
 script returns a ranked list of identifiers, and the platform hydrates the
 content and applies blocks, labels, and permissions afterward. The skeleton
 boundary is the security boundary, and it composes exactly with the batch
-bridge Epoch already specifies. ADR-0059 adds it as contract C14.
+bridge Epoch already specifies. ADR-0060 adds it as contract C14.
 
 ## 5. Audit of ADR-0058 against the patterns
 
@@ -221,24 +221,24 @@ bridge Epoch already specifies. ADR-0059 adds it as contract C14.
 |---|---|---|---|
 | Removal-based sandbox, pooled workers, unswallowable quota kill | Covered — C1, including `pcall`/`xpcall` shadowing | None | — |
 | Batch-in/batch-out bridge economics | Covered — C2, one round trip per dispatch | None | — |
-| Catalog-constrained generation with mandatory a11y and placement policy | Covered structurally — C3 | Catalog has no named social components | ADR-0059 §1 (C3.6–C3.8) |
+| Catalog-constrained generation with mandatory a11y and placement policy | Covered structurally — C3 | Catalog has no named social components | ADR-0060 §1 (C3.6–C3.8) |
 | Style tier without exfiltration vectors | Covered — C5 | None | — |
 | Themes as sparse token data | Covered — C6 | None | — |
 | Persisted operations as governance object | Covered — C7 | None | — |
-| Distribution as the primary attack surface | Covered — C4, C9 | No shareable bundle unit | ADR-0059 §2 (C13) |
+| Distribution as the primary attack surface | Covered — C4, C9 | No shareable bundle unit | ADR-0060 §2 (C13) |
 | Context-dependent trust, risk-tiered approval | Covered — C8 | None | — |
 | Non-waivable accessibility floor | Covered — C10 | None | — |
 | Capability-floor charter, stability tiers, deprecation | Covered — C11 | None | — |
-| Bots as authors through one pipeline | Covered — C9.5 | Bot roster is not part of a shareable bundle | ADR-0059 §2 (C13) |
-| Programmable ranking (skeleton/hydration) | Not covered | Scripts cannot author feeds | ADR-0059 §3 (C14) |
-| Reviewed isolated app tier | Not covered | No named future rung | ADR-0059 §4 (reservation) |
+| Bots as authors through one pipeline | Covered — C9.5 | Bot roster is not part of a shareable bundle | ADR-0060 §2 (C13) |
+| Programmable ranking (skeleton/hydration) | Not covered | Scripts cannot author feeds | ADR-0060 §3 (C14) |
+| Reviewed isolated app tier | Not covered | No named future rung | ADR-0060 §4 (reservation) |
 
 Two findings are worth stating plainly. First, the frozen plan is already the
 right architecture for the hard parts — the runtime, the bridge, the trust
 boundary, and the accessibility floor need no revision. Second, its gaps are
 all *social*: the plan describes how to customize a surface safely without yet
 describing the surfaces being customized, the unit communities actually share,
-or the ranking members will ask for first. ADR-0059 closes those three and
+or the ranking members will ask for first. ADR-0060 closes those three and
 names the fourth rung so the ladder has a top.
 
 ## 6. Where this could still go wrong
@@ -267,5 +267,5 @@ texts for WoW addon confinement, Luau sandboxing, browser Lua runtimes,
 declarative generative-UI formats, sandboxed-iframe app tiers, design-token
 formats, user-CSS safety, persisted GraphQL doctrine, marketplace governance,
 and ATProto programmability). Claims that this document turns into repository
-commitments appear in ADR-0059 and the contracts it adds; claims that remain
+commitments appear in ADR-0060 and the contracts it adds; claims that remain
 context are stated here as context, and no gate depends on them.
