@@ -53,6 +53,39 @@
     title="Propose a change to your own interface">Compose interface</button>
   <div class="cw-harness-slot" data-cw-slot="board.context-panel" role="region" aria-label="Context panel" hidden></div>
   <div class="cw-harness-slot" data-cw-slot="board.recovery" role="region" aria-label="Workspace recovery" hidden></div>
+  <!-- Live Space host panel. Deliberately NOT a data-cw-slot: a slot is filled
+       from a manifest, and a manifest a model wrote could place nothing here.
+       What is published, and to whom, is not a layout question. The dynamic
+       layer can neither remove this region nor author what it says. -->
+  <section class="cw-live" data-live-host role="region" aria-labelledby="cw-live-title" hidden>
+    <h2 id="cw-live-title" class="cw-live-title">Live Space</h2>
+    <p class="cw-live-creed" data-live-creed>
+      A Live Space publishes named actions and the paths you allow — never your screen,
+      never your keystrokes. Anything released is public bytes and cannot be recalled.
+    </p>
+    <p class="cw-live-state" data-live-state role="status"></p>
+    <dl class="cw-live-facts" data-live-facts></dl>
+    <div class="cw-live-preflight" data-live-preflight hidden></div>
+    <div class="cw-live-row" data-live-controls></div>
+  </section>
+  <!-- Spectator view. Static like the host panel and for the same reason: a
+       spectator cannot verify anything themselves, so the account this region
+       gives of its own state is the only thing they have. A manifest must not
+       be able to remove it or reword what it says about gaps. -->
+  <section class="cw-spec" data-live-spectator role="region" aria-labelledby="cw-spec-title" hidden>
+    <h2 id="cw-spec-title" class="cw-spec-title">Watching</h2>
+    <p class="cw-spec-creed" data-spec-creed>
+      You are seeing the actions this session chose to publish, in the order it released them.
+      Anything missing is named below — never quietly filled in.
+    </p>
+    <p class="cw-spec-status" data-spec-status role="status"></p>
+    <p class="cw-spec-gap" data-spec-gap role="status" hidden></p>
+    <dl class="cw-spec-facts" data-spec-facts></dl>
+    <!-- role="log": an append-only stream announced politely, so a new release
+         is spoken without stealing focus from whatever is being read. -->
+    <ol class="cw-spec-feed" data-spec-feed role="log" aria-live="polite" aria-relevant="additions"
+      aria-label="Released actions"></ol>
+  </section>
 </aside>
 
 <!-- Compose: prompt an interface change, see what it does, then decide.
@@ -118,6 +151,7 @@
 <footer data-region="status" role="contentinfo">
   <span data-sample-stream hidden>SAMPLE STREAM</span>
   <span data-stream-protect-state hidden></span>
+  <span data-live-badge hidden></span>
   <span data-status-line></span>
   <span class="cw-harness-slot cw-harness-status" data-cw-slot="shell.workspace-status"
     role="status" aria-label="Workspace status" hidden></span>
@@ -206,6 +240,8 @@
 <script src="generate.js"></script>
 <script src="theme.js"></script>
 <script src="workspace.js"></script>
+<script src="live.js"></script>
+<script src="live-spectator.js"></script>
 <script src="compose.js"></script>
 <script src="openui-parser.js"></script>
 <script src="openui-library.js"></script>

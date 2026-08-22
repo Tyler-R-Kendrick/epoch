@@ -20,6 +20,7 @@ Personas remain user context for real product behavior. Do not add persona-only 
 | `features/ha_dr.feature` | 7 |
 | `features/merge.feature` | 7 |
 | `features/named_views.feature` | 4 |
+| `features/live_spaces.feature` | 11 |
 | `features/spaces.feature` | 10 |
 | `features/platform_ai_operations_ha.feature` | 4 |
 | `features/platform_community_conformance.feature` | 3 |
@@ -272,6 +273,17 @@ Personas remain user context for real product behavior. Do not add persona-only 
 | `features/repository.feature` | `@persona.github_open_source_contributor` | Scenario | Version materialization with a base writes only changed files | None | 0 |
 | `features/wasm_react.feature` | `@persona.github_open_source_contributor` | Scenario | React hook persists, rewinds, rematerializes, and resumes state changes in a browser | None | 0 |
 | `features/wasm_react.feature` | `@persona.github_open_source_contributor` | Scenario | Browser live repository hooks synchronize through a VFS | None | 0 |
+| `features/live_spaces.feature` | `@persona.maintainer` | Scenario | Maintainer runs a semantic-only live session end to end | None | 0 |
+| `features/live_spaces.feature` | `@persona.security_compliance_responder` | Scenario | Responder proves nested secrets never enter the presentation stream | None | 0 |
+| `features/live_spaces.feature` | `@persona.security_compliance_responder` | Scenario | Responder confirms a custom rule cannot re-enable a denied path | None | 0 |
+| `features/live_spaces.feature` | `@persona.github_open_source_contributor` | Scenario | Contributor observes, requests access, annotates, and forks an exact checkpoint | None | 0 |
+| `features/live_spaces.feature` | `@persona.maintainer` | Scenario | Maintainer grants a temporary collaborator and revocation ends the access | None | 0 |
+| `features/live_spaces.feature` | `@persona.github_open_source_contributor` | Scenario | Spectator recovers missed events and converges from a checkpoint | None | 0 |
+| `features/live_spaces.feature` | `@persona.platform_operator` | Scenario | Operator sees media capability labels that match reality | None | 0 |
+| `features/live_spaces.feature` | `@persona.maintainer` | Scenario | Host sees what an audience would receive before anything is published | None | 0 |
+| `features/live_spaces.feature` | `@persona.maintainer` | Scenario | A board with no configured deployment says so instead of hosting | None | 0 |
+| `features/live_spaces.feature` | `@persona.github_open_source_contributor` | Scenario | Spectator is told when the stream has a hole rather than shown a whole one | None | 0 |
+| `features/live_spaces.feature` | `@persona.security_compliance_responder` | Scenario | Responder is told what a report cannot undo | None | 0 |
 | `features/spaces.feature` | `@persona.github_open_source_contributor` | Scenario | Contributor joins a shared space and gets to work | None | 0 |
 | `features/spaces.feature` | `@persona.maintainer` | Scenario | Maintainer removes a participant and their access ends with them | None | 0 |
 | `features/spaces.feature` | `@persona.security_compliance_responder` | Scenario | Responder confirms an agent cannot outspend its allocated budget | None | 0 |

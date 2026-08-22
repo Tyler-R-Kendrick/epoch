@@ -23,6 +23,42 @@ probing, and reference transports use existing platform APIs. Revisit this
 record before adding a native VFS, external resolver, forge transport, archive
 client transport, or sandbox provider dependency.
 
+## LiveKit optional media adapter
+
+Reviewed 2026-08-22 for [ADR-0059](design-decisions/0059-live-spaces-semantic-sessions.md).
+`npm audit --omit=dev` reported zero production vulnerabilities across the
+lockfile at review time. Audit results are time-sensitive and remain a release
+gate.
+
+| Package | Review |
+|---|---|
+| `livekit-server-sdk@2.18.0` (exact) | Apache-2.0; source [`livekit/node-sdks`](https://github.com/livekit/node-sdks); npm publisher `thedavidzhao`. Three runtime dependencies: `jose` (JWT), `@livekit/protocol`, `@bufbuild/protobuf`. Installed footprint approximately 10.5 MiB across the four packages before tree shaking, all server-side. No consumer install script. |
+
+Why it is required rather than hand-rolled: LiveKit access tokens and webhook
+signatures are wire contracts whose details are not fully public. The webhook
+body-hash claim encoding is not documented, and `canPublishSources` rejects the
+documented string values in favour of the SDK's own `TrackSource` enum — a
+hand-written implementation passed review by eye and still produced a token the
+SDK refused. Emitting these bytes from a private implementation would mean
+guessing at a security boundary, so the official SDK signs tokens and verifies
+webhook bodies.
+
+Containment:
+
+- The dependency belongs to `@epoch/community-api` alone. `@epoch/community-runtime`
+  stays browser-safe and declares only a `LiveMediaGateway` seam.
+- The SDK is loaded through a dynamic `import()` inside the adapter's client
+  factory, so a deployment without LiveKit credentials never resolves it and a
+  missing module surfaces as a refusal rather than a boot failure.
+- No browser bundle imports it; `community-web:app:build:check` guards the
+  generated Community Web assets.
+- Every automated test injects client doubles. CI never reaches a LiveKit
+  server, and no test requires credentials.
+
+Revisit before adopting LiveKit client SDKs in browser code, before enabling
+egress or recording in a deployment, or if the adapter is ever relabelled from
+`experimental` to `production`.
+
 ## Community deterministic search and projections
 
 Reviewed 2026-08-12. All three production packages are pinned exactly. Package

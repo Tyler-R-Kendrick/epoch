@@ -1041,10 +1041,10 @@ var CW_RUNTIME = (() => {
       function __epochIsFunction2(value) {
         return typeof value === "function";
       }
-      function __epochIsNumber4(value) {
+      function __epochIsNumber5(value) {
         return typeof value === "number";
       }
-      function __epochIsString6(value) {
+      function __epochIsString8(value) {
         return typeof value === "string";
       }
       function __epochIsUndefined(value) {
@@ -1324,7 +1324,7 @@ var CW_RUNTIME = (() => {
       function eventsForTarget(events, target) {
         if (target === "latest")
           return events;
-        if (__epochIsNumber4(target))
+        if (__epochIsNumber5(target))
           return events.slice(0, clampEventCount(target, events.length));
         const index = events.findIndex((event) => event.id === target);
         if (index === -1)
@@ -1345,7 +1345,7 @@ var CW_RUNTIME = (() => {
         if (raw === void 0)
           return void 0;
         const parsed = JSON.parse(raw);
-        if (parsed.type !== "entity" || !__epochIsString6(parsed.id) || !__epochIsString6(parsed.entity) || !__epochIsString6(parsed.author) || !__epochIsNumber4(parsed.lamport) || !isRecord6(parsed.payload)) {
+        if (parsed.type !== "entity" || !__epochIsString8(parsed.id) || !__epochIsString8(parsed.entity) || !__epochIsString8(parsed.author) || !__epochIsNumber5(parsed.lamport) || !isRecord6(parsed.payload)) {
           throw new Error("invalid Epoch live repository event");
         }
         return {
@@ -1367,7 +1367,7 @@ var CW_RUNTIME = (() => {
       function normalizeTarget(target, events) {
         if (target === "latest")
           return target;
-        if (__epochIsNumber4(target))
+        if (__epochIsNumber5(target))
           return clampEventCount(target, events.length);
         if (!events.some((event) => event.id === target))
           throw new Error(`unknown Epoch React event '${target}'`);
@@ -1423,12 +1423,12 @@ var CW_RUNTIME = (() => {
         return Math.max(0, Math.min(count, length));
       }
       function requireNonEmpty(value, label) {
-        if (!__epochIsString6(value) || value.length === 0)
+        if (!__epochIsString8(value) || value.length === 0)
           throw new Error(`invalid Epoch React ${label}`);
         return value;
       }
       function requireNumber(value, label) {
-        if (!__epochIsNumber4(value) || !Number.isFinite(value))
+        if (!__epochIsNumber5(value) || !Number.isFinite(value))
           throw new Error(`invalid Epoch React ${label}`);
         return value;
       }
@@ -1644,9 +1644,15 @@ var CW_RUNTIME = (() => {
   var index_exports = {};
   __export(index_exports, {
     AtprotoOAuthError: () => AtprotoOAuthError,
+    DEFAULT_LIVE_ACTION_CATALOG: () => DEFAULT_LIVE_ACTION_CATALOG,
     DEFAULT_PROJECT_SLUG: () => DEFAULT_PROJECT_SLUG,
     DEFAULT_STREAM_IGNORE: () => DEFAULT_STREAM_IGNORE,
+    DEFAULT_WEBMCP_EXCLUDED_KINDS: () => DEFAULT_WEBMCP_EXCLUDED_KINDS,
     EpochCommandError: () => EpochCommandError,
+    IMMUTABLE_LIVE_DENY_PATHS: () => IMMUTABLE_LIVE_DENY_PATHS,
+    LIVE_MODERATION_ACTIONS: () => LIVE_MODERATION_ACTIONS,
+    LIVE_POLICY_BOUNDS: () => LIVE_POLICY_BOUNDS,
+    LIVE_SANITIZER_BOUNDS: () => LIVE_SANITIZER_BOUNDS,
     STREAM_CIPHER_ALPHABET: () => STREAM_CIPHER_ALPHABET,
     STREAM_CIPHER_WIDTH: () => STREAM_CIPHER_WIDTH,
     TRUNK_VIEW: () => TRUNK_VIEW,
@@ -1654,12 +1660,22 @@ var CW_RUNTIME = (() => {
     appendSocialRevision: () => appendSocialRevision,
     beginAtprotoAuthorization: () => beginAtprotoAuthorization,
     cipherToken: () => cipherToken,
+    classifyLivePolicyChange: () => classifyLivePolicyChange,
     communityRuntimeUsage: () => communityRuntimeUsage,
+    compileLiveRewriteRules: () => compileLiveRewriteRules,
     composerOwnsLetter: () => composerOwnsLetter,
     createBrowserEpochWorkspace: () => createBrowserEpochWorkspace,
     createCommandReceipt: () => createCommandReceipt,
     createCommunityCommandBus: () => createCommunityCommandBus,
     createCommunityRuntime: () => createCommunityRuntime,
+    createInMemoryLiveTransport: () => createInMemoryLiveTransport,
+    createLiveActionCatalog: () => createLiveActionCatalog,
+    createLivePresentationClient: () => createLivePresentationClient,
+    createLivePresentationPublisher: () => createLivePresentationPublisher,
+    createLiveSpaceClient: () => createLiveSpaceClient,
+    createLiveSpaceCommandExtensions: () => createLiveSpaceCommandExtensions,
+    createLiveSpectatorProjection: () => createLiveSpectatorProjection,
+    createLocalLiveSpacePort: () => createLocalLiveSpacePort,
     createStaticHarnessRelease: () => createStaticHarnessRelease,
     createWebMcpTools: () => createWebMcpTools,
     defaultCommunityHarness: () => defaultCommunityHarness,
@@ -1668,6 +1684,9 @@ var CW_RUNTIME = (() => {
     diffDynamicUiManifests: () => diffDynamicUiManifests,
     digestOf: () => digestOf,
     ensureProject: () => ensureProject,
+    evaluateLiveForkEligibility: () => evaluateLiveForkEligibility,
+    evaluateLiveModeration: () => evaluateLiveModeration,
+    evaluateLivePath: () => evaluateLivePath,
     executeCommunityRuntimeCommand: () => executeCommunityRuntimeCommand,
     exportWorkspaceBundle: () => exportWorkspaceBundle,
     feedEntity: () => feedEntity,
@@ -1681,22 +1700,36 @@ var CW_RUNTIME = (() => {
     isCommunityRuntimeInvocation: () => isCommunityRuntimeInvocation,
     isDynamicUiManifest: () => isDynamicUiManifest,
     isHandleHashStub: () => isHandleHashStub,
+    isImmutablyDeniedLivePath: () => isImmutablyDeniedLivePath,
+    isLiveConsentScope: () => isLiveConsentScope,
+    isLiveLifecycle: () => isLiveLifecycle,
+    isLiveLifecycleCommand: () => isLiveLifecycleCommand,
+    isLiveSecurityMode: () => isLiveSecurityMode,
+    isLiveVisibility: () => isLiveVisibility,
     isProtectedStreamTarget: () => isProtectedStreamTarget,
+    isSecretKeyName: () => isSecretKeyName,
     isSpectatorViewPreference: () => isSpectatorViewPreference,
     jumpChooserShouldOpen: () => jumpChooserShouldOpen,
     letterSteersBoard: () => letterSteersBoard,
     listFeeds: () => listFeeds,
     listProjects: () => listProjects,
+    livePolicyDigest: () => livePolicyDigest,
+    liveTelemetryRecord: () => liveTelemetryRecord,
+    nextLiveLifecycle: () => nextLiveLifecycle,
     normalizeAtprotoHandle: () => normalizeAtprotoHandle,
+    normalizeLivePath: () => normalizeLivePath,
+    normalizeLivePublicationPolicy: () => normalizeLivePublicationPolicy,
     openBoardReceipt: () => openBoardReceipt,
     openDurableStorage: () => openDurableStorage,
     parseBoardReceiptLocator: () => parseBoardReceiptLocator,
     parseStreamIgnore: () => parseStreamIgnore,
     parseStreamRewrite: () => parseStreamRewrite,
     pathIsStreamIgnored: () => pathIsStreamIgnored,
+    pathMatchesLivePattern: () => pathMatchesLivePattern,
     policyReceipt: () => policyReceipt,
     preservedSearchAfterJump: () => preservedSearchAfterJump,
     projectEntity: () => projectEntity,
+    projectLiveOperations: () => projectLiveOperations,
     readProject: () => readProject,
     recordsOf: () => recordsOf,
     registerWebMcpTools: () => registerWebMcpTools,
@@ -1704,6 +1737,8 @@ var CW_RUNTIME = (() => {
     requireScopedTarget: () => requireScopedTarget,
     resolveBrowserIdentity: () => resolveBrowserIdentity,
     revisionsOf: () => revisionsOf,
+    runLivePreflight: () => runLivePreflight,
+    sanitizeLiveArgs: () => sanitizeLiveArgs,
     sanitizeStreamCommand: () => sanitizeStreamCommand,
     setCliBundleReader: () => setCliBundleReader,
     skippedValidation: () => skippedValidation,
@@ -2978,8 +3013,11 @@ var CW_RUNTIME = (() => {
       const mutation = workspace.setSafeMode(false);
       return { data: mutation.data, eventIds: mutation.eventIds, revisionIds: mutation.revisionIds, baseRef: mutation.ref };
     });
-    function register(descriptor, run) {
-      handlers.set(descriptor.kind, { descriptor, run });
+    for (const extension of options.extensions ?? []) {
+      register(extension.descriptor, extension.run);
+    }
+    function register(descriptor2, run) {
+      handlers.set(descriptor2.kind, { descriptor: descriptor2, run });
     }
     function describe(kind) {
       const handler = handlers.get(kind);
@@ -2989,51 +3027,55 @@ var CW_RUNTIME = (() => {
     function granted(capability) {
       return options.policies.capabilities.includes("*") || options.policies.capabilities.includes(capability);
     }
-    function needsConfirmation(descriptor) {
-      return descriptor.requiresConfirmation || (options.policies.requireConfirmation ?? []).includes(descriptor.kind);
+    function needsConfirmation(descriptor2) {
+      return descriptor2.requiresConfirmation || (options.policies.requireConfirmation ?? []).includes(descriptor2.kind);
     }
     async function execute(request) {
       const handler = handlers.get(request.kind);
       if (handler === void 0) {
         throw new EpochCommandError("unknown-command", `Unknown Epoch command '${request.kind}'.`);
       }
-      const descriptor = handler.descriptor;
+      const descriptor2 = handler.descriptor;
       const input = request.input ?? {};
       sequence += 1;
       const base = {
-        kind: descriptor.kind,
+        kind: descriptor2.kind,
         source: request.source ?? options.defaultSource,
         actor: request.actor ?? workspace.actor,
         workspaceId: workspace.id,
-        readOnly: descriptor.readOnly,
+        readOnly: descriptor2.readOnly,
         sequence,
         timestamp: options.now(),
         input
       };
-      if (!granted(descriptor.capability)) {
+      if (!granted(descriptor2.capability)) {
         return emit(createCommandReceipt({
           ...base,
-          policy: policyReceipt("deny", descriptor.capability, `principal lacks capability '${descriptor.capability}'`),
+          policy: policyReceipt("deny", descriptor2.capability, `principal lacks capability '${descriptor2.capability}'`),
           validation: skippedValidation,
-          confirmation: { required: needsConfirmation(descriptor), granted: request.confirmed === true },
+          confirmation: { required: needsConfirmation(descriptor2), granted: request.confirmed === true },
           data: { refused: "capability" }
         }));
       }
-      if (needsConfirmation(descriptor) && request.confirmed !== true) {
+      if (needsConfirmation(descriptor2) && request.confirmed !== true) {
         return emit(createCommandReceipt({
           ...base,
-          policy: policyReceipt("confirm", descriptor.capability, `'${descriptor.kind}' requires explicit confirmation`),
+          policy: policyReceipt("confirm", descriptor2.capability, `'${descriptor2.kind}' requires explicit confirmation`),
           validation: skippedValidation,
           confirmation: { required: true, granted: false },
           data: { refused: "confirmation" }
         }));
       }
-      const outcome = handler.run(input);
+      const outcome = await handler.run(input, {
+        actor: base.actor,
+        source: base.source,
+        confirmed: request.confirmed === true
+      });
       return emit(createCommandReceipt({
         ...base,
-        policy: policyReceipt("allow", descriptor.capability),
+        policy: policyReceipt("allow", descriptor2.capability),
         validation: outcome.validation ?? skippedValidation,
-        confirmation: { required: needsConfirmation(descriptor), granted: request.confirmed === true },
+        confirmation: { required: needsConfirmation(descriptor2), granted: request.confirmed === true },
         ...!(outcome.baseRef === void 0) && { baseRef: outcome.baseRef },
         ...!(outcome.proposalRef === void 0) && { proposalRef: outcome.proposalRef },
         ...!(outcome.changeId === void 0) && { changeId: outcome.changeId },
@@ -3125,6 +3167,7 @@ var CW_RUNTIME = (() => {
       policies: options.policies ?? readOnlyPolicies,
       defaultSource: options.defaultSource ?? "sdk",
       now: options.now ?? (() => (/* @__PURE__ */ new Date()).toISOString()),
+      ...!(options.extensions === void 0) && { extensions: options.extensions },
       onReceipt: (receipt) => {
         for (const listener of listeners) listener(receipt);
       }
@@ -3201,7 +3244,34 @@ var CW_RUNTIME = (() => {
     "  epoch view list",
     "  epoch view switch VIEW",
     "",
-    "Add --json to print the command receipt verbatim."
+    "  epoch live create --space SPACE [--view REF] [--visibility private|community|unlisted|public]",
+    "                    [--path GLOB]... [--action ID]... [--delay MS]",
+    "  epoch live show SESSION",
+    "  epoch live list",
+    "  epoch live preflight SESSION",
+    "  epoch live consent SESSION --scope SCOPE...",
+    "  epoch live lobby SESSION",
+    "  epoch live start SESSION --confirm",
+    "  epoch live pause SESSION",
+    "  epoch live resume SESSION",
+    "  epoch live end SESSION --confirm",
+    "  epoch live seal SESSION [--completeness complete|semantic-only|media-missing|partial] --confirm",
+    "  epoch live publish SESSION --action ID [--path PATH] [--args JSON]",
+    "  epoch live status SESSION",
+    "  epoch live checkpoint SESSION",
+    "  epoch live join SESSION",
+    "  epoch live request-grant SESSION --capability CAPABILITY",
+    "  epoch live grant SESSION --principal ID --role cohost|collaborator|agent|observer --confirm",
+    "  epoch live revoke SESSION --principal ID --confirm",
+    "  epoch live lock SESSION on|off",
+    "  epoch live bookmark SESSION --checkpoint ID",
+    "  epoch live annotate SESSION --checkpoint ID --body TEXT [--path PATH]",
+    "  epoch live fork SESSION --checkpoint ID",
+    "  epoch live report SESSION --reason TEXT",
+    "",
+    "Add --json to print the command receipt verbatim.",
+    "Live commands need a configured Community remote; without one they report",
+    "that the deployment has no Live Space port rather than pretending to work."
   ].join("\n");
   async function executeCommunityRuntimeCommand(runtime, argv) {
     const json = argv.includes("--json");
@@ -3222,11 +3292,12 @@ var CW_RUNTIME = (() => {
   }
   function isCommunityRuntimeInvocation(argv) {
     const group = argv[0];
-    return group === "ui" || group === "view";
+    return group === "ui" || group === "view" || group === "live";
   }
   function parse(args, runtime) {
     const [group, command, ...rest] = args;
     if (group === "view") return parseViewGroup(command, rest);
+    if (group === "live") return parseLiveGroup(command, rest);
     if (group !== "ui") throw new EpochCommandError("invalid-command", communityRuntimeUsage);
     switch (command) {
       case "status":
@@ -3307,6 +3378,118 @@ var CW_RUNTIME = (() => {
         throw new EpochCommandError("invalid-command", communityRuntimeUsage);
     }
   }
+  function parseLiveGroup(command, rest) {
+    const lifecycleKind = command === void 0 ? void 0 : liveLifecycleKind(command);
+    if (lifecycleKind !== void 0) {
+      return { kind: lifecycleKind, input: { sessionId: requirePositional(rest, 0, "SESSION") } };
+    }
+    switch (command) {
+      case "create":
+        return {
+          kind: "live.session.create",
+          input: {
+            spaceId: requireOption(rest, "space"),
+            policy: {
+              ...optionValue(rest, "view", "presentationViewRef"),
+              ...optionValue(rest, "visibility", "visibility"),
+              ...optionValue(rest, "security-mode", "securityMode"),
+              allowedPathPatterns: repeatedOption(rest, "path"),
+              allowedActionIds: repeatedOption(rest, "action"),
+              ...numberOption(rest, "delay", "publicationDelayMs")
+            }
+          }
+        };
+      case "show":
+        return { kind: "live.session.show", input: { sessionId: requirePositional(rest, 0, "SESSION") } };
+      case "list":
+        return { kind: "live.session.list", input: {} };
+      case "preflight":
+        return { kind: "live.session.preflight", input: { sessionId: requirePositional(rest, 0, "SESSION") } };
+      case "consent":
+        return {
+          kind: "live.session.consent",
+          input: { sessionId: requirePositional(rest, 0, "SESSION"), scopes: repeatedOption(rest, "scope") }
+        };
+      case "seal":
+        return {
+          kind: "live.session.seal",
+          input: {
+            sessionId: requirePositional(rest, 0, "SESSION"),
+            ...optionValue(rest, "completeness", "completeness")
+          }
+        };
+      case "publish":
+        return {
+          kind: "live.presentation.publish",
+          input: {
+            sessionId: requirePositional(rest, 0, "SESSION"),
+            actionId: requireOption(rest, "action"),
+            args: jsonOption(rest, "args"),
+            ...optionValue(rest, "path", "path")
+          }
+        };
+      case "status":
+        return { kind: "live.presentation.status", input: { sessionId: requirePositional(rest, 0, "SESSION") } };
+      case "checkpoint":
+        return { kind: "live.presentation.checkpoint", input: { sessionId: requirePositional(rest, 0, "SESSION") } };
+      case "join":
+        return { kind: "live.participant.join", input: { sessionId: requirePositional(rest, 0, "SESSION") } };
+      case "request-grant":
+        return {
+          kind: "live.participant.requestGrant",
+          input: { sessionId: requirePositional(rest, 0, "SESSION"), capability: requireOption(rest, "capability") }
+        };
+      case "grant":
+        return {
+          kind: "live.participant.grant",
+          input: {
+            sessionId: requirePositional(rest, 0, "SESSION"),
+            principalId: requireOption(rest, "principal"),
+            role: requireOption(rest, "role")
+          }
+        };
+      case "revoke":
+        return {
+          kind: "live.participant.revoke",
+          input: { sessionId: requirePositional(rest, 0, "SESSION"), principalId: requireOption(rest, "principal") }
+        };
+      case "lock":
+        return {
+          kind: "live.participant.lockJoins",
+          input: {
+            sessionId: requirePositional(rest, 0, "SESSION"),
+            locked: requirePositional(rest, 1, "on|off") === "on"
+          }
+        };
+      case "bookmark":
+        return {
+          kind: "live.presentation.bookmark",
+          input: { sessionId: requirePositional(rest, 0, "SESSION"), checkpointId: requireOption(rest, "checkpoint") }
+        };
+      case "annotate":
+        return {
+          kind: "live.presentation.annotate",
+          input: {
+            sessionId: requirePositional(rest, 0, "SESSION"),
+            checkpointId: requireOption(rest, "checkpoint"),
+            body: requireOption(rest, "body"),
+            ...optionValue(rest, "path", "path")
+          }
+        };
+      case "fork":
+        return {
+          kind: "live.presentation.forkAt",
+          input: { sessionId: requirePositional(rest, 0, "SESSION"), checkpointId: requireOption(rest, "checkpoint") }
+        };
+      case "report":
+        return {
+          kind: "live.moderation.report",
+          input: { sessionId: requirePositional(rest, 0, "SESSION"), reason: requireOption(rest, "reason") }
+        };
+      default:
+        throw new EpochCommandError("invalid-command", communityRuntimeUsage);
+    }
+  }
   function parsePropose(rest, runtime) {
     const view = requirePositional(rest, 0, "VIEW");
     const manifest = JSON.parse(requireOption(rest, "manifest"));
@@ -3371,6 +3554,55 @@ var CW_RUNTIME = (() => {
     const value = readOption(args, name);
     return value === void 0 ? {} : { [key]: value };
   }
+  function repeatedOption(args, name) {
+    const values = [];
+    for (let index = 0; index < args.length; index += 1) {
+      if (args[index] !== `--${name}`) continue;
+      const value = args[index + 1];
+      if (value === void 0 || value.startsWith("--")) {
+        throw new EpochCommandError("invalid-input", `Option --${name} requires a value.`);
+      }
+      values.push(value);
+    }
+    return values;
+  }
+  var LIVE_LIFECYCLE_VERBS = {
+    lobby: "live.session.openLobby",
+    start: "live.session.start",
+    pause: "live.session.pause",
+    resume: "live.session.resume",
+    end: "live.session.end"
+  };
+  function liveLifecycleKind(verb) {
+    return Object.hasOwn(LIVE_LIFECYCLE_VERBS, verb) && isLifecycleVerb(verb) ? LIVE_LIFECYCLE_VERBS[verb] : void 0;
+  }
+  function isLifecycleVerb(verb) {
+    return Object.hasOwn(LIVE_LIFECYCLE_VERBS, verb);
+  }
+  function numberOption(args, name, key) {
+    const value = readOption(args, name);
+    if (value === void 0) return {};
+    const parsed = Number(value);
+    if (!Number.isSafeInteger(parsed)) throw new EpochCommandError("invalid-input", `Option --${name} must be an integer.`);
+    return { [key]: parsed };
+  }
+  function jsonOption(args, name) {
+    const value = readOption(args, name);
+    if (value === void 0) return {};
+    let parsed;
+    try {
+      parsed = JSON.parse(value);
+    } catch {
+      throw new EpochCommandError("invalid-input", `Option --${name} must be valid JSON.`);
+    }
+    if (!isJsonDictionary(parsed)) {
+      throw new EpochCommandError("invalid-input", `Option --${name} must be a JSON object.`);
+    }
+    return parsed;
+  }
+  function isJsonDictionary(value) {
+    return typeof value === "object" && value !== null && !Array.isArray(value);
+  }
   function readOption(args, name) {
     const index = args.indexOf(`--${name}`);
     if (index === -1) return void 0;
@@ -3382,22 +3614,27 @@ var CW_RUNTIME = (() => {
   }
 
   // packages/Epoch.Community.Runtime/src/adapters/webmcp.ts
+  var DEFAULT_WEBMCP_EXCLUDED_KINDS = Object.freeze([
+    "live.media.issueToken",
+    "live.media.providerEvent"
+  ]);
   function createWebMcpTools(runtime, options = {}) {
     const confirmed = new Set(options.confirmedKinds ?? []);
-    return runtime.commands.catalog.map((descriptor) => ({
-      name: toolName(descriptor.kind),
-      description: descriptor.summary,
-      inputSchema: descriptor.inputSchema,
+    const excluded = new Set(options.excludeKinds ?? DEFAULT_WEBMCP_EXCLUDED_KINDS);
+    return runtime.commands.catalog.filter((descriptor2) => !excluded.has(descriptor2.kind)).map((descriptor2) => ({
+      name: toolName(descriptor2.kind),
+      description: descriptor2.summary,
+      inputSchema: descriptor2.inputSchema,
       annotations: {
-        readOnlyHint: descriptor.readOnly,
-        untrustedContentHint: descriptor.untrustedContent
+        readOnlyHint: descriptor2.readOnly,
+        untrustedContentHint: descriptor2.untrustedContent
       },
       execute: async (input) => {
         const receipt = await runtime.commands.execute({
-          kind: descriptor.kind,
+          kind: descriptor2.kind,
           input,
           source: options.source ?? "webmcp",
-          confirmed: confirmed.has(descriptor.kind)
+          confirmed: confirmed.has(descriptor2.kind)
         });
         return summarizeReceipt(receipt);
       }
@@ -3592,8 +3829,2301 @@ ${source ?? ""}`.split("\n");
     return new RegExp(`^${escaped}$`, "u").test(path);
   }
 
-  // packages/Epoch.Community.Runtime/src/board-honesty.ts
+  // packages/Epoch.Community.Runtime/src/live/contracts.ts
+  var LIFECYCLE_TRANSITIONS = {
+    openLobby: { from: ["draft"], to: "lobby" },
+    start: { from: ["lobby"], to: "live" },
+    pause: { from: ["live"], to: "paused" },
+    resume: { from: ["paused"], to: "live" },
+    end: { from: ["live", "paused", "lobby"], to: "ended" },
+    seal: { from: ["ended"], to: "sealed" }
+  };
+  function nextLiveLifecycle(current, command) {
+    if (current === "sealed") {
+      return { kind: "refused", reason: "sealed sessions are immutable" };
+    }
+    const transition = LIFECYCLE_TRANSITIONS[command];
+    if (!transition.from.includes(current)) {
+      return { kind: "refused", reason: `cannot ${command} from '${current}'` };
+    }
+    return { kind: "ok", state: transition.to };
+  }
+  function isLiveLifecycle(value) {
+    return ["draft", "lobby", "live", "paused", "ended", "sealed"].includes(value);
+  }
+  function isLiveLifecycleCommand(value) {
+    return ["openLobby", "start", "pause", "resume", "end", "seal"].includes(value);
+  }
+  var LIVE_POLICY_BOUNDS = Object.freeze({
+    maxPatterns: 64,
+    maxPatternLength: 256,
+    maxActionIds: 128,
+    maxDelayMs: 12e4,
+    maxRetentionDays: 365,
+    maxSpectators: 1e4,
+    maxPublishers: 64,
+    maxEgressDestinations: 8
+  });
+  function normalizeLivePublicationPolicy(input) {
+    const errors = [];
+    const visibilityInput = input.visibility ?? "private";
+    const visibility = isLiveVisibility(visibilityInput) ? visibilityInput : void 0;
+    if (visibility === void 0) errors.push(`unknown visibility '${visibilityInput}'`);
+    const securityModeInput = input.securityMode ?? "semantic-only";
+    const securityMode = isLiveSecurityMode(securityModeInput) ? securityModeInput : void 0;
+    if (securityMode === void 0) errors.push(`unknown security mode '${securityModeInput}'`);
+    const presentationViewRef = input.presentationViewRef ?? "";
+    if (presentationViewRef.trim().length === 0) errors.push("presentationViewRef is required");
+    const allowedPathPatterns = normalizePatternList(input.allowedPathPatterns ?? [], "allowedPathPatterns", errors);
+    const deniedPathPatterns = normalizePatternList(input.deniedPathPatterns ?? [], "deniedPathPatterns", errors);
+    const allowedActionIds = normalizeActionList(input.allowedActionIds ?? [], errors);
+    const media = {
+      audio: input.media?.audio === true,
+      camera: input.media?.camera === true,
+      screenShare: input.media?.screenShare === true,
+      captions: normalizeCaptions(input.media?.captions, errors),
+      recording: input.media?.recording === true,
+      externalEgress: Object.freeze([...input.media?.externalEgress ?? []])
+    };
+    if (media.externalEgress.length > LIVE_POLICY_BOUNDS.maxEgressDestinations) {
+      errors.push("too many external egress destinations");
+    }
+    for (const destination of media.externalEgress) {
+      if (!destination.startsWith("egress-ref:")) {
+        errors.push("external egress destinations must be opaque 'egress-ref:' references, never raw URLs");
+        break;
+      }
+    }
+    const publicationDelayMs = input.publicationDelayMs ?? 0;
+    if (!isBoundedInteger(publicationDelayMs, 0, LIVE_POLICY_BOUNDS.maxDelayMs)) {
+      errors.push(`publicationDelayMs must be an integer between 0 and ${LIVE_POLICY_BOUNDS.maxDelayMs}`);
+    }
+    const retentionMode = input.retention?.mode ?? "session-only";
+    if (retentionMode !== "session-only" && retentionMode !== "bounded") {
+      errors.push(`unknown retention mode '${retentionMode}'`);
+    }
+    const retentionDays = input.retention?.days ?? 0;
+    if (!isBoundedInteger(retentionDays, 0, LIVE_POLICY_BOUNDS.maxRetentionDays)) {
+      errors.push("retention days out of bounds");
+    }
+    const maxSpectators = input.audience?.maxSpectators ?? 100;
+    const maxPublishers = input.audience?.maxPublishers ?? 4;
+    if (!isBoundedInteger(maxSpectators, 0, LIVE_POLICY_BOUNDS.maxSpectators)) errors.push("maxSpectators out of bounds");
+    if (!isBoundedInteger(maxPublishers, 0, LIVE_POLICY_BOUNDS.maxPublishers)) errors.push("maxPublishers out of bounds");
+    if (securityMode !== void 0 && visibility !== void 0) {
+      errors.push(...securityModeContradictions(securityMode, visibility, media));
+    }
+    const retention = retentionMode === "bounded" ? { mode: "bounded", days: retentionDays } : { mode: "session-only", days: retentionDays };
+    if (errors.length > 0 || visibility === void 0 || securityMode === void 0) {
+      return { kind: "invalid", errors: Object.freeze(errors) };
+    }
+    const policy = {
+      schemaVersion: 1,
+      visibility,
+      securityMode,
+      presentationViewRef: presentationViewRef.trim(),
+      allowedPathPatterns,
+      deniedPathPatterns,
+      allowedActionIds,
+      includeAgentReceipts: input.includeAgentReceipts === true,
+      includeChecks: input.includeChecks === true,
+      media,
+      publicationDelayMs,
+      retention,
+      audience: { maxSpectators, maxPublishers, joinLocked: input.audience?.joinLocked === true }
+    };
+    return { kind: "valid", policy: Object.freeze(policy), digest: livePolicyDigest(policy) };
+  }
+  function livePolicyDigest(policy) {
+    return identifier("livepol", policy);
+  }
+  function securityModeContradictions(mode, visibility, media) {
+    const errors = [];
+    const anyMedia = media.audio || media.camera || media.screenShare;
+    if (mode === "semantic-only" && (anyMedia || media.recording || media.externalEgress.length > 0)) {
+      errors.push("semantic-only sessions cannot enable media, recording, or egress");
+    }
+    if (mode === "private-e2ee" && (media.recording || media.externalEgress.length > 0)) {
+      errors.push("private-e2ee refuses provider recording and egress: the provider cannot read E2EE media");
+    }
+    if (mode === "private-e2ee" && visibility === "public") {
+      errors.push("private-e2ee sessions cannot be public");
+    }
+    if (mode === "public-broadcast" && visibility !== "public" && visibility !== "unlisted") {
+      errors.push("public-broadcast requires public or unlisted visibility");
+    }
+    if (mode === "public-broadcast" && anyMedia && media.captions === "disabled") {
+      errors.push("public synchronized audio/video requires live captions; enable captions or drop media");
+    }
+    return errors;
+  }
+  function classifyLivePolicyChange(before, after) {
+    if (livePolicyDigest(before) === livePolicyDigest(after)) return "equal";
+    const widened = policyWidens(before, after);
+    const narrowed = policyWidens(after, before);
+    if (widened && narrowed) return "mixed";
+    return widened ? "widening" : "narrowing";
+  }
+  function policyWidens(before, after) {
+    if (visibilityRank(after.visibility) > visibilityRank(before.visibility)) return true;
+    if (!isSubset(after.allowedPathPatterns, before.allowedPathPatterns)) return true;
+    if (!isSubset(after.allowedActionIds, before.allowedActionIds)) return true;
+    if (!isSubset(before.deniedPathPatterns, after.deniedPathPatterns)) return true;
+    if (after.publicationDelayMs < before.publicationDelayMs) return true;
+    const mediaFlags = ["audio", "camera", "screenShare", "recording"];
+    for (const flag of mediaFlags) {
+      if (after.media[flag] === true && before.media[flag] !== true) return true;
+    }
+    if (!isSubset(after.media.externalEgress, before.media.externalEgress)) return true;
+    if (after.includeAgentReceipts && !before.includeAgentReceipts) return true;
+    if (after.includeChecks && !before.includeChecks) return true;
+    return false;
+  }
+  function visibilityRank(visibility) {
+    return ["private", "community", "unlisted", "public"].indexOf(visibility);
+  }
+  function isSubset(candidate, reference) {
+    const set = new Set(reference);
+    return candidate.every((item) => set.has(item));
+  }
+  function isLiveVisibility(value) {
+    return ["private", "community", "unlisted", "public"].includes(value);
+  }
+  function isLiveSecurityMode(value) {
+    return ["semantic-only", "private-e2ee", "private-recordable", "public-broadcast"].includes(value);
+  }
+  function isLiveConsentScope(value) {
+    return ["semantic-capture", "audio", "camera", "screen-share", "captions", "recording", "external-egress"].includes(value);
+  }
+  function normalizeCaptions(value, errors) {
+    const captions = value ?? "disabled";
+    if (captions !== "required" && captions !== "enabled" && captions !== "disabled") {
+      errors.push(`unknown captions state '${captions}'`);
+      return "disabled";
+    }
+    return captions;
+  }
+  function normalizePatternList(patterns, label, errors) {
+    if (patterns.length > LIVE_POLICY_BOUNDS.maxPatterns) {
+      errors.push(`${label} exceeds ${LIVE_POLICY_BOUNDS.maxPatterns} patterns`);
+      return Object.freeze([]);
+    }
+    const normalized = [];
+    for (const raw of patterns) {
+      const pattern = raw.normalize("NFKC").trim();
+      if (pattern.length === 0) continue;
+      if (pattern.length > LIVE_POLICY_BOUNDS.maxPatternLength) {
+        errors.push(`${label} pattern too long`);
+        continue;
+      }
+      if (pattern.includes("..")) {
+        errors.push(`${label} pattern must not contain dot segments`);
+        continue;
+      }
+      normalized.push(pattern);
+    }
+    return Object.freeze([...new Set(normalized)].sort());
+  }
+  function normalizeActionList(actionIds, errors) {
+    if (actionIds.length > LIVE_POLICY_BOUNDS.maxActionIds) {
+      errors.push(`allowedActionIds exceeds ${LIVE_POLICY_BOUNDS.maxActionIds} entries`);
+      return Object.freeze([]);
+    }
+    const normalized = actionIds.map((actionId) => actionId.normalize("NFKC").trim()).filter((actionId) => actionId.length > 0);
+    return Object.freeze([...new Set(normalized)].sort());
+  }
+  function isBoundedInteger(value, minimum, maximum) {
+    return Number.isSafeInteger(value) && value >= minimum && value <= maximum;
+  }
+
+  // packages/Epoch.Community.Runtime/src/live/publication-policy.ts
+  function __epochIsString6(value) {
+    return typeof value === "string";
+  }
+  var LIVE_SANITIZER_BOUNDS = Object.freeze({
+    maxDepth: 12,
+    maxObjectKeys: 128,
+    maxArrayElements: 512,
+    maxStringLength: 8192,
+    maxCanonicalBytes: 65536,
+    maxRewriteRules: 64,
+    maxRewriteLiteralLength: 256
+  });
+  var IMMUTABLE_LIVE_DENY_PATHS = Object.freeze([
+    "**/.env",
+    "**/.env.*",
+    "**/*.pem",
+    "**/*.key",
+    "**/*.p12",
+    "**/id_rsa*",
+    "**/id_ed25519*",
+    "**/credentials*",
+    "**/secrets/**",
+    "**/.aws/**",
+    "**/.ssh/**",
+    "dms/**",
+    "**/private/**"
+  ]);
+  var SECRET_KEY_MARKERS = Object.freeze([
+    "password",
+    "passphrase",
+    "secret",
+    "token",
+    "apikey",
+    "authorization",
+    "cookie",
+    "otp",
+    "onetimecode",
+    "recoverycode",
+    "credential",
+    "privatekey",
+    "e2eekey",
+    "accesstoken",
+    "refreshtoken",
+    "sessionsalt",
+    "signingkey",
+    "clientsecret",
+    "webhooksecret",
+    "bearer"
+  ]);
+  var FORBIDDEN_KEYS = /* @__PURE__ */ new Set(["__proto__", "prototype", "constructor"]);
+  function normalizeLivePath(path) {
+    const cleaned = path.normalize("NFKC").replaceAll("\\", "/").replace(/^\/+/u, "").replace(/\/+$/u, "");
+    const segments = [];
+    for (const segment of cleaned.split("/")) {
+      if (segment === "" || segment === ".") continue;
+      if (segment === "..") return "";
+      segments.push(segment);
+    }
+    return segments.join("/");
+  }
+  function pathMatchesLivePattern(path, pattern) {
+    const cleaned = normalizeLivePattern(pattern);
+    if (cleaned === "") return false;
+    if (cleaned === "**") return true;
+    if (cleaned.endsWith("/**")) {
+      const prefix = cleaned.slice(0, -3);
+      if (path === prefix || path.startsWith(`${prefix}/`)) return true;
+    }
+    const escaped = cleaned.replaceAll("**/", "\0dbl\0").replaceAll("**", "\0all\0").replaceAll("*", "\0one\0").replaceAll("?", "\0chr\0").replaceAll(/[.+^${}()|[\]\\]/gu, "\\$&").replaceAll("\0dbl\0", "(?:.*/)?").replaceAll("\0all\0", ".*").replaceAll("\0one\0", "[^/]*").replaceAll("\0chr\0", "[^/]");
+    return new RegExp(`^${escaped}$`, "u").test(path);
+  }
+  function normalizeLivePattern(pattern) {
+    return pattern.normalize("NFKC").replaceAll("\\", "/").replace(/^\/+/u, "").replace(/\/+$/u, "");
+  }
+  function isImmutablyDeniedLivePath(path) {
+    const normalized = normalizeLivePath(path);
+    if (normalized === "" && path.trim() !== "") return true;
+    return IMMUTABLE_LIVE_DENY_PATHS.some((pattern) => pathMatchesLivePattern(normalized, pattern));
+  }
+  function evaluateLivePath(path, policy) {
+    const normalized = normalizeLivePath(path);
+    if (normalized === "") return { kind: "deny", reason: "unsafe-pattern" };
+    if (isImmutablyDeniedLivePath(normalized)) return { kind: "deny", reason: "immutable-deny" };
+    for (const pattern of policy.deniedPathPatterns) {
+      if (pattern.startsWith("!")) continue;
+      if (pathMatchesLivePattern(normalized, pattern)) return { kind: "deny", reason: "not-in-presentation-view" };
+    }
+    const allowed = policy.allowedPathPatterns.some((pattern) => !pattern.startsWith("!") && pathMatchesLivePattern(normalized, pattern));
+    return allowed ? { kind: "allow" } : { kind: "deny", reason: "not-in-presentation-view" };
+  }
+  function compileLiveRewriteRules(source) {
+    const rules = [];
+    const errors = [];
+    if (source === void 0 || source.trim() === "") return { rules: Object.freeze(rules), errors: Object.freeze(errors) };
+    for (const raw of source.split("\n")) {
+      const line = raw.trim();
+      if (line === "" || line.startsWith("#")) continue;
+      if (rules.length >= LIVE_SANITIZER_BOUNDS.maxRewriteRules) {
+        errors.push("too many rewrite rules; later rules ignored");
+        break;
+      }
+      const parsed = /^([A-Za-z][A-Za-z0-9_-]{0,63})\s*=\s*(.+?)\s*→\s*(cipher|drop)$/u.exec(line);
+      if (parsed === null) {
+        errors.push(`unsupported rewrite rule syntax: '${line.slice(0, 40)}'`);
+        continue;
+      }
+      const match = parsed[2] ?? "";
+      if (match.length > LIVE_SANITIZER_BOUNDS.maxRewriteLiteralLength) {
+        errors.push("rewrite rule literal too long");
+        continue;
+      }
+      if (/[\\^$.|?+()[\]{}]/u.test(match)) {
+        errors.push(`rewrite rules accept literals and '*' globs only: '${parsed[1]}'`);
+        continue;
+      }
+      rules.push({ name: parsed[1], match, mode: parsed[3] === "drop" ? "drop" : "cipher" });
+    }
+    return { rules: Object.freeze(rules), errors: Object.freeze(errors) };
+  }
+  function applyRewriteRules(text, rules, sessionSalt) {
+    let output = text;
+    for (const rule of rules) {
+      const matched = rule.match.includes("*") ? globMatches(output, rule.match) : output.includes(rule.match) ? [rule.match] : [];
+      if (matched.length === 0) continue;
+      if (rule.mode === "drop") return { text: "", dropped: true };
+      for (const value of matched) {
+        output = output.split(value).join(cipherToken(sessionSalt, rule.name, value));
+      }
+    }
+    output = maskEmails(output, sessionSalt);
+    return { text: output, dropped: false };
+  }
+  function globMatches(text, pattern) {
+    const parts = pattern.split("*");
+    const matches = [];
+    for (const token of text.split(/(\s+)/u)) {
+      if (token.trim() === "") continue;
+      if (tokenMatchesGlob(token, parts)) matches.push(token);
+    }
+    return matches;
+  }
+  function tokenMatchesGlob(token, parts) {
+    let cursor = 0;
+    for (let index = 0; index < parts.length; index += 1) {
+      const part = parts[index] ?? "";
+      if (part === "") continue;
+      const at = token.indexOf(part, cursor);
+      if (at === -1) return false;
+      if (index === 0 && at !== 0) return false;
+      cursor = at + part.length;
+    }
+    const last = parts[parts.length - 1] ?? "";
+    return last === "" || token.endsWith(last);
+  }
+  var EMAIL_PATTERN = /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/giu;
+  function maskEmails(text, sessionSalt) {
+    EMAIL_PATTERN.lastIndex = 0;
+    return text.replace(EMAIL_PATTERN, (match) => cipherToken(sessionSalt, "email", match));
+  }
+  function sanitizeLiveArgs(args, context) {
+    if (context.protectedInput === true) return { kind: "drop", reason: "protected-input" };
+    const state = { bytes: 0, seen: /* @__PURE__ */ new Set() };
+    const result = sanitizeValue(args, context, state, 0);
+    if (result.kind === "fail") return { kind: "drop", reason: result.reason };
+    if (!isDictionary(result.value)) return { kind: "drop", reason: "unsafe-object-shape" };
+    return { kind: "emit", args: result.value };
+  }
+  function sanitizeValue(value, context, state, depth) {
+    if (depth > LIVE_SANITIZER_BOUNDS.maxDepth) return { kind: "fail", reason: "depth-exceeded" };
+    if (value === null) return { kind: "ok", value: null };
+    if (value === void 0) return { kind: "fail", reason: "unsafe-object-shape" };
+    if (__epochIsString6(value)) return sanitizeString(value, context, state);
+    if (isBooleanValue(value)) return { kind: "ok", value };
+    if (isNumberValue(value)) {
+      return Number.isFinite(value) ? { kind: "ok", value } : { kind: "fail", reason: "unsafe-object-shape" };
+    }
+    if (isBigIntValue(value)) return { kind: "fail", reason: "unsafe-object-shape" };
+    if (Array.isArray(value)) return sanitizeArray(value, context, state, depth);
+    if (isDictionary(value)) return sanitizeObject(value, context, state, depth);
+    return { kind: "fail", reason: "unsafe-object-shape" };
+  }
+  function sanitizeString(value, context, state) {
+    if (value.length > LIVE_SANITIZER_BOUNDS.maxStringLength) return { kind: "fail", reason: "payload-too-large" };
+    state.bytes += value.length;
+    if (state.bytes > LIVE_SANITIZER_BOUNDS.maxCanonicalBytes) return { kind: "fail", reason: "payload-too-large" };
+    const normalized = value.normalize("NFKC");
+    if (containsSecretMaterial(normalized)) return { kind: "fail", reason: "immutable-deny" };
+    const rewritten = applyRewriteRules(normalized, context.rewriteRules, context.sessionSalt);
+    if (rewritten.dropped) return { kind: "fail", reason: "rewrite-drop" };
+    return { kind: "ok", value: rewritten.text };
+  }
+  function sanitizeArray(value, context, state, depth) {
+    if (value.length > LIVE_SANITIZER_BOUNDS.maxArrayElements) return { kind: "fail", reason: "payload-too-large" };
+    const identity = value;
+    if (state.seen.has(identity)) return { kind: "fail", reason: "unsafe-object-shape" };
+    state.seen.add(identity);
+    const items = [];
+    for (const item of value) {
+      const result = sanitizeValue(item, context, state, depth + 1);
+      if (result.kind === "fail") return result;
+      items.push(result.value);
+    }
+    state.seen.delete(identity);
+    return { kind: "ok", value: Object.freeze(items) };
+  }
+  function sanitizeObject(value, context, state, depth) {
+    if (state.seen.has(value)) return { kind: "fail", reason: "unsafe-object-shape" };
+    const prototype = Object.getPrototypeOf(value);
+    if (prototype !== Object.prototype && prototype !== null) return { kind: "fail", reason: "unsafe-object-shape" };
+    if (Object.getOwnPropertySymbols(value).length > 0) return { kind: "fail", reason: "unsafe-object-shape" };
+    const names = Object.getOwnPropertyNames(value);
+    if (names.length > LIVE_SANITIZER_BOUNDS.maxObjectKeys) return { kind: "fail", reason: "payload-too-large" };
+    state.seen.add(value);
+    const output = {};
+    for (const key of names) {
+      if (FORBIDDEN_KEYS.has(key)) return { kind: "fail", reason: "unsafe-object-shape" };
+      const descriptor2 = Object.getOwnPropertyDescriptor(value, key);
+      if (descriptor2 === void 0 || descriptor2.get !== void 0 || descriptor2.set !== void 0) {
+        return { kind: "fail", reason: "unsafe-object-shape" };
+      }
+      state.bytes += key.length;
+      if (state.bytes > LIVE_SANITIZER_BOUNDS.maxCanonicalBytes) return { kind: "fail", reason: "payload-too-large" };
+      if (isSecretKeyName(key)) return { kind: "fail", reason: "immutable-deny" };
+      const result = sanitizeValue(descriptor2.value, context, state, depth + 1);
+      if (result.kind === "fail") return result;
+      output[key] = result.value;
+    }
+    state.seen.delete(value);
+    return { kind: "ok", value: Object.freeze(output) };
+  }
+  function isSecretKeyName(key) {
+    const normalized = key.normalize("NFKC").toLowerCase().replaceAll(/[^a-z0-9]/gu, "");
+    return SECRET_KEY_MARKERS.some((marker) => normalized.includes(marker));
+  }
+  var SECRET_VALUE_PATTERNS = Object.freeze([
+    // Authorization headers pasted into an argument.
+    /\bBearer\s+[A-Za-z0-9._~+/-]{8,}/u,
+    // AWS access key ids: a fixed four-character type prefix and 16 more.
+    /\b(?:AKIA|ASIA|AIDA|AROA|AIPA|ANPA|ANVA|ABIA|ACCA)[A-Z0-9]{16}\b/u,
+    // GitHub personal access, OAuth, user-to-server, server-to-server, refresh.
+    /\bgh[pousr]_[A-Za-z0-9]{16,}/u,
+    // OpenAI- and Anthropic-style secret keys.
+    /\bsk-[A-Za-z0-9_-]{16,}/u,
+    // Slack bot, app, personal, and legacy tokens.
+    /\bxox[abporse]-[A-Za-z0-9-]{10,}/u,
+    // Google API keys. Length is a range, not the exact 35 the format uses
+    // today: a filter that a one-character drift slips past is not a filter.
+    /\bAIza[A-Za-z0-9_-]{30,}/u,
+    // A signed JWT: three base64url segments, the first two JSON objects.
+    /\bey[A-Za-z0-9_-]{8,}\.ey[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}/u
+  ]);
+  function containsSecretMaterial(value) {
+    if (value.includes("-----BEGIN") && /PRIVATE KEY|OPENSSH/u.test(value)) return true;
+    return SECRET_VALUE_PATTERNS.some((pattern) => pattern.test(value));
+  }
+  function isDictionary(value) {
+    return typeof value === "object" && value !== null && !Array.isArray(value);
+  }
+  function isBooleanValue(value) {
+    return typeof value === "boolean";
+  }
+  function isNumberValue(value) {
+    return typeof value === "number";
+  }
+  function isBigIntValue(value) {
+    return typeof value === "bigint";
+  }
+  function runLivePreflight(input) {
+    const errors = [...input.rewriteErrors ?? []];
+    const warnings = [];
+    const policy = input.policy;
+    if (policy.allowedPathPatterns.length === 0 && policy.allowedActionIds.length === 0) {
+      errors.push("nothing is allow-listed: add at least one presentation path pattern or stream-safe action");
+    }
+    const requiredConsentScopes = requiredScopesFor(policy);
+    const granted = new Set(input.consentScopes ?? []);
+    const missingConsentScopes = requiredConsentScopes.filter((scope) => !granted.has(scope));
+    if (missingConsentScopes.length > 0) {
+      errors.push(`missing consent scopes: ${missingConsentScopes.join(", ")}`);
+    }
+    const wantsMedia = policy.media.audio || policy.media.camera || policy.media.screenShare;
+    if (wantsMedia && input.mediaProviderReady !== true) {
+      warnings.push("media provider is not ready; the session can still start semantic-only");
+    }
+    if (policy.media.captions === "required" && input.captionProviderReady !== true && wantsMedia) {
+      errors.push("captions are required but no caption provider is ready");
+    }
+    if (policy.visibility === "public" || policy.visibility === "unlisted") {
+      warnings.push("released data may be copied by spectators and cannot be recalled");
+    }
+    return {
+      sessionId: input.sessionId,
+      spaceId: input.spaceId,
+      policyDigest: input.policyDigest,
+      presentationViewRef: policy.presentationViewRef,
+      allowedPathPatterns: policy.allowedPathPatterns,
+      allowedActionIds: policy.allowedActionIds,
+      immutableDenials: IMMUTABLE_LIVE_DENY_PATHS,
+      requiredConsentScopes,
+      missingConsentScopes: Object.freeze(missingConsentScopes),
+      warnings: Object.freeze(warnings),
+      errors: Object.freeze(errors),
+      startAllowed: errors.length === 0
+    };
+  }
+  function requiredScopesFor(policy) {
+    const scopes = ["semantic-capture"];
+    if (policy.media.audio) scopes.push("audio");
+    if (policy.media.camera) scopes.push("camera");
+    if (policy.media.screenShare) scopes.push("screen-share");
+    if (policy.media.recording) scopes.push("recording");
+    if (policy.media.externalEgress.length > 0) scopes.push("external-egress");
+    return Object.freeze(scopes);
+  }
+
+  // packages/Epoch.Community.Runtime/src/live/presentation-log.ts
+  var UNKNOWN_ACTION = Object.freeze({ streamSafe: false, replayEffect: "never-replay" });
+  function createLiveActionCatalog(entries) {
+    const catalog = /* @__PURE__ */ new Map();
+    for (const [actionId, policy] of Object.entries(entries)) {
+      catalog.set(actionId.normalize("NFKC"), Object.freeze({ ...policy }));
+    }
+    return {
+      policyFor(actionId) {
+        return catalog.get(actionId.normalize("NFKC")) ?? UNKNOWN_ACTION;
+      },
+      get streamSafeActionIds() {
+        return [...catalog.entries()].filter(([, policy]) => policy.streamSafe).map(([actionId]) => actionId).sort();
+      }
+    };
+  }
+  var DEFAULT_MAX_QUEUE = 2048;
+  function createLivePresentationPublisher(options) {
+    const startedAtMs = options.now();
+    const maxQueue = options.maxQueuedEnvelopes ?? DEFAULT_MAX_QUEUE;
+    let policy = options.policy;
+    let policyDigest = livePolicyDigest(policy);
+    const rewriteRules = options.rewriteRules ?? [];
+    let paused = false;
+    let degraded = false;
+    let sequence = 0;
+    const queue = [];
+    const released = [];
+    const checkpoints = [];
+    const quarantine = [];
+    function evaluate(input) {
+      if (input.sourceVerified !== true) return { kind: "fail", reason: "unverified-source" };
+      const normalizedAction = input.actionId.normalize("NFKC");
+      if (!options.catalog.policyFor(normalizedAction).streamSafe) {
+        return { kind: "fail", reason: "action-not-stream-safe" };
+      }
+      if (!policy.allowedActionIds.includes(normalizedAction)) {
+        return { kind: "fail", reason: "action-not-stream-safe" };
+      }
+      if (input.path !== void 0) {
+        const pathDecision = evaluateLivePath(input.path, policy);
+        if (pathDecision.kind === "deny") return { kind: "fail", reason: pathDecision.reason };
+      }
+      const decision = sanitizeLiveArgs(input.args, {
+        policy,
+        rewriteRules,
+        sessionSalt: options.sessionSalt,
+        ...input.protectedInput === true && { protectedInput: true }
+      });
+      if (decision.kind !== "emit") return { kind: "fail", reason: decision.reason };
+      return { kind: "ok", args: decision.args };
+    }
+    function record(reason, actionId, stage) {
+      if (quarantine.length < DEFAULT_MAX_QUEUE) quarantine.push({ reason, actionId, stage });
+    }
+    return {
+      capture(input) {
+        if (queue.length >= maxQueue) {
+          degraded = true;
+          record("queue-overflow", input.actionId, "capture");
+          return { kind: "dropped", reason: "queue-overflow" };
+        }
+        const evaluated = evaluate(input);
+        if (evaluated.kind === "fail") {
+          record(evaluated.reason, input.actionId, "capture");
+          return { kind: "dropped", reason: evaluated.reason };
+        }
+        const queuedAtMs = options.now();
+        queue.push({ input, queuedAtMs, policyDigestAtCapture: policyDigest });
+        return { kind: "queued", queuedAtMs };
+      },
+      release() {
+        if (paused) return [];
+        const nowMs = options.now();
+        const releasedNow = [];
+        while (queue.length > 0) {
+          const head = queue[0];
+          if (head === void 0 || head.queuedAtMs + policy.publicationDelayMs > nowMs) break;
+          queue.shift();
+          const evaluated = evaluate(head.input);
+          if (evaluated.kind === "fail") {
+            const reason = head.policyDigestAtCapture === policyDigest ? evaluated.reason : "policy-stale";
+            record(reason, head.input.actionId, "release");
+            continue;
+          }
+          sequence += 1;
+          const payloadDigest = digestOf({
+            actionId: head.input.actionId,
+            args: evaluated.args,
+            path: head.input.path ?? null,
+            sourceEventIds: head.input.sourceEventIds
+          });
+          const envelope = {
+            schemaVersion: 2,
+            sessionId: options.sessionId,
+            sequence,
+            actorId: head.input.actorId,
+            actionId: head.input.actionId.normalize("NFKC"),
+            args: evaluated.args,
+            ...head.input.path !== void 0 && { path: head.input.path },
+            sourceEventIds: head.input.sourceEventIds,
+            sourceViewRef: head.input.sourceViewRef,
+            policyDigest,
+            presentationOffsetMs: Math.max(0, nowMs - startedAtMs),
+            payloadDigest,
+            liveEventId: identifier("liveevt", { sessionId: options.sessionId, sequence, payloadDigest })
+          };
+          released.push(envelope);
+          releasedNow.push(envelope);
+        }
+        return Object.freeze(releasedNow);
+      },
+      pause() {
+        paused = true;
+      },
+      resume() {
+        paused = false;
+      },
+      updatePolicy(input) {
+        const change = classifyLivePolicyChange(policy, input.policy);
+        if ((change === "widening" || change === "mixed") && input.confirmed !== true) {
+          return { kind: "refused", change, reason: "policy widening requires explicit confirmation and refreshed consent" };
+        }
+        policy = input.policy;
+        policyDigest = livePolicyDigest(policy);
+        let invalidatedQueued = 0;
+        if (change === "narrowing" || change === "mixed") {
+          for (let index = queue.length - 1; index >= 0; index -= 1) {
+            const entry = queue[index];
+            if (entry === void 0) continue;
+            const evaluated = evaluate(entry.input);
+            if (evaluated.kind === "fail") {
+              queue.splice(index, 1);
+              invalidatedQueued += 1;
+              record("policy-stale", entry.input.actionId, "release");
+            }
+          }
+        }
+        return { kind: "applied", change, policyDigest, invalidatedQueued };
+      },
+      /**
+       * Marking the same point twice yields the same checkpoint.
+       *
+       * The id is derived from the stream position — session, sequence, log head
+       * — so two marks at one position are one checkpoint by construction. It
+       * used to append a second record under that same id with a later offset,
+       * which meant an already-issued checkpoint's content changed underneath
+       * anything that had recorded it (a fork's provenance, a spectator's resync
+       * point) and the sealed manifest listed the id twice. The first marking is
+       * the moment that point was established, so it is the one that stands.
+       */
+      checkpoint() {
+        const head = digestOf(released.map((envelope) => envelope.liveEventId));
+        const checkpointId = identifier("livechk", { sessionId: options.sessionId, sequence, head });
+        const existing = checkpoints.find((candidate) => candidate.checkpointId === checkpointId);
+        if (existing !== void 0) return existing;
+        const checkpoint = {
+          schemaVersion: 1,
+          sessionId: options.sessionId,
+          checkpointId,
+          sequence,
+          presentationLogHead: head,
+          sourceViewRef: policy.presentationViewRef,
+          policyDigest,
+          presentationOffsetMs: Math.max(0, options.now() - startedAtMs)
+        };
+        checkpoints.push(checkpoint);
+        return checkpoint;
+      },
+      buildReplayManifest(completeness) {
+        const head = digestOf(released.map((envelope) => envelope.liveEventId));
+        return {
+          schemaVersion: 1,
+          replayId: identifier("livereplay", { sessionId: options.sessionId, head }),
+          sessionId: options.sessionId,
+          presentationLogHead: head,
+          presentationEventIds: released.map((envelope) => envelope.liveEventId),
+          checkpointIds: checkpoints.map((checkpoint) => checkpoint.checkpointId),
+          policyDigests: [...new Set(released.map((envelope) => envelope.policyDigest))],
+          completeness
+        };
+      },
+      releasedEnvelopes() {
+        return [...released];
+      },
+      quarantined() {
+        return [...quarantine];
+      },
+      state() {
+        return {
+          sequence,
+          queuedCount: queue.length,
+          releasedCount: released.length,
+          paused,
+          health: degraded ? "degraded" : "live",
+          policyDigest
+        };
+      }
+    };
+  }
+  function createLiveSpectatorProjection(options) {
+    let lastSequence = 0;
+    const applied = [];
+    const digestBySequence = /* @__PURE__ */ new Map();
+    const pending = /* @__PURE__ */ new Map();
+    let quarantinedCount = 0;
+    function verify(envelope) {
+      if (envelope.schemaVersion !== 2) return "schema-invalid";
+      if (envelope.sessionId !== options.sessionId) return "unverified-source";
+      const expected = digestOf({
+        actionId: envelope.actionId,
+        args: envelope.args,
+        path: envelope.path ?? null,
+        sourceEventIds: envelope.sourceEventIds
+      });
+      if (expected !== envelope.payloadDigest) return "unverified-source";
+      return void 0;
+    }
+    function applyOne(envelope) {
+      const invalid = verify(envelope);
+      if (invalid !== void 0) {
+        quarantinedCount += 1;
+        return { kind: "quarantined", reason: invalid };
+      }
+      if (envelope.sequence <= lastSequence) {
+        const known = digestBySequence.get(envelope.sequence);
+        if (known === envelope.payloadDigest) return { kind: "duplicate", sequence: envelope.sequence };
+        quarantinedCount += 1;
+        return { kind: "quarantined", reason: "sequence-conflict" };
+      }
+      if (envelope.sequence > lastSequence + 1) {
+        pending.set(envelope.sequence, envelope);
+        return { kind: "gap", missingFrom: lastSequence + 1, missingTo: envelope.sequence - 1 };
+      }
+      lastSequence = envelope.sequence;
+      applied.push(envelope);
+      digestBySequence.set(envelope.sequence, envelope.payloadDigest);
+      return { kind: "applied", sequence: envelope.sequence };
+    }
+    function drainPending() {
+      let next = pending.get(lastSequence + 1);
+      while (next !== void 0) {
+        pending.delete(next.sequence);
+        applyOne(next);
+        next = pending.get(lastSequence + 1);
+      }
+    }
+    return {
+      apply(envelope) {
+        const result = applyOne(envelope);
+        if (result.kind === "applied") drainPending();
+        return result;
+      },
+      resyncFrom(checkpoint, envelopes) {
+        if (checkpoint.sessionId === options.sessionId && checkpoint.sequence >= lastSequence) {
+          lastSequence = checkpoint.sequence;
+        }
+        const results = envelopes.map((envelope) => applyOne(envelope));
+        drainPending();
+        return Object.freeze(results);
+      },
+      /**
+       * Replay is confined to the spectator's disposable presentation
+       * projection. Unknown and privileged actions never execute; the host's
+       * theme and view preferences never override the spectator's own.
+       */
+      replayDecision(envelope, catalog) {
+        if (isSpectatorViewPreference(envelope.actionId)) return { kind: "skip", reason: "view-preference" };
+        const actionPolicy = catalog.policyFor(envelope.actionId);
+        if (!actionPolicy.streamSafe || actionPolicy.replayEffect === "never-replay") {
+          return { kind: "skip", reason: "action-not-stream-safe" };
+        }
+        return { kind: "apply", effect: actionPolicy.replayEffect };
+      },
+      appliedEnvelopes() {
+        return [...applied];
+      },
+      state() {
+        return {
+          lastSequence,
+          appliedCount: applied.length,
+          pendingCount: pending.size,
+          quarantinedCount
+        };
+      }
+    };
+  }
+  function evaluateLiveForkEligibility(checkpoint, context) {
+    if (checkpoint === void 0) return { kind: "refused", reason: "no checkpoint at that point; a media timestamp is not a branch point" };
+    if (!context.refVerified) return { kind: "refused", reason: "checkpoint view/ref did not verify" };
+    if (!context.hasReadAuthority) return { kind: "refused", reason: "caller lacks read authority for the checkpoint state" };
+    if (!context.objectsAvailable) return { kind: "refused", reason: "checkpoint state is not resident and no honest provider can hydrate it" };
+    if (!context.policyPermitsCopy) return { kind: "refused", reason: "publication policy does not permit copying this state" };
+    return { kind: "forkable", checkpointId: checkpoint.checkpointId, sourceViewRef: checkpoint.sourceViewRef };
+  }
+
+  // packages/Epoch.Community.Runtime/src/live/transport.ts
+  function createInMemoryLiveTransport(options = {}) {
+    const channels = /* @__PURE__ */ new Map();
+    function channel(sessionId) {
+      const existing = channels.get(sessionId);
+      if (existing !== void 0) return existing;
+      const created = { envelopes: [], subscribers: /* @__PURE__ */ new Set() };
+      channels.set(sessionId, created);
+      return created;
+    }
+    return {
+      snapshot(input) {
+        const session = channel(input.sessionId);
+        const after = input.afterSequence ?? session.checkpoint?.sequence ?? 0;
+        return Promise.resolve({
+          ...session.checkpoint !== void 0 && { checkpoint: session.checkpoint },
+          envelopes: session.envelopes.filter((envelope) => envelope.sequence > after),
+          releasedThroughSequence: session.envelopes.at(-1)?.sequence ?? 0
+        });
+      },
+      events(input) {
+        const session = channel(input.sessionId);
+        const limit = input.limit ?? 512;
+        return Promise.resolve(session.envelopes.filter((envelope) => envelope.sequence > input.afterSequence).slice(0, limit));
+      },
+      subscribe(input) {
+        const session = channel(input.sessionId);
+        const subscriber = {
+          onEnvelope: input.onEnvelope,
+          ...input.onStatus !== void 0 && { onStatus: input.onStatus }
+        };
+        session.subscribers.add(subscriber);
+        input.onStatus?.({ connection: "open" });
+        for (const envelope of session.envelopes) {
+          if (envelope.sequence > input.afterSequence) input.onEnvelope(envelope);
+        }
+        return {
+          close() {
+            session.subscribers.delete(subscriber);
+          }
+        };
+      },
+      push(sessionId, envelopes) {
+        const session = channel(sessionId);
+        for (const envelope of envelopes) {
+          const known = session.envelopes.some((item) => item.sequence === envelope.sequence);
+          if (!known) session.envelopes.push(envelope);
+          if (known && options.deliverDuplicates !== true) continue;
+          for (const subscriber of session.subscribers) subscriber.onEnvelope(envelope);
+        }
+        session.envelopes.sort((left, right) => left.sequence - right.sequence);
+      },
+      /** Frames the host released that never reached this subscriber — a real gap. */
+      withhold(sessionId, envelopes) {
+        const session = channel(sessionId);
+        for (const envelope of envelopes) {
+          if (!session.envelopes.some((item) => item.sequence === envelope.sequence)) {
+            session.envelopes.push(envelope);
+          }
+        }
+        session.envelopes.sort((left, right) => left.sequence - right.sequence);
+      },
+      recordCheckpoint(sessionId, checkpoint) {
+        channel(sessionId).checkpoint = checkpoint;
+      },
+      dropSubscribers(sessionId, reason) {
+        const session = channel(sessionId);
+        for (const subscriber of session.subscribers) {
+          subscriber.onStatus?.({ connection: "failed", reason });
+        }
+        session.subscribers.clear();
+      },
+      subscriberCount(sessionId) {
+        return channel(sessionId).subscribers.size;
+      }
+    };
+  }
+  var DEFAULT_BASE_BACKOFF_MS = 500;
+  var DEFAULT_MAX_BACKOFF_MS = 3e4;
+  var DEFAULT_MAX_RECONNECT_ATTEMPTS = 6;
+  function createLivePresentationClient(options) {
+    const projection = createLiveSpectatorProjection({ sessionId: options.sessionId });
+    const baseBackoffMs = options.baseBackoffMs ?? DEFAULT_BASE_BACKOFF_MS;
+    const maxBackoffMs = options.maxBackoffMs ?? DEFAULT_MAX_BACKOFF_MS;
+    const maxReconnectAttempts = options.maxReconnectAttempts ?? DEFAULT_MAX_RECONNECT_ATTEMPTS;
+    let connection = "idle";
+    let subscription;
+    let cancelRetry;
+    let lastCheckpointId;
+    let gapRecoveries = 0;
+    let reconnectAttempts = 0;
+    let stale = false;
+    let stopped = false;
+    let recovering = false;
+    function snapshotState() {
+      const state = projection.state();
+      return {
+        connection,
+        lastSequence: state.lastSequence,
+        ...lastCheckpointId !== void 0 && { lastCheckpointId },
+        appliedCount: state.appliedCount,
+        quarantinedCount: state.quarantinedCount,
+        gapRecoveries,
+        reconnectAttempts,
+        stale
+      };
+    }
+    function emit() {
+      const state = snapshotState();
+      options.onChange?.(state);
+      return state;
+    }
+    function setConnection(next) {
+      connection = next;
+      emit();
+    }
+    async function hydrate() {
+      const snapshot = await options.transport.snapshot({
+        sessionId: options.sessionId,
+        afterSequence: projection.state().lastSequence
+      });
+      if (snapshot.checkpoint !== void 0) {
+        lastCheckpointId = snapshot.checkpoint.checkpointId;
+        projection.resyncFrom(snapshot.checkpoint, snapshot.envelopes);
+      } else {
+        for (const envelope of snapshot.envelopes) projection.apply(envelope);
+      }
+      stale = projection.state().lastSequence < snapshot.releasedThroughSequence;
+    }
+    async function recoverGap() {
+      if (recovering || stopped) return;
+      recovering = true;
+      try {
+        gapRecoveries += 1;
+        setConnection("recovering");
+        const missing = await options.transport.events({
+          sessionId: options.sessionId,
+          afterSequence: projection.state().lastSequence
+        });
+        for (const envelope of missing) projection.apply(envelope);
+        if (projection.state().pendingCount > 0) await hydrate();
+        stale = projection.state().pendingCount > 0;
+        setConnection(subscription === void 0 ? "idle" : "open");
+      } finally {
+        recovering = false;
+      }
+    }
+    function handle(envelope) {
+      const result = projection.apply(envelope);
+      if (result.kind === "gap") {
+        void recoverGap();
+        return;
+      }
+      if (result.kind === "applied") stale = false;
+      emit();
+    }
+    function scheduleReconnect(reason) {
+      if (stopped) return;
+      if (reconnectAttempts >= maxReconnectAttempts) {
+        connection = "failed";
+        stale = true;
+        emit();
+        return;
+      }
+      reconnectAttempts += 1;
+      const jitter = (options.jitter ?? (() => 0.5))();
+      const delay = Math.min(maxBackoffMs, baseBackoffMs * 2 ** (reconnectAttempts - 1)) * (0.5 + jitter / 2);
+      connection = "recovering";
+      stale = true;
+      emit();
+      cancelRetry = options.schedule(Math.round(delay), () => {
+        void reconnect(reason);
+      });
+    }
+    async function reconnect(reason) {
+      if (stopped) return;
+      try {
+        await hydrate();
+        openSubscription();
+        reconnectAttempts = 0;
+      } catch {
+        scheduleReconnect(reason);
+      }
+    }
+    function openSubscription() {
+      subscription?.close();
+      subscription = options.transport.subscribe({
+        sessionId: options.sessionId,
+        afterSequence: projection.state().lastSequence,
+        onEnvelope: handle,
+        onStatus: (status) => {
+          if (status.connection === "failed" || status.connection === "closed") {
+            subscription = void 0;
+            scheduleReconnect(status.reason ?? status.connection);
+            return;
+          }
+          setConnection(status.connection);
+        }
+      });
+      setConnection("open");
+    }
+    return {
+      async start() {
+        setConnection("connecting");
+        await hydrate();
+        openSubscription();
+        return emit();
+      },
+      async resync() {
+        await hydrate();
+        return emit();
+      },
+      projection() {
+        return projection;
+      },
+      state() {
+        return snapshotState();
+      },
+      stop() {
+        stopped = true;
+        cancelRetry?.();
+        subscription?.close();
+        subscription = void 0;
+        setConnection("closed");
+      }
+    };
+  }
+
+  // packages/Epoch.Community.Runtime/src/live/moderation.ts
+  var LIVE_MODERATION_ACTIONS = ["pause", "revokeParticipant", "endSession", "quarantineAction"];
+  var FUTURE_EFFECT = {
+    pause: "release is held at the current sequence; nothing new reaches the audience",
+    revokeParticipant: "the participant's grant ends; their future publishes and media are denied",
+    endSession: "release stops and no further joins are accepted",
+    quarantineAction: "the action id is denied for the rest of the session"
+  };
+  function evaluateLiveModeration(input) {
+    const released = Math.max(0, Math.trunc(input.releasedThroughSequence));
+    const cannotUndo = [];
+    if (released > 0) {
+      cannotUndo.push(
+        `${released} released envelope(s) are already public; spectators may hold copies and they cannot be recalled`
+      );
+    }
+    if (input.sealed) {
+      cannotUndo.push("the replay manifest is sealed; its contents are immutable evidence and are not edited by moderation");
+    }
+    const applied = !input.sealed && !(input.lifecycle === "ended" && input.action === "pause");
+    const effects = applied ? [FUTURE_EFFECT[input.action]] : [];
+    if (!applied) {
+      cannotUndo.push(
+        input.sealed ? "a sealed session cannot be paused, revoked from, or ended: there is nothing further to restrain" : "the session has already ended; pausing it changes nothing"
+      );
+    }
+    return {
+      action: input.action,
+      effects,
+      cannotUndo,
+      releasedThroughSequence: released,
+      applied
+    };
+  }
+  var LABEL_SEVERITY = /* @__PURE__ */ new Map([
+    ["unavailable", 4],
+    ["degraded", 3],
+    ["provider-disabled", 2],
+    ["experimental", 1],
+    ["production", 0]
+  ]);
+  function severityOf(label) {
+    return LABEL_SEVERITY.get(label) ?? 4;
+  }
+  function projectLiveOperations(input) {
+    const candidates = [
+      input.health === "degraded" ? "degraded" : "production",
+      input.mediaLabel,
+      input.captionLabel
+    ];
+    const overall = candidates.reduce((worst, label) => severityOf(label) > severityOf(worst) ? label : worst, "production");
+    const attention = [];
+    if (input.health === "degraded") attention.push("presentation transport is degraded");
+    if (input.quarantinedCount > 0) {
+      attention.push(`${input.quarantinedCount} capture(s) were refused before release`);
+    }
+    if (severityOf(input.mediaLabel) > 0) attention.push(`media: ${input.mediaLabel}`);
+    if (severityOf(input.captionLabel) > 0) attention.push(`captions: ${input.captionLabel}`);
+    return {
+      sessionId: input.sessionId,
+      lifecycle: input.lifecycle,
+      releasedThroughSequence: Math.max(0, Math.trunc(input.releasedThroughSequence)),
+      quarantinedCount: Math.max(0, Math.trunc(input.quarantinedCount)),
+      mediaLabel: input.mediaLabel,
+      captionLabel: input.captionLabel,
+      overall,
+      attention
+    };
+  }
+  function counted(value) {
+    return Number.isFinite(value) ? Math.max(0, Math.trunc(value)) : 0;
+  }
+  function liveTelemetryRecord(input) {
+    return {
+      kind: "live.session",
+      lifecycle: input.lifecycle,
+      releasedCount: counted(input.releasedCount),
+      quarantinedCount: counted(input.quarantinedCount),
+      participantCount: counted(input.participantCount),
+      gapCount: counted(input.gapCount),
+      mediaLabel: input.mediaLabel
+    };
+  }
+
+  // packages/Epoch.Community.Runtime/src/live/commands.ts
+  function __epochIsString7(value) {
+    return typeof value === "string";
+  }
   function __epochIsNumber3(value) {
+    return typeof value === "number";
+  }
+  var DEFAULT_LIVE_ACTION_CATALOG = createLiveActionCatalog({
+    "view.open": { streamSafe: true, replayEffect: "presentation-local" },
+    "file.reveal": { streamSafe: true, replayEffect: "presentation-local" },
+    "diff.show": { streamSafe: true, replayEffect: "presentation-local" },
+    "check.report": { streamSafe: true, replayEffect: "presentation-local" },
+    "agent.receipt.show": { streamSafe: true, replayEffect: "presentation-local" },
+    "history.inspect": { streamSafe: true, replayEffect: "read-only-query" },
+    "change.merge": { streamSafe: false, replayEffect: "never-replay" },
+    "shell.exec": { streamSafe: false, replayEffect: "never-replay" },
+    "grant.modify": { streamSafe: false, replayEffect: "never-replay" }
+  });
+  function fail(code, message2) {
+    throw new EpochCommandError(code, message2);
+  }
+  function createLocalLiveSpacePort(options) {
+    const sessions = /* @__PURE__ */ new Map();
+    const catalog = options.catalog ?? DEFAULT_LIVE_ACTION_CATALOG;
+    const mediaGateway = options.media;
+    const community = options.community;
+    let created = 0;
+    function requireSession(sessionId) {
+      return sessions.get(sessionId) ?? fail("not-found", `live session not found: ${sessionId}`);
+    }
+    function requireManager(session, actor) {
+      const participant = session.participants.get(actor);
+      if (participant === void 0 || !participant.active || participant.role !== "owner" && participant.role !== "cohost") {
+        fail("policy-denied", `principal ${actor} lacks live.session.manage authority`);
+      }
+      return participant;
+    }
+    function requireActive(session, actor) {
+      const participant = session.participants.get(actor);
+      if (participant === void 0 || !participant.active) {
+        fail("policy-denied", `principal ${actor} holds no active grant in this session`);
+      }
+      return participant;
+    }
+    function snapshot(session) {
+      const state = session.publisher.state();
+      return {
+        sessionId: session.sessionId,
+        spaceId: session.spaceId,
+        ownerPrincipalId: session.ownerPrincipalId,
+        presentationViewRef: session.policy.presentationViewRef,
+        visibility: session.policy.visibility,
+        securityMode: session.policy.securityMode,
+        lifecycle: session.lifecycle,
+        policyDigest: session.policyDigest,
+        releasedThroughSequence: state.sequence,
+        health: state.health,
+        joinLocked: session.joinLocked,
+        participants: [...session.participants.values()].map((participant) => ({
+          principalId: participant.principalId,
+          role: participant.role,
+          active: participant.active
+        })),
+        sealed: session.lifecycle === "sealed",
+        ...session.boundThreadId !== void 0 && { boundThreadId: session.boundThreadId }
+      };
+    }
+    function preflightReport(session) {
+      const scopes = session.consent.get(session.ownerPrincipalId);
+      return runLivePreflight({
+        sessionId: session.sessionId,
+        spaceId: session.spaceId,
+        policy: session.policy,
+        policyDigest: session.policyDigest,
+        consentScopes: [...scopes ?? []],
+        mediaProviderReady: false,
+        captionProviderReady: false
+      });
+    }
+    return {
+      createSession(input) {
+        const space = options.resolveSpace(input.spaceId);
+        if (space === void 0) fail("not-found", `space not found: ${input.spaceId}`);
+        const normalized = normalizeLivePublicationPolicy({
+          ...input.policy,
+          presentationViewRef: input.policy.presentationViewRef ?? space.viewRef
+        });
+        if (normalized.kind === "invalid") {
+          fail("invalid-input", `publication policy invalid: ${normalized.errors.join("; ")}`);
+        }
+        created += 1;
+        const sessionId = identifier("livesession", { spaceId: input.spaceId, created });
+        const publisher = createLivePresentationPublisher({
+          sessionId,
+          policy: normalized.policy,
+          catalog,
+          sessionSalt: `${options.sessionSalt}:${sessionId}`,
+          now: options.now,
+          ...options.maxQueuedEnvelopes !== void 0 && { maxQueuedEnvelopes: options.maxQueuedEnvelopes }
+        });
+        const session = {
+          sessionId,
+          spaceId: input.spaceId,
+          ownerPrincipalId: input.actor,
+          policy: normalized.policy,
+          policyDigest: normalized.digest,
+          lifecycle: "draft",
+          joinLocked: normalized.policy.audience.joinLocked,
+          publisher,
+          participants: /* @__PURE__ */ new Map([[input.actor, { principalId: input.actor, role: "owner", active: true }]]),
+          consent: /* @__PURE__ */ new Map(),
+          checkpoints: /* @__PURE__ */ new Map(),
+          bookmarks: [],
+          annotations: [],
+          grantRequests: [],
+          reports: []
+        };
+        sessions.set(sessionId, session);
+        return { data: snapshot(session) };
+      },
+      showSession(sessionId) {
+        return { data: snapshot(requireSession(sessionId)) };
+      },
+      listSessions() {
+        return { data: [...sessions.values()].map(snapshot) };
+      },
+      operations(sessionId) {
+        const session = requireSession(sessionId);
+        const state = session.publisher.state();
+        const quarantinedCount = session.publisher.quarantined().length;
+        const mediaLabel = mediaGateway === void 0 ? "provider-disabled" : "experimental";
+        const projection = projectLiveOperations({
+          sessionId: session.sessionId,
+          lifecycle: session.lifecycle,
+          health: state.health,
+          releasedThroughSequence: state.sequence,
+          quarantinedCount,
+          mediaLabel,
+          // No caption provider is wired into this port, and saying so is the
+          // honest answer rather than inheriting the media label.
+          captionLabel: "provider-disabled"
+        });
+        const telemetry = liveTelemetryRecord({
+          lifecycle: session.lifecycle,
+          releasedCount: state.releasedCount,
+          quarantinedCount,
+          participantCount: session.participants.size,
+          // The publisher never reports a gap; gaps are a spectator-side
+          // observation, so this is honestly zero here rather than invented.
+          gapCount: 0,
+          mediaLabel
+        });
+        return { data: { projection, telemetry } };
+      },
+      bindThread(input) {
+        const session = requireSession(input.sessionId);
+        if (session.lifecycle === "sealed") fail("conflict", "a sealed session cannot be rebound");
+        requireManager(session, input.actor);
+        const threadObjectId = input.threadObjectId.trim();
+        if (threadObjectId.length === 0 || threadObjectId.length > 512) {
+          fail("invalid-input", "a Community thread binding requires a 1..512 character object id");
+        }
+        session.boundThreadId = threadObjectId;
+        return { data: snapshot(session) };
+      },
+      preflight(sessionId) {
+        const session = requireSession(sessionId);
+        const report = preflightReport(session);
+        return { data: report, validation: validationReceipt(session.sessionId, report.errors) };
+      },
+      configure(input) {
+        const session = requireSession(input.sessionId);
+        requireManager(session, input.actor);
+        if (session.lifecycle === "sealed") fail("policy-denied", "sealed sessions are immutable");
+        const normalized = normalizeLivePublicationPolicy(input.policy);
+        if (normalized.kind === "invalid") {
+          fail("invalid-input", `publication policy invalid: ${normalized.errors.join("; ")}`);
+        }
+        const update = session.publisher.updatePolicy({ policy: normalized.policy, confirmed: input.confirmed });
+        if (update.kind === "refused") fail("policy-denied", update.reason);
+        session.policy = normalized.policy;
+        session.policyDigest = normalized.digest;
+        if (update.change === "widening" || update.change === "mixed") session.consent.clear();
+        return { data: { change: update.change, policyDigest: update.policyDigest, invalidatedQueued: update.invalidatedQueued } };
+      },
+      recordConsent(input) {
+        const session = requireSession(input.sessionId);
+        requireActive(session, input.actor);
+        if (session.lifecycle === "sealed") fail("policy-denied", "sealed sessions are immutable");
+        const scopes = session.consent.get(input.actor) ?? /* @__PURE__ */ new Set();
+        for (const scope of input.scopes) scopes.add(scope);
+        session.consent.set(input.actor, scopes);
+        return {
+          data: {
+            sessionId: session.sessionId,
+            principalId: input.actor,
+            policyDigest: session.policyDigest,
+            scopes: [...scopes].sort(),
+            decision: "granted"
+          }
+        };
+      },
+      lifecycle(input) {
+        const session = requireSession(input.sessionId);
+        requireManager(session, input.actor);
+        const decision = nextLiveLifecycle(session.lifecycle, input.command);
+        if (decision.kind === "refused") fail("policy-denied", decision.reason);
+        if (input.command === "start") {
+          const report = preflightReport(session);
+          if (!report.startAllowed) {
+            fail("policy-denied", `preflight refuses start: ${report.errors.join("; ")}`);
+          }
+        }
+        session.lifecycle = decision.state;
+        if (input.command === "pause") session.publisher.pause();
+        if (input.command === "resume") session.publisher.resume();
+        if (input.command === "end") session.publisher.pause();
+        return { data: snapshot(session) };
+      },
+      seal(input) {
+        const session = requireSession(input.sessionId);
+        requireManager(session, input.actor);
+        const decision = nextLiveLifecycle(session.lifecycle, "seal");
+        if (decision.kind === "refused") fail("policy-denied", decision.reason);
+        session.manifest = session.publisher.buildReplayManifest(input.completeness);
+        session.lifecycle = decision.state;
+        return { data: { session: snapshot(session), manifest: session.manifest } };
+      },
+      join(input) {
+        const session = requireSession(input.sessionId);
+        if (session.lifecycle === "sealed" || session.lifecycle === "ended") {
+          fail("policy-denied", "this session is no longer joinable; its replay may still be readable");
+        }
+        const existing = session.participants.get(input.actor);
+        if (existing?.active === true) return { data: snapshot(session) };
+        if (session.joinLocked) fail("policy-denied", "joins are locked for this session");
+        if (session.policy.visibility === "private") {
+          fail("policy-denied", "private sessions require an explicit grant from the host");
+        }
+        const spectators = [...session.participants.values()].filter((participant) => participant.active && participant.role === "observer").length;
+        if (spectators >= session.policy.audience.maxSpectators) {
+          fail("policy-denied", "the session is at its spectator limit");
+        }
+        session.participants.set(input.actor, { principalId: input.actor, role: "observer", active: true });
+        return { data: snapshot(session) };
+      },
+      requestGrant(input) {
+        const session = requireSession(input.sessionId);
+        requireActive(session, input.actor);
+        session.grantRequests.push({ principalId: input.actor, capability: input.capability });
+        return { data: { requested: input.capability, granted: false, pending: session.grantRequests.length } };
+      },
+      grant(input) {
+        const session = requireSession(input.sessionId);
+        requireManager(session, input.actor);
+        if (input.role === "owner") fail("invalid-input", "ownership is not grantable through live.participant.grant");
+        session.participants.set(input.principalId, { principalId: input.principalId, role: input.role, active: true });
+        return { data: snapshot(session) };
+      },
+      revoke(input) {
+        const session = requireSession(input.sessionId);
+        requireManager(session, input.actor);
+        const participant = session.participants.get(input.principalId) ?? fail("not-found", `principal is not a participant: ${input.principalId}`);
+        if (participant.role === "owner") fail("policy-denied", "the owner grant cannot be revoked from inside the session");
+        participant.active = false;
+        session.consent.delete(input.principalId);
+        return { data: snapshot(session) };
+      },
+      lockJoins(input) {
+        const session = requireSession(input.sessionId);
+        requireManager(session, input.actor);
+        session.joinLocked = input.locked;
+        return { data: snapshot(session) };
+      },
+      publish(input) {
+        const session = requireSession(input.sessionId);
+        const participant = requireActive(session, input.actor);
+        if (participant.role === "observer") {
+          fail("policy-denied", "observer grants do not authorize publication");
+        }
+        if (session.lifecycle !== "live") {
+          fail("policy-denied", `publication requires a live session; current state is '${session.lifecycle}'`);
+        }
+        const decision = session.publisher.capture({
+          actorId: input.actor,
+          actionId: input.actionId,
+          args: input.args,
+          ...input.path !== void 0 && { path: input.path },
+          sourceEventIds: [],
+          sourceViewRef: session.policy.presentationViewRef,
+          sourceVerified: true
+        });
+        const releasedNow = session.publisher.release();
+        return {
+          data: {
+            decision,
+            releasedNow: releasedNow.length,
+            state: session.publisher.state()
+          }
+        };
+      },
+      status(sessionId) {
+        const session = requireSession(sessionId);
+        return {
+          data: {
+            session: snapshot(session),
+            publisher: session.publisher.state(),
+            quarantined: session.publisher.quarantined().length,
+            envelopes: session.publisher.releasedEnvelopes()
+          }
+        };
+      },
+      /**
+       * A checkpoint is a mark in the presentation stream, not a reading
+       * position: spectators resync from it and forks are cut at it. So it is
+       * gated exactly like publishing. An observer holds a grant to watch, and
+       * watching does not write to what everyone else is watching.
+       */
+      checkpoint(input) {
+        const session = requireSession(input.sessionId);
+        const participant = requireActive(session, input.actor);
+        if (participant.role === "observer") {
+          fail("policy-denied", "observer grants do not authorize recording a checkpoint");
+        }
+        const checkpoint = session.publisher.checkpoint();
+        session.checkpoints.set(checkpoint.checkpointId, checkpoint);
+        return { data: checkpoint };
+      },
+      bookmark(input) {
+        const session = requireSession(input.sessionId);
+        requireActive(session, input.actor);
+        if (!session.checkpoints.has(input.checkpointId)) fail("not-found", `checkpoint not found: ${input.checkpointId}`);
+        session.bookmarks.push({ principalId: input.actor, checkpointId: input.checkpointId });
+        return { data: { checkpointId: input.checkpointId, bookmarks: session.bookmarks.length } };
+      },
+      /**
+       * An annotation is a Community record on the session's thread, not a note
+       * in a private array. Refusing when nothing is bound is the point: an
+       * annotation with nowhere canonical to live is the parallel store this
+       * design exists to avoid, and it would be unmoderatable and unsearchable.
+       */
+      async annotate(input) {
+        const session = requireSession(input.sessionId);
+        requireActive(session, input.actor);
+        const checkpoint = session.checkpoints.get(input.checkpointId) ?? fail("not-found", `checkpoint not found: ${input.checkpointId}`);
+        if (input.body.trim().length === 0 || input.body.length > 4096) {
+          fail("invalid-input", "annotation body must be 1..4096 characters");
+        }
+        const threadObjectId = session.boundThreadId ?? fail("failed-precondition", "this session is not bound to a Community thread; bind one before annotating");
+        if (community === void 0) {
+          fail("unavailable", "no Community record store is configured for this workspace");
+        }
+        const record = await community.recordAnnotation({
+          sessionId: session.sessionId,
+          threadObjectId,
+          principalId: input.actor,
+          body: input.body,
+          checkpointId: checkpoint.checkpointId,
+          // The head is what makes the anchor verifiable: a path alone says
+          // where, this says against exactly which released state.
+          presentationLogHead: checkpoint.presentationLogHead,
+          ...input.path !== void 0 && { path: input.path }
+        });
+        const annotation = {
+          annotationId: identifier("liveanno", {
+            sessionId: session.sessionId,
+            checkpointId: checkpoint.checkpointId,
+            index: session.annotations.length
+          }),
+          principalId: input.actor,
+          checkpointId: checkpoint.checkpointId,
+          objectId: record.objectId,
+          threadRootId: record.threadRootId,
+          ...input.path !== void 0 && { path: input.path }
+        };
+        session.annotations.push(annotation);
+        return { data: annotation };
+      },
+      async forkAt(input) {
+        const session = requireSession(input.sessionId);
+        const participant = session.participants.get(input.actor);
+        const checkpoint = session.checkpoints.get(input.checkpointId);
+        const eligibility = evaluateLiveForkEligibility(checkpoint, {
+          refVerified: checkpoint !== void 0,
+          hasReadAuthority: participant?.active === true || session.policy.visibility !== "private",
+          objectsAvailable: checkpoint !== void 0,
+          policyPermitsCopy: session.policy.visibility !== "private" || participant?.active === true
+        });
+        if (eligibility.kind === "refused") fail("policy-denied", eligibility.reason);
+        const forked = session.checkpoints.get(eligibility.checkpointId) ?? fail("not-found", `checkpoint not found: ${input.checkpointId}`);
+        const threadObjectId = session.boundThreadId ?? fail("failed-precondition", "this session is not bound to a Community thread; bind one before forking");
+        if (community === void 0) {
+          fail("unavailable", "no Community record store is configured for this workspace");
+        }
+        const forkId = identifier("livefork", {
+          sessionId: session.sessionId,
+          checkpointId: eligibility.checkpointId,
+          actor: input.actor
+        });
+        const record = await community.openFork({
+          sessionId: session.sessionId,
+          threadObjectId,
+          principalId: input.actor,
+          checkpointId: eligibility.checkpointId,
+          presentationLogHead: forked.presentationLogHead,
+          sourceViewRef: eligibility.sourceViewRef,
+          policyDigest: forked.policyDigest
+        });
+        return {
+          changeId: record.changeId,
+          data: {
+            forkId,
+            sourceViewRef: eligibility.sourceViewRef,
+            changeId: record.changeId,
+            objectId: record.objectId,
+            // Provenance names the released state, not a wall-clock moment: the
+            // log head is what a spectator can verify the fork was taken from.
+            provenance: {
+              sessionId: session.sessionId,
+              checkpointId: eligibility.checkpointId,
+              presentationLogHead: forked.presentationLogHead,
+              policyDigest: forked.policyDigest
+            }
+          }
+        };
+      },
+      /**
+       * Recording a report is not moderating. The receipt says what a responder
+       * could still do and — more importantly — what nothing can do, because a
+       * reporter who believes the bytes were pulled back stops chasing copies.
+       */
+      report(input) {
+        const session = requireSession(input.sessionId);
+        if (input.reason.trim().length === 0) fail("invalid-input", "a report requires a reason");
+        const reportId = identifier("livereport", { sessionId: session.sessionId, index: session.reports.length });
+        session.reports.push({ reportId, principalId: input.actor });
+        const state = session.publisher.state();
+        const outcome = evaluateLiveModeration({
+          action: "pause",
+          lifecycle: session.lifecycle,
+          releasedThroughSequence: state.sequence,
+          sealed: session.lifecycle === "sealed"
+        });
+        return {
+          data: {
+            reportId,
+            recorded: true,
+            releasedThroughSequence: outcome.releasedThroughSequence,
+            cannotUndo: outcome.cannotUndo
+          }
+        };
+      },
+      /**
+       * A media token is derived authority, never a source of it. Epoch decides
+       * first — session state, live grant, join lock, consent, security mode —
+       * and only then does the provider mint a short-lived credential scoped to
+       * the least privilege that role actually holds.
+       */
+      async issueMediaToken(input) {
+        const session = requireSession(input.sessionId);
+        const participant = requireActive(session, input.actor);
+        if (session.lifecycle === "ended" || session.lifecycle === "sealed") {
+          fail("policy-denied", "media tokens are not issued after a session ends");
+        }
+        if (session.policy.securityMode === "semantic-only") {
+          fail("policy-denied", "semantic-only sessions have no media plane");
+        }
+        const permitted = permittedSourcesFor(participant.role, session.policy);
+        const granted = input.requestedSources.filter((source) => permitted.includes(source));
+        const refused = input.requestedSources.filter((source) => !permitted.includes(source));
+        if (refused.length > 0) {
+          fail("policy-denied", `role '${participant.role}' may not publish: ${refused.join(", ")}`);
+        }
+        if (granted.length > 0) {
+          const consent = session.consent.get(input.actor) ?? /* @__PURE__ */ new Set();
+          const missing = granted.map((source) => consentScopeForSource(source)).filter((scope) => !consent.has(scope));
+          if (missing.length > 0) fail("policy-denied", `publishing requires consent: ${[...new Set(missing)].join(", ")}`);
+        }
+        if (mediaGateway === void 0) {
+          return {
+            data: { refused: "unavailable", reason: MEDIA_UNAVAILABLE },
+            validation: validationReceipt("live.media", [MEDIA_UNAVAILABLE])
+          };
+        }
+        const grant = await mediaGateway.issueToken({
+          sessionId: session.sessionId,
+          participantRef: identifier("livepart", { sessionId: session.sessionId, principalId: input.actor }),
+          role: participant.role,
+          securityMode: session.policy.securityMode,
+          publishSources: granted
+        });
+        return {
+          data: {
+            token: grant.token,
+            expiresAtMs: grant.expiresAtMs,
+            roomRef: grant.roomRef,
+            canSubscribe: grant.canSubscribe,
+            publishSources: grant.publishSources
+          }
+        };
+      },
+      async recordProviderEvent(input) {
+        const session = requireSession(input.sessionId);
+        if (mediaGateway === void 0) {
+          return {
+            data: { refused: "unavailable", reason: MEDIA_UNAVAILABLE },
+            validation: validationReceipt("live.media", [MEDIA_UNAVAILABLE])
+          };
+        }
+        const record = await mediaGateway.recordProviderEvent({
+          sessionId: session.sessionId,
+          providerKind: input.providerKind,
+          eventKind: input.eventKind,
+          roomRef: input.roomRef,
+          eventDigest: input.eventDigest
+        });
+        return { data: { ...record, sessionId: session.sessionId } };
+      }
+    };
+  }
+  var MEDIA_UNAVAILABLE = "no media gateway is configured for this deployment";
+  function permittedSourcesFor(role, policy) {
+    if (role === "observer" || role === "agent") return [];
+    const permitted = [];
+    if (policy.media.audio) permitted.push("microphone");
+    if (policy.media.camera) permitted.push("camera");
+    if (policy.media.screenShare) {
+      permitted.push("screen-share");
+      permitted.push("screen-share-audio");
+    }
+    return permitted;
+  }
+  function consentScopeForSource(source) {
+    if (source === "microphone") return "audio";
+    if (source === "camera") return "camera";
+    return "screen-share";
+  }
+  var PORT_UNAVAILABLE = "no Live Space application port is configured for this workspace";
+  function createLiveSpaceCommandExtensions(port, actorOf) {
+    function withPort(run) {
+      return (input, context) => {
+        if (port === void 0) {
+          return {
+            data: { refused: "unavailable", reason: PORT_UNAVAILABLE },
+            validation: validationReceipt("live", [PORT_UNAVAILABLE])
+          };
+        }
+        return run(port, input, context.actor ?? actorOf());
+      };
+    }
+    function withPortAsync(run) {
+      return async (input, context) => {
+        if (port === void 0) {
+          return {
+            data: { refused: "unavailable", reason: PORT_UNAVAILABLE },
+            validation: validationReceipt("live", [PORT_UNAVAILABLE])
+          };
+        }
+        return run(port, input, context.actor ?? actorOf());
+      };
+    }
+    const extensions = [
+      {
+        descriptor: descriptor(
+          "live.session.create",
+          "Create a Live Session bound to an existing Space and View.",
+          "live.session.create",
+          false,
+          false,
+          schema2({
+            spaceId: stringProperty2("Existing Space id."),
+            policy: { type: "object", description: "Publication policy input; allow-list starts empty." }
+          }, ["spaceId"])
+        ),
+        run: withPort((live, input, actor) => live.createSession({
+          spaceId: requiredString2(input, "spaceId"),
+          actor,
+          policy: policyInput(input)
+        }))
+      },
+      {
+        descriptor: descriptor(
+          "live.session.show",
+          "Show one Live Session's state, policy digest, and participants.",
+          "live.session.read",
+          true,
+          false,
+          schema2({ sessionId: stringProperty2("Live session id.") }, ["sessionId"])
+        ),
+        run: withPort((live, input) => live.showSession(requiredString2(input, "sessionId")))
+      },
+      {
+        descriptor: descriptor(
+          "live.session.list",
+          "List Live Sessions known to this workspace.",
+          "live.session.read",
+          true,
+          false,
+          emptySchema2()
+        ),
+        run: withPort((live) => live.listSessions())
+      },
+      {
+        descriptor: descriptor(
+          "live.session.operations",
+          "Report operational standing and privacy-preserving counters for one session.",
+          "live.session.read",
+          true,
+          false,
+          schema2({ sessionId: stringProperty2("Live session id.") }, ["sessionId"])
+        ),
+        run: withPort((live, input) => live.operations(requiredString2(input, "sessionId")))
+      },
+      {
+        descriptor: descriptor(
+          "live.session.bindThread",
+          "Bind the session to the one canonical Community thread every projection targets.",
+          "live.session.manage",
+          false,
+          false,
+          schema2({
+            sessionId: stringProperty2("Live session id."),
+            threadObjectId: stringProperty2("Canonical Community object id for the session's thread.")
+          }, ["sessionId", "threadObjectId"])
+        ),
+        run: withPort((live, input, actor) => live.bindThread({
+          sessionId: requiredString2(input, "sessionId"),
+          actor,
+          threadObjectId: requiredString2(input, "threadObjectId")
+        }))
+      },
+      {
+        descriptor: descriptor(
+          "live.session.preflight",
+          "Validate policy, consent, and readiness; report exactly what an audience would see.",
+          "live.session.read",
+          true,
+          false,
+          schema2({ sessionId: stringProperty2("Live session id.") }, ["sessionId"])
+        ),
+        run: withPort((live, input) => live.preflight(requiredString2(input, "sessionId")))
+      },
+      {
+        descriptor: descriptor(
+          "live.session.configure",
+          "Replace the publication policy. Widening requires confirmation and refreshed consent.",
+          "live.presentation.configure",
+          false,
+          true,
+          schema2({
+            sessionId: stringProperty2("Live session id."),
+            policy: { type: "object", description: "Replacement publication policy input." }
+          }, ["sessionId"])
+        ),
+        run: withPort((live, input, actor) => live.configure({
+          sessionId: requiredString2(input, "sessionId"),
+          actor,
+          policy: policyInput(input),
+          confirmed: true
+        }))
+      },
+      {
+        descriptor: descriptor(
+          "live.session.consent",
+          "Record a participant's consent scopes against the current policy digest.",
+          "live.session.manage",
+          false,
+          false,
+          schema2({
+            sessionId: stringProperty2("Live session id."),
+            scopes: { type: "array", description: "Consent scopes: semantic-capture, audio, camera, screen-share, captions, recording, external-egress." }
+          }, ["sessionId", "scopes"])
+        ),
+        run: withPort((live, input, actor) => live.recordConsent({
+          sessionId: requiredString2(input, "sessionId"),
+          actor,
+          scopes: consentScopes(input)
+        }))
+      },
+      lifecycleExtension("live.session.openLobby", "Open the lobby so authorized participants can join.", "openLobby", false),
+      lifecycleExtension("live.session.start", "Start semantic publication. Refused while preflight fails.", "start", true),
+      lifecycleExtension("live.session.pause", "Pause publication release at the current sequence.", "pause", false),
+      lifecycleExtension("live.session.resume", "Resume publication release.", "resume", false),
+      lifecycleExtension("live.session.end", "End the session; no further release or joins.", "end", true),
+      {
+        descriptor: descriptor(
+          "live.session.seal",
+          "Seal an ended session into an immutable replay manifest.",
+          "live.session.seal",
+          false,
+          true,
+          schema2({
+            sessionId: stringProperty2("Live session id."),
+            completeness: enumProperty2("Honest replay completeness.", ["complete", "semantic-only", "media-missing", "partial"])
+          }, ["sessionId"])
+        ),
+        run: withPort((live, input, actor) => live.seal({
+          sessionId: requiredString2(input, "sessionId"),
+          actor,
+          completeness: completenessOf(input)
+        }))
+      },
+      {
+        descriptor: descriptor(
+          "live.participant.join",
+          "Join as a scoped observer. Joining never grants write authority.",
+          "live.participant.request",
+          false,
+          false,
+          schema2({ sessionId: stringProperty2("Live session id.") }, ["sessionId"])
+        ),
+        run: withPort((live, input, actor) => live.join({ sessionId: requiredString2(input, "sessionId"), actor }))
+      },
+      {
+        descriptor: descriptor(
+          "live.participant.requestGrant",
+          "Record a signed request for a capability. Requests never auto-grant.",
+          "live.participant.request",
+          false,
+          false,
+          schema2({
+            sessionId: stringProperty2("Live session id."),
+            capability: stringProperty2("Requested capability, for example live.presentation.publish.")
+          }, ["sessionId", "capability"])
+        ),
+        run: withPort((live, input, actor) => live.requestGrant({
+          sessionId: requiredString2(input, "sessionId"),
+          actor,
+          capability: requiredString2(input, "capability")
+        }))
+      },
+      {
+        descriptor: descriptor(
+          "live.participant.grant",
+          "Grant a scoped session role to a principal.",
+          "live.participant.grant",
+          false,
+          true,
+          schema2({
+            sessionId: stringProperty2("Live session id."),
+            principalId: stringProperty2("Principal to grant."),
+            role: enumProperty2("Session role.", ["cohost", "collaborator", "agent", "observer"])
+          }, ["sessionId", "principalId", "role"])
+        ),
+        run: withPort((live, input, actor) => live.grant({
+          sessionId: requiredString2(input, "sessionId"),
+          actor,
+          principalId: requiredString2(input, "principalId"),
+          role: roleOf(input)
+        }))
+      },
+      {
+        descriptor: descriptor(
+          "live.participant.revoke",
+          "Revoke a participant's session grant. Future semantic and media operations are denied.",
+          "live.participant.revoke",
+          false,
+          true,
+          schema2({
+            sessionId: stringProperty2("Live session id."),
+            principalId: stringProperty2("Principal to revoke.")
+          }, ["sessionId", "principalId"])
+        ),
+        run: withPort((live, input, actor) => live.revoke({
+          sessionId: requiredString2(input, "sessionId"),
+          actor,
+          principalId: requiredString2(input, "principalId")
+        }))
+      },
+      {
+        descriptor: descriptor(
+          "live.participant.lockJoins",
+          "Lock or unlock new joins without disconnecting current participants.",
+          "live.session.manage",
+          false,
+          false,
+          schema2({
+            sessionId: stringProperty2("Live session id."),
+            locked: booleanProperty2("True locks new joins.")
+          }, ["sessionId", "locked"])
+        ),
+        run: withPort((live, input, actor) => live.lockJoins({
+          sessionId: requiredString2(input, "sessionId"),
+          actor,
+          locked: input.locked === true
+        }))
+      },
+      {
+        descriptor: descriptor(
+          "live.presentation.publish",
+          "Publish one sanitized semantic action into the presentation stream.",
+          "live.presentation.publish",
+          false,
+          false,
+          schema2({
+            sessionId: stringProperty2("Live session id."),
+            actionId: stringProperty2("Stream-safe action id."),
+            args: { type: "object", description: "JSON-shaped action arguments; sanitized recursively." },
+            path: stringProperty2("Logical Epoch path this action touches.")
+          }, ["sessionId", "actionId"])
+        ),
+        run: withPort((live, input, actor) => live.publish({
+          sessionId: requiredString2(input, "sessionId"),
+          actor,
+          actionId: requiredString2(input, "actionId"),
+          args: dictionaryOf(input, "args"),
+          ...optionalString2(input, "path") !== void 0 && { path: requiredString2(input, "path") }
+        }))
+      },
+      {
+        descriptor: descriptor(
+          "live.presentation.status",
+          "Report presentation health, sequence, quarantine, and released envelopes.",
+          "live.presentation.read",
+          true,
+          false,
+          schema2({ sessionId: stringProperty2("Live session id.") }, ["sessionId"])
+        ),
+        run: withPort((live, input) => live.status(requiredString2(input, "sessionId")))
+      },
+      {
+        descriptor: descriptor(
+          "live.presentation.checkpoint",
+          "Record a presentation checkpoint spectators can resync and fork from.",
+          // A checkpoint is written into the stream, so it is authorized like a
+          // publication. It previously declared live.presentation.read, which let
+          // a read grant perform a write.
+          "live.presentation.publish",
+          false,
+          false,
+          schema2({ sessionId: stringProperty2("Live session id.") }, ["sessionId"])
+        ),
+        run: withPort((live, input, actor) => live.checkpoint({ sessionId: requiredString2(input, "sessionId"), actor }))
+      },
+      {
+        descriptor: descriptor(
+          "live.presentation.bookmark",
+          "Bookmark a checkpoint.",
+          "live.presentation.annotate",
+          false,
+          false,
+          schema2({
+            sessionId: stringProperty2("Live session id."),
+            checkpointId: stringProperty2("Checkpoint id.")
+          }, ["sessionId", "checkpointId"])
+        ),
+        run: withPort((live, input, actor) => live.bookmark({
+          sessionId: requiredString2(input, "sessionId"),
+          actor,
+          checkpointId: requiredString2(input, "checkpointId")
+        }))
+      },
+      {
+        descriptor: descriptor(
+          "live.presentation.annotate",
+          "Annotate a checkpoint, optionally anchored to a logical path.",
+          "live.presentation.annotate",
+          false,
+          false,
+          schema2({
+            sessionId: stringProperty2("Live session id."),
+            checkpointId: stringProperty2("Checkpoint id."),
+            body: stringProperty2("Annotation body."),
+            path: stringProperty2("Optional logical path anchor.")
+          }, ["sessionId", "checkpointId", "body"])
+        ),
+        run: withPort((live, input, actor) => live.annotate({
+          sessionId: requiredString2(input, "sessionId"),
+          actor,
+          checkpointId: requiredString2(input, "checkpointId"),
+          body: requiredString2(input, "body"),
+          ...optionalString2(input, "path") !== void 0 && { path: requiredString2(input, "path") }
+        }))
+      },
+      {
+        descriptor: descriptor(
+          "live.presentation.forkAt",
+          "Fork a materializable checkpoint into normal Epoch work with provenance.",
+          "live.presentation.fork",
+          false,
+          false,
+          schema2({
+            sessionId: stringProperty2("Live session id."),
+            checkpointId: stringProperty2("Checkpoint id; a media timestamp is not a branch point.")
+          }, ["sessionId", "checkpointId"])
+        ),
+        run: withPort((live, input, actor) => live.forkAt({
+          sessionId: requiredString2(input, "sessionId"),
+          actor,
+          checkpointId: requiredString2(input, "checkpointId")
+        }))
+      },
+      {
+        descriptor: descriptor(
+          "live.media.issueToken",
+          "Derive a short-lived, least-privilege media credential after Epoch checks pass.",
+          "live.media.subscribe",
+          false,
+          false,
+          schema2({
+            sessionId: stringProperty2("Live session id."),
+            sources: { type: "array", description: "Requested publish sources; each is checked against the caller's role, the policy, and consent." }
+          }, ["sessionId"])
+        ),
+        run: withPortAsync((live, input, actor) => live.issueMediaToken({
+          sessionId: requiredString2(input, "sessionId"),
+          actor,
+          requestedSources: publishSources(input)
+        }))
+      },
+      {
+        descriptor: descriptor(
+          "live.media.providerEvent",
+          "Record a verified provider webhook as projected media health.",
+          "live.media.admin",
+          false,
+          false,
+          schema2({
+            sessionId: stringProperty2("Live session id."),
+            providerKind: stringProperty2("Provider kind that signed the event."),
+            eventKind: stringProperty2("Normalized provider event kind."),
+            roomRef: stringProperty2("Opaque provider room reference."),
+            eventDigest: stringProperty2("Digest of the verified raw body.")
+          }, ["sessionId", "providerKind", "eventKind", "roomRef", "eventDigest"])
+        ),
+        run: withPortAsync((live, input, actor) => live.recordProviderEvent({
+          sessionId: requiredString2(input, "sessionId"),
+          actor,
+          providerKind: requiredString2(input, "providerKind"),
+          eventKind: requiredString2(input, "eventKind"),
+          roomRef: requiredString2(input, "roomRef"),
+          eventDigest: requiredString2(input, "eventDigest")
+        }))
+      },
+      {
+        descriptor: descriptor(
+          "live.moderation.report",
+          "Report this session or a participant to responders.",
+          "live.incident.report",
+          false,
+          false,
+          schema2({
+            sessionId: stringProperty2("Live session id."),
+            reason: stringProperty2("Why this is being reported.")
+          }, ["sessionId", "reason"])
+        ),
+        run: withPort((live, input, actor) => live.report({
+          sessionId: requiredString2(input, "sessionId"),
+          actor,
+          reason: requiredString2(input, "reason")
+        }))
+      }
+    ];
+    return Object.freeze(extensions);
+    function lifecycleExtension(kind, summary, command, requiresConfirmation) {
+      if (!isLiveLifecycleCommand(command)) fail("invalid-input", `unknown lifecycle command: ${command}`);
+      return {
+        descriptor: descriptor(
+          kind,
+          summary,
+          command === "end" ? "live.session.end" : "live.session.manage",
+          false,
+          requiresConfirmation,
+          schema2({ sessionId: stringProperty2("Live session id.") }, ["sessionId"])
+        ),
+        run: withPort((live, input, actor) => live.lifecycle({
+          sessionId: requiredString2(input, "sessionId"),
+          actor,
+          command
+        }))
+      };
+    }
+  }
+  function descriptor(kind, summary, capability, readOnly, requiresConfirmation, inputSchema) {
+    return { kind, summary, capability, readOnly, requiresConfirmation, untrustedContent: false, inputSchema };
+  }
+  function emptySchema2() {
+    return { type: "object", properties: {} };
+  }
+  function schema2(properties, required = []) {
+    return required.length === 0 ? { type: "object", properties } : { type: "object", properties, required };
+  }
+  function stringProperty2(description) {
+    return { type: "string", description };
+  }
+  function booleanProperty2(description) {
+    return { type: "boolean", description };
+  }
+  function enumProperty2(description, values) {
+    return { type: "string", description, enum: values };
+  }
+  function requiredString2(input, key) {
+    const value = input[key];
+    if (!__epochIsString7(value) || value.trim().length === 0) {
+      fail("invalid-input", `Command input '${key}' must be a non-empty string.`);
+    }
+    return value;
+  }
+  function optionalString2(input, key) {
+    const value = input[key];
+    return __epochIsString7(value) && value.trim().length > 0 ? value : void 0;
+  }
+  function policyInput(input) {
+    const value = input.policy;
+    if (value === void 0 || value === null) return {};
+    if (!isDictionary2(value)) fail("invalid-input", "Command input 'policy' must be an object.");
+    const media = isDictionary2(value.media) ? value.media : {};
+    const retention = isDictionary2(value.retention) ? value.retention : {};
+    const audience = isDictionary2(value.audience) ? value.audience : {};
+    return {
+      ...stringField(value.visibility) !== void 0 && { visibility: stringField(value.visibility) ?? "" },
+      ...stringField(value.securityMode) !== void 0 && { securityMode: stringField(value.securityMode) ?? "" },
+      ...stringField(value.presentationViewRef) !== void 0 && { presentationViewRef: stringField(value.presentationViewRef) ?? "" },
+      allowedPathPatterns: stringListField(value.allowedPathPatterns),
+      deniedPathPatterns: stringListField(value.deniedPathPatterns),
+      allowedActionIds: stringListField(value.allowedActionIds),
+      includeAgentReceipts: value.includeAgentReceipts === true,
+      includeChecks: value.includeChecks === true,
+      media: {
+        audio: media.audio === true,
+        camera: media.camera === true,
+        screenShare: media.screenShare === true,
+        ...stringField(media.captions) !== void 0 && { captions: stringField(media.captions) ?? "" },
+        recording: media.recording === true,
+        externalEgress: stringListField(media.externalEgress)
+      },
+      ...numberField(value.publicationDelayMs) !== void 0 && { publicationDelayMs: numberField(value.publicationDelayMs) ?? 0 },
+      retention: {
+        ...stringField(retention.mode) !== void 0 && { mode: stringField(retention.mode) ?? "" },
+        ...numberField(retention.days) !== void 0 && { days: numberField(retention.days) ?? 0 }
+      },
+      audience: {
+        ...numberField(audience.maxSpectators) !== void 0 && { maxSpectators: numberField(audience.maxSpectators) ?? 0 },
+        ...numberField(audience.maxPublishers) !== void 0 && { maxPublishers: numberField(audience.maxPublishers) ?? 0 },
+        joinLocked: audience.joinLocked === true
+      }
+    };
+  }
+  function stringField(value) {
+    return __epochIsString7(value) ? value : void 0;
+  }
+  function numberField(value) {
+    return __epochIsNumber3(value) ? value : void 0;
+  }
+  function stringListField(value) {
+    if (!Array.isArray(value)) return [];
+    return value.filter(__epochIsString7);
+  }
+  function dictionaryOf(input, key) {
+    const value = input[key];
+    if (value === void 0 || value === null) return {};
+    if (!isDictionary2(value)) fail("invalid-input", `Command input '${key}' must be an object.`);
+    return value;
+  }
+  function consentScopes(input) {
+    const value = input.scopes;
+    if (!Array.isArray(value)) fail("invalid-input", "Command input 'scopes' must be an array of consent scopes.");
+    const scopes = [];
+    for (const scope of value) {
+      if (!__epochIsString7(scope) || !isLiveConsentScope(scope)) {
+        fail("invalid-input", `Unknown consent scope '${String(scope)}'.`);
+      }
+      scopes.push(scope);
+    }
+    return scopes;
+  }
+  function completenessOf(input) {
+    const value = optionalString2(input, "completeness") ?? "semantic-only";
+    if (value !== "complete" && value !== "semantic-only" && value !== "media-missing" && value !== "partial") {
+      fail("invalid-input", `Unknown replay completeness '${value}'.`);
+    }
+    return value;
+  }
+  function publishSources(input) {
+    const value = input.sources;
+    if (value === void 0 || value === null) return [];
+    if (!Array.isArray(value)) fail("invalid-input", "Command input 'sources' must be an array of publish sources.");
+    const sources = [];
+    for (const source of value) {
+      if (!__epochIsString7(source) || source !== "microphone" && source !== "camera" && source !== "screen-share" && source !== "screen-share-audio") {
+        fail("invalid-input", `Unknown media publish source '${String(source)}'.`);
+      }
+      sources.push(source);
+    }
+    return sources;
+  }
+  function roleOf(input) {
+    const value = requiredString2(input, "role");
+    if (value !== "cohost" && value !== "collaborator" && value !== "agent" && value !== "observer") {
+      fail("invalid-input", `Unsupported live session role '${value}'.`);
+    }
+    return value;
+  }
+  function isDictionary2(value) {
+    return typeof value === "object" && value !== null && !Array.isArray(value);
+  }
+
+  // packages/Epoch.Community.Runtime/src/live/client.ts
+  function createLiveSpaceClient(runtime) {
+    function run(kind, input, confirmed = false) {
+      return runtime.commands.execute({ kind, input, source: "sdk", confirmed });
+    }
+    return {
+      create: (input) => run("live.session.create", {
+        spaceId: input.spaceId,
+        policy: policyToJson(input.policy)
+      }),
+      show: (sessionId) => run("live.session.show", { sessionId }),
+      list: () => run("live.session.list", {}),
+      preflight: (sessionId) => run("live.session.preflight", { sessionId }),
+      consent: (sessionId, scopes) => run("live.session.consent", { sessionId, scopes: [...scopes] }),
+      openLobby: (sessionId) => run("live.session.openLobby", { sessionId }),
+      start: (sessionId, options) => run("live.session.start", { sessionId }, options?.confirmed === true),
+      pause: (sessionId) => run("live.session.pause", { sessionId }),
+      resume: (sessionId) => run("live.session.resume", { sessionId }),
+      end: (sessionId, options) => run("live.session.end", { sessionId }, options?.confirmed === true),
+      seal: (sessionId, input) => run("live.session.seal", {
+        sessionId,
+        ...input?.completeness !== void 0 && { completeness: input.completeness }
+      }, input?.confirmed === true),
+      publish: (input) => run("live.presentation.publish", {
+        sessionId: input.sessionId,
+        actionId: input.actionId,
+        args: input.args ?? {},
+        ...input.path !== void 0 && { path: input.path }
+      }),
+      status: (sessionId) => run("live.presentation.status", { sessionId }),
+      checkpoint: (sessionId) => run("live.presentation.checkpoint", { sessionId }),
+      join: (sessionId) => run("live.participant.join", { sessionId }),
+      requestGrant: (sessionId, capability) => run("live.participant.requestGrant", { sessionId, capability }),
+      grant: (input) => run("live.participant.grant", {
+        sessionId: input.sessionId,
+        principalId: input.principalId,
+        role: input.role
+      }, input.confirmed === true),
+      revoke: (input) => run("live.participant.revoke", {
+        sessionId: input.sessionId,
+        principalId: input.principalId
+      }, input.confirmed === true),
+      lockJoins: (sessionId, locked) => run("live.participant.lockJoins", { sessionId, locked }),
+      bookmark: (sessionId, checkpointId) => run("live.presentation.bookmark", { sessionId, checkpointId }),
+      annotate: (input) => run("live.presentation.annotate", {
+        sessionId: input.sessionId,
+        checkpointId: input.checkpointId,
+        body: input.body,
+        ...input.path !== void 0 && { path: input.path }
+      }),
+      forkAt: (sessionId, checkpointId) => run("live.presentation.forkAt", { sessionId, checkpointId }),
+      report: (sessionId, reason) => run("live.moderation.report", { sessionId, reason })
+    };
+  }
+  function policyToJson(policy) {
+    const encoded = JSON.parse(JSON.stringify(policy));
+    if (!isJsonDictionary2(encoded)) {
+      throw new EpochCommandError("invalid-input", "Live publication policy must be a JSON object.");
+    }
+    return encoded;
+  }
+  function isJsonDictionary2(value) {
+    return typeof value === "object" && value !== null && !Array.isArray(value);
+  }
+
+  // packages/Epoch.Community.Runtime/src/board-honesty.ts
+  function __epochIsNumber4(value) {
     return typeof value === "number";
   }
   var RECEIPT = /^(sig:|intent:\/\/|agent-run:\/\/)([^\s]+)$/u;
@@ -3660,7 +6190,7 @@ ${source ?? ""}`.split("\n");
     });
   }
   function honestAgentStatus(status, heartbeatAt, now = Date.now()) {
-    if (status === "working" && !(__epochIsNumber3(heartbeatAt) && now - heartbeatAt < 3e4)) {
+    if (status === "working" && !(__epochIsNumber4(heartbeatAt) && now - heartbeatAt < 3e4)) {
       return "idle";
     }
     return status || "idle";

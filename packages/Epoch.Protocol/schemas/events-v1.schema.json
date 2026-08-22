@@ -63,6 +63,12 @@
         "space.capture.operation",
         "space.anchor.recorded",
         "space.turn.receipt",
+        "live.session.created",
+        "live.session.lifecycle",
+        "live.session.policy",
+        "live.session.consent",
+        "live.session.sealed",
+        "live.session.bound",
         "channel.create",
         "channel.message",
         "channel.presence",
@@ -719,6 +725,90 @@
         },
         "body": {
           "$ref": "#/$defs/spaceTurnReceiptBody"
+        }
+      },
+      "required": [
+        "type",
+        "body"
+      ]
+    },
+    {
+      "properties": {
+        "type": {
+          "const": "live.session.created"
+        },
+        "body": {
+          "$ref": "#/$defs/liveSessionCreatedBody"
+        }
+      },
+      "required": [
+        "type",
+        "body"
+      ]
+    },
+    {
+      "properties": {
+        "type": {
+          "const": "live.session.lifecycle"
+        },
+        "body": {
+          "$ref": "#/$defs/liveSessionLifecycleBody"
+        }
+      },
+      "required": [
+        "type",
+        "body"
+      ]
+    },
+    {
+      "properties": {
+        "type": {
+          "const": "live.session.policy"
+        },
+        "body": {
+          "$ref": "#/$defs/liveSessionPolicyBody"
+        }
+      },
+      "required": [
+        "type",
+        "body"
+      ]
+    },
+    {
+      "properties": {
+        "type": {
+          "const": "live.session.consent"
+        },
+        "body": {
+          "$ref": "#/$defs/liveSessionConsentBody"
+        }
+      },
+      "required": [
+        "type",
+        "body"
+      ]
+    },
+    {
+      "properties": {
+        "type": {
+          "const": "live.session.sealed"
+        },
+        "body": {
+          "$ref": "#/$defs/liveSessionSealedBody"
+        }
+      },
+      "required": [
+        "type",
+        "body"
+      ]
+    },
+    {
+      "properties": {
+        "type": {
+          "const": "live.session.bound"
+        },
+        "body": {
+          "$ref": "#/$defs/liveSessionBoundBody"
         }
       },
       "required": [
@@ -2157,6 +2247,277 @@
         "contentDigest": {
           "type": "string",
           "pattern": "^[a-f0-9]{64}$"
+        }
+      }
+    },
+    "liveSessionCreatedBody": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "spaceId",
+        "sessionId",
+        "principalId",
+        "sessionKind",
+        "viewName",
+        "visibility",
+        "securityMode",
+        "policyDigest"
+      ],
+      "properties": {
+        "spaceId": {
+          "type": "string",
+          "pattern": "^epoch:space:[a-z2-7]{52}$"
+        },
+        "sessionId": {
+          "type": "string",
+          "pattern": "^epoch:session:[a-z2-7]{52}$"
+        },
+        "principalId": {
+          "type": "string",
+          "pattern": "^epoch:principal:[a-z2-7]{52}$"
+        },
+        "sessionKind": {
+          "const": "live"
+        },
+        "viewName": {
+          "type": "string",
+          "minLength": 1
+        },
+        "visibility": {
+          "enum": [
+            "private",
+            "community",
+            "unlisted",
+            "public"
+          ]
+        },
+        "securityMode": {
+          "enum": [
+            "semantic-only",
+            "private-e2ee",
+            "private-recordable",
+            "public-broadcast"
+          ]
+        },
+        "policyDigest": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "liveSessionLifecycleBody": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "spaceId",
+        "sessionId",
+        "principalId",
+        "command",
+        "from",
+        "to"
+      ],
+      "properties": {
+        "spaceId": {
+          "type": "string",
+          "pattern": "^epoch:space:[a-z2-7]{52}$"
+        },
+        "sessionId": {
+          "type": "string",
+          "pattern": "^epoch:session:[a-z2-7]{52}$"
+        },
+        "principalId": {
+          "type": "string",
+          "pattern": "^epoch:principal:[a-z2-7]{52}$"
+        },
+        "command": {
+          "enum": [
+            "openLobby",
+            "start",
+            "pause",
+            "resume",
+            "end"
+          ]
+        },
+        "from": {
+          "enum": [
+            "draft",
+            "lobby",
+            "live",
+            "paused",
+            "ended",
+            "sealed"
+          ]
+        },
+        "to": {
+          "enum": [
+            "draft",
+            "lobby",
+            "live",
+            "paused",
+            "ended",
+            "sealed"
+          ]
+        }
+      }
+    },
+    "liveSessionPolicyBody": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "spaceId",
+        "sessionId",
+        "principalId",
+        "policyDigest",
+        "change"
+      ],
+      "properties": {
+        "spaceId": {
+          "type": "string",
+          "pattern": "^epoch:space:[a-z2-7]{52}$"
+        },
+        "sessionId": {
+          "type": "string",
+          "pattern": "^epoch:session:[a-z2-7]{52}$"
+        },
+        "principalId": {
+          "type": "string",
+          "pattern": "^epoch:principal:[a-z2-7]{52}$"
+        },
+        "policyDigest": {
+          "type": "string",
+          "minLength": 1
+        },
+        "change": {
+          "enum": [
+            "initial",
+            "narrowing",
+            "widening",
+            "mixed"
+          ]
+        }
+      }
+    },
+    "liveSessionConsentBody": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "spaceId",
+        "sessionId",
+        "principalId",
+        "policyDigest",
+        "decision",
+        "scopes"
+      ],
+      "properties": {
+        "spaceId": {
+          "type": "string",
+          "pattern": "^epoch:space:[a-z2-7]{52}$"
+        },
+        "sessionId": {
+          "type": "string",
+          "pattern": "^epoch:session:[a-z2-7]{52}$"
+        },
+        "principalId": {
+          "type": "string",
+          "pattern": "^epoch:principal:[a-z2-7]{52}$"
+        },
+        "policyDigest": {
+          "type": "string",
+          "minLength": 1
+        },
+        "decision": {
+          "enum": [
+            "granted",
+            "withdrawn"
+          ]
+        },
+        "scopes": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "semantic-capture",
+              "audio",
+              "camera",
+              "screen-share",
+              "captions",
+              "recording",
+              "external-egress"
+            ]
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        }
+      }
+    },
+    "liveSessionSealedBody": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "spaceId",
+        "sessionId",
+        "principalId",
+        "manifestDigest",
+        "completeness"
+      ],
+      "properties": {
+        "spaceId": {
+          "type": "string",
+          "pattern": "^epoch:space:[a-z2-7]{52}$"
+        },
+        "sessionId": {
+          "type": "string",
+          "pattern": "^epoch:session:[a-z2-7]{52}$"
+        },
+        "principalId": {
+          "type": "string",
+          "pattern": "^epoch:principal:[a-z2-7]{52}$"
+        },
+        "manifestDigest": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "completeness": {
+          "enum": [
+            "complete",
+            "semantic-only",
+            "media-missing",
+            "partial"
+          ]
+        }
+      }
+    },
+    "liveSessionBoundBody": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "spaceId",
+        "sessionId",
+        "principalId",
+        "objectId",
+        "objectKind"
+      ],
+      "properties": {
+        "spaceId": {
+          "type": "string",
+          "pattern": "^epoch:space:[a-z2-7]{52}$"
+        },
+        "sessionId": {
+          "type": "string",
+          "pattern": "^epoch:session:[a-z2-7]{52}$"
+        },
+        "principalId": {
+          "type": "string",
+          "pattern": "^epoch:principal:[a-z2-7]{52}$"
+        },
+        "objectId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "objectKind": {
+          "enum": [
+            "thread",
+            "change"
+          ]
         }
       }
     },

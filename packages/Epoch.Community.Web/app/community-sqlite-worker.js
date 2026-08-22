@@ -5295,7 +5295,7 @@ var require_events = __commonJS({
   "packages/Epoch.Protocol/dist/events.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
-    exports.PROTOCOL_EVENT_SCHEMAS = void 0;
+    exports.LIVE_SESSION_BINDING_KINDS = exports.LIVE_SESSION_COMPLETENESS = exports.LIVE_SESSION_POLICY_CHANGES = exports.LIVE_SESSION_CONSENT_SCOPES = exports.LIVE_SESSION_SECURITY_MODES = exports.LIVE_SESSION_VISIBILITIES = exports.LIVE_SESSION_LIFECYCLE_COMMANDS = exports.LIVE_SESSION_LIFECYCLE_STATES = exports.PROTOCOL_EVENT_SCHEMAS = void 0;
     exports.assertProtocolEvent = assertProtocolEvent;
     var errors_1 = require_errors2();
     var ids_1 = require_ids();
@@ -5352,11 +5352,25 @@ var require_events = __commonJS({
       "space.capture.operation",
       "space.anchor.recorded",
       "space.turn.receipt",
+      "live.session.created",
+      "live.session.lifecycle",
+      "live.session.policy",
+      "live.session.consent",
+      "live.session.sealed",
+      "live.session.bound",
       "channel.create",
       "channel.message",
       "channel.presence",
       "channel.read"
     ];
+    exports.LIVE_SESSION_LIFECYCLE_STATES = ["draft", "lobby", "live", "paused", "ended", "sealed"];
+    exports.LIVE_SESSION_LIFECYCLE_COMMANDS = ["openLobby", "start", "pause", "resume", "end"];
+    exports.LIVE_SESSION_VISIBILITIES = ["private", "community", "unlisted", "public"];
+    exports.LIVE_SESSION_SECURITY_MODES = ["semantic-only", "private-e2ee", "private-recordable", "public-broadcast"];
+    exports.LIVE_SESSION_CONSENT_SCOPES = ["semantic-capture", "audio", "camera", "screen-share", "captions", "recording", "external-egress"];
+    exports.LIVE_SESSION_POLICY_CHANGES = ["initial", "narrowing", "widening", "mixed"];
+    exports.LIVE_SESSION_COMPLETENESS = ["complete", "semantic-only", "media-missing", "partial"];
+    exports.LIVE_SESSION_BINDING_KINDS = ["thread", "change"];
     var typeSet = new Set(exports.PROTOCOL_EVENT_SCHEMAS);
     var digestPattern = /^[a-f0-9]{64}$/u;
     var safePathSegment = /^(?!\.\.?$)[^/\\\0]+$/u;
@@ -5629,6 +5643,71 @@ var require_events = __commonJS({
             digests: ["contentDigest"]
           });
           return;
+        // A Live Session is a publication session bound to an existing Space and
+        // View; `sessionKind` keeps live-session ids domain-separated from
+        // capture-session ids that share the generic `session` canonical kind.
+        case "live.session.created":
+          validateFields(value, {
+            required: ["spaceId", "sessionId", "principalId", "sessionKind", "viewName", "visibility", "securityMode", "policyDigest"],
+            ids: { spaceId: "space", sessionId: "session", principalId: "principal" },
+            strings: ["viewName", "policyDigest"],
+            enums: {
+              sessionKind: ["live"],
+              visibility: exports.LIVE_SESSION_VISIBILITIES,
+              securityMode: exports.LIVE_SESSION_SECURITY_MODES
+            }
+          });
+          return;
+        case "live.session.lifecycle":
+          validateFields(value, {
+            required: ["spaceId", "sessionId", "principalId", "command", "from", "to"],
+            ids: { spaceId: "space", sessionId: "session", principalId: "principal" },
+            enums: {
+              command: exports.LIVE_SESSION_LIFECYCLE_COMMANDS,
+              from: exports.LIVE_SESSION_LIFECYCLE_STATES,
+              to: exports.LIVE_SESSION_LIFECYCLE_STATES
+            }
+          });
+          return;
+        // Policy changes append; they never mutate a prior policy in place.
+        case "live.session.policy":
+          validateFields(value, {
+            required: ["spaceId", "sessionId", "principalId", "policyDigest", "change"],
+            ids: { spaceId: "space", sessionId: "session", principalId: "principal" },
+            strings: ["policyDigest"],
+            enums: { change: exports.LIVE_SESSION_POLICY_CHANGES }
+          });
+          return;
+        case "live.session.consent":
+          validateFields(value, {
+            required: ["spaceId", "sessionId", "principalId", "policyDigest", "decision", "scopes"],
+            ids: { spaceId: "space", sessionId: "session", principalId: "principal" },
+            strings: ["policyDigest"],
+            enums: { decision: ["granted", "withdrawn"] },
+            enumArrays: { scopes: exports.LIVE_SESSION_CONSENT_SCOPES }
+          });
+          return;
+        // Sealing is append-only: the manifest digest is signed evidence, and an
+        // ended-but-unsealed session stays distinguishable from a sealed one.
+        case "live.session.sealed":
+          validateFields(value, {
+            required: ["spaceId", "sessionId", "principalId", "manifestDigest", "completeness"],
+            ids: { spaceId: "space", sessionId: "session", principalId: "principal" },
+            digests: ["manifestDigest"],
+            enums: { completeness: exports.LIVE_SESSION_COMPLETENESS }
+          });
+          return;
+        // The session names one canonical Community object rather than copying
+        // itself into each projection. Binding appends, so a rebinding is visible
+        // as history instead of overwriting where an audience was told to look.
+        case "live.session.bound":
+          validateFields(value, {
+            required: ["spaceId", "sessionId", "principalId", "objectId", "objectKind"],
+            ids: { spaceId: "space", sessionId: "session", principalId: "principal" },
+            strings: ["objectId"],
+            enums: { objectKind: exports.LIVE_SESSION_BINDING_KINDS }
+          });
+          return;
         case "channel.create":
           validateFields(value, {
             required: ["schema", "channelId", "communityId", "name", "principalId", "visibility"],
@@ -5831,6 +5910,19 @@ var require_events = __commonJS({
       for (const [field, allowed2] of Object.entries(rules.enums ?? {}))
         if (!allowed2.includes(String(body[field])))
           (0, errors_1.fail)("invalid-schema", `Unknown ${field} variant`);
+      for (const [field, allowed2] of Object.entries(rules.enumArrays ?? {})) {
+        const items = body[field];
+        if (!Array.isArray(items))
+          (0, errors_1.fail)("invalid-schema", `${field} must be an array`);
+        const seen = /* @__PURE__ */ new Set();
+        for (const item of items) {
+          if (!__epochIsString(item) || !allowed2.includes(item))
+            (0, errors_1.fail)("invalid-schema", `Unknown ${field} variant`);
+          if (seen.has(item))
+            (0, errors_1.fail)("invalid-schema", `Duplicate ${field}: ${item}`);
+          seen.add(item);
+        }
+      }
     }
     function record(value, label) {
       if (!__epochIsObject(value) || value === null || Array.isArray(value))
@@ -6535,6 +6627,53 @@ var require_schema = __commonJS({
         structuralPath: nonemptyString,
         contentDigest: digest
       }),
+      liveSessionCreatedBody: object(["spaceId", "sessionId", "principalId", "sessionKind", "viewName", "visibility", "securityMode", "policyDigest"], {
+        spaceId: id("space"),
+        sessionId: id("session"),
+        principalId: id("principal"),
+        sessionKind: { const: "live" },
+        viewName: nonemptyString,
+        visibility: { enum: [...events_1.LIVE_SESSION_VISIBILITIES] },
+        securityMode: { enum: [...events_1.LIVE_SESSION_SECURITY_MODES] },
+        policyDigest: nonemptyString
+      }),
+      liveSessionLifecycleBody: object(["spaceId", "sessionId", "principalId", "command", "from", "to"], {
+        spaceId: id("space"),
+        sessionId: id("session"),
+        principalId: id("principal"),
+        command: { enum: [...events_1.LIVE_SESSION_LIFECYCLE_COMMANDS] },
+        from: { enum: [...events_1.LIVE_SESSION_LIFECYCLE_STATES] },
+        to: { enum: [...events_1.LIVE_SESSION_LIFECYCLE_STATES] }
+      }),
+      liveSessionPolicyBody: object(["spaceId", "sessionId", "principalId", "policyDigest", "change"], {
+        spaceId: id("space"),
+        sessionId: id("session"),
+        principalId: id("principal"),
+        policyDigest: nonemptyString,
+        change: { enum: [...events_1.LIVE_SESSION_POLICY_CHANGES] }
+      }),
+      liveSessionConsentBody: object(["spaceId", "sessionId", "principalId", "policyDigest", "decision", "scopes"], {
+        spaceId: id("space"),
+        sessionId: id("session"),
+        principalId: id("principal"),
+        policyDigest: nonemptyString,
+        decision: { enum: ["granted", "withdrawn"] },
+        scopes: arrayOf({ enum: [...events_1.LIVE_SESSION_CONSENT_SCOPES] })
+      }),
+      liveSessionSealedBody: object(["spaceId", "sessionId", "principalId", "manifestDigest", "completeness"], {
+        spaceId: id("space"),
+        sessionId: id("session"),
+        principalId: id("principal"),
+        manifestDigest: digest,
+        completeness: { enum: [...events_1.LIVE_SESSION_COMPLETENESS] }
+      }),
+      liveSessionBoundBody: object(["spaceId", "sessionId", "principalId", "objectId", "objectKind"], {
+        spaceId: id("space"),
+        sessionId: id("session"),
+        principalId: id("principal"),
+        objectId: nonemptyString,
+        objectKind: { enum: [...events_1.LIVE_SESSION_BINDING_KINDS] }
+      }),
       channelCreateBody: object(["schema", "channelId", "communityId", "name", "principalId", "visibility"], {
         schema: { const: "epoch.channel/v1" },
         channelId: id("channel"),
@@ -6680,6 +6819,12 @@ var require_schema = __commonJS({
       "space.capture.operation": "spaceCaptureOperationBody",
       "space.anchor.recorded": "spaceAnchorRecordedBody",
       "space.turn.receipt": "spaceTurnReceiptBody",
+      "live.session.created": "liveSessionCreatedBody",
+      "live.session.lifecycle": "liveSessionLifecycleBody",
+      "live.session.policy": "liveSessionPolicyBody",
+      "live.session.consent": "liveSessionConsentBody",
+      "live.session.sealed": "liveSessionSealedBody",
+      "live.session.bound": "liveSessionBoundBody",
       "channel.create": "channelCreateBody",
       "channel.message": "channelMessageBody",
       "channel.presence": "channelPresenceBody",

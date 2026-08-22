@@ -6648,7 +6648,36 @@
       }
       return { muted: window.CW_STREAM.toggleMute() };
     }
+    if (actionId.indexOf("live.") === 0) return liveAction(actionId, input, context, actionArg);
     if (actionId.indexOf("thread.") === 0) return threadAction(actionId);
+    throw new Error("action has no runtime: " + actionId);
+  }
+
+  /**
+   * Live Space actions, forwarded to the host panel.
+   *
+   * `start` and `end` are irreversible, and confirmation is taken only from a
+   * real pointer or keyboard press by the person at the board. An agent
+   * reaching the same action through WebMCP arrives with a different origin
+   * and gets the bus's confirmation refusal, which is the point: an audience
+   * appearing is a decision a human makes.
+   */
+  function liveAction(actionId, input, context, actionArg) {
+    if (!window.CW_LIVE) throw new Error("Live Space host is unavailable");
+    var verb = actionId.slice("live.".length);
+    var byHand = context.origin === "pointer" || context.origin === "key";
+    if (verb === "show") {
+      var id = String(input.sessionId || actionArg || "").trim();
+      if (!id) throw new Error("live.show needs a session id");
+      return window.CW_LIVE.show(id);
+    }
+    if (verb === "preflight") return window.CW_LIVE.preflight();
+    if (verb === "openLobby") return window.CW_LIVE.openLobby();
+    if (verb === "start") return window.CW_LIVE.start(byHand);
+    if (verb === "pause") return window.CW_LIVE.pause();
+    if (verb === "resume") return window.CW_LIVE.resume();
+    if (verb === "end") return window.CW_LIVE.end(byHand);
+    if (verb === "checkpoint") return window.CW_LIVE.checkpoint();
     throw new Error("action has no runtime: " + actionId);
   }
 

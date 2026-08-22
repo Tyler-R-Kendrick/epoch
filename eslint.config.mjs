@@ -127,6 +127,8 @@ export default [
         setTimeout: "readonly",
         navigator: "readonly",
         Response: "readonly",
+        TextDecoder: "readonly",
+        TextEncoder: "readonly",
       },
     },
   },

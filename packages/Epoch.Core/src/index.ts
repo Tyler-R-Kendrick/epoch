@@ -140,6 +140,7 @@ export * from "./promises";
 export * from "./hydration";
 export * from "./sandbox";
 export * from "./spaces";
+export * from "./live-sessions";
 export * from "./sync-protocol-v2";
 export * from "./sync-v2";
 export * from "./workspace";

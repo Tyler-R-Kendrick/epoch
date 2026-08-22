@@ -821,5 +821,7 @@ if (require.main === module) {
 export { executeChangeGraphCommand, formatChangeGraphCommandEnvelope, isChangeGraphCommand, isChangeGraphInvocation } from "./change-graph";
 export { interopDoctor } from "./interop-doctor";
 export { createFileStorage, executeCommunityCli, isCommunityCliInvocation, openWorkspaceRuntime } from "./community";
+export { createRemoteLiveSpacePort, resolveCommunityRemote } from "./live";
+export type { RemoteLiveOptions } from "./live";
 export { dispatchExternalSubcommand, runExtensionCommand, trustedExtensionProviders } from "./extensions";
 export { createSyntaxRegistry, nodeProviderModuleReader, repositorySyntaxRegistry, runSemanticCommand } from "./semantic";

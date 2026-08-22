@@ -53,6 +53,13 @@ function __epochIsNumber<T>(value: T): value is T & number { return typeof value
 
 
 export * from "./community-source";
+export * from "./live/media-provider";
+export * from "./live/join-links";
+export * from "./live/media-gateway";
+export * from "./live/community-binding";
+export * from "./live/livekit-media-provider";
+export * from "./live/live-session-service";
+export * from "./live/live-routes";
 export * from "./convergence";
 export * from "./migrations";
 export * from "./namespace-api";

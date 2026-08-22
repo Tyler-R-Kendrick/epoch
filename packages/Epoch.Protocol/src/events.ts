@@ -25,8 +25,28 @@ export const PROTOCOL_EVENT_SCHEMAS = [
   "space.workspace.bound", "space.turn.recorded", "space.budget.allocated",
   "space.capture.opened", "space.capture.closed", "space.capture.operation",
   "space.anchor.recorded", "space.turn.receipt",
+  "live.session.created", "live.session.lifecycle", "live.session.policy",
+  "live.session.consent", "live.session.sealed", "live.session.bound",
   "channel.create", "channel.message", "channel.presence", "channel.read",
 ] as const;
+
+/** Live Session vocabularies shared by validation and schema generation. */
+export const LIVE_SESSION_LIFECYCLE_STATES = ["draft", "lobby", "live", "paused", "ended", "sealed"] as const;
+export const LIVE_SESSION_LIFECYCLE_COMMANDS = ["openLobby", "start", "pause", "resume", "end"] as const;
+export const LIVE_SESSION_VISIBILITIES = ["private", "community", "unlisted", "public"] as const;
+export const LIVE_SESSION_SECURITY_MODES = ["semantic-only", "private-e2ee", "private-recordable", "public-broadcast"] as const;
+export const LIVE_SESSION_CONSENT_SCOPES = ["semantic-capture", "audio", "camera", "screen-share", "captions", "recording", "external-egress"] as const;
+export const LIVE_SESSION_POLICY_CHANGES = ["initial", "narrowing", "widening", "mixed"] as const;
+export const LIVE_SESSION_COMPLETENESS = ["complete", "semantic-only", "media-missing", "partial"] as const;
+/**
+ * What a Live Session may bind itself to in Community.
+ *
+ * A session is a canonical Community entity, not a copy of one per projection,
+ * so the binding names the single object every surface targets. `thread` is
+ * where questions, moderation, and annotation live; `change` is what a fork
+ * continues into.
+ */
+export const LIVE_SESSION_BINDING_KINDS = ["thread", "change"] as const;
 
 export type ProtocolEventType = typeof PROTOCOL_EVENT_SCHEMAS[number];
 
@@ -202,6 +222,59 @@ function validateBody(type: ProtocolEventType, value: BoundaryValue): void {
       ids: { spaceId: "space", anchorId: "anchor", principalId: "principal" },
       revisions: ["revisionId"], paths: ["path"], strings: ["structuralPath"], digests: ["contentDigest"],
     }); return;
+    // A Live Session is a publication session bound to an existing Space and
+    // View; `sessionKind` keeps live-session ids domain-separated from
+    // capture-session ids that share the generic `session` canonical kind.
+    case "live.session.created": validateFields(value, {
+      required: ["spaceId", "sessionId", "principalId", "sessionKind", "viewName", "visibility", "securityMode", "policyDigest"],
+      ids: { spaceId: "space", sessionId: "session", principalId: "principal" },
+      strings: ["viewName", "policyDigest"],
+      enums: {
+        sessionKind: ["live"],
+        visibility: LIVE_SESSION_VISIBILITIES,
+        securityMode: LIVE_SESSION_SECURITY_MODES,
+      },
+    }); return;
+    case "live.session.lifecycle": validateFields(value, {
+      required: ["spaceId", "sessionId", "principalId", "command", "from", "to"],
+      ids: { spaceId: "space", sessionId: "session", principalId: "principal" },
+      enums: {
+        command: LIVE_SESSION_LIFECYCLE_COMMANDS,
+        from: LIVE_SESSION_LIFECYCLE_STATES,
+        to: LIVE_SESSION_LIFECYCLE_STATES,
+      },
+    }); return;
+    // Policy changes append; they never mutate a prior policy in place.
+    case "live.session.policy": validateFields(value, {
+      required: ["spaceId", "sessionId", "principalId", "policyDigest", "change"],
+      ids: { spaceId: "space", sessionId: "session", principalId: "principal" },
+      strings: ["policyDigest"],
+      enums: { change: LIVE_SESSION_POLICY_CHANGES },
+    }); return;
+    case "live.session.consent": validateFields(value, {
+      required: ["spaceId", "sessionId", "principalId", "policyDigest", "decision", "scopes"],
+      ids: { spaceId: "space", sessionId: "session", principalId: "principal" },
+      strings: ["policyDigest"],
+      enums: { decision: ["granted", "withdrawn"] },
+      enumArrays: { scopes: LIVE_SESSION_CONSENT_SCOPES },
+    }); return;
+    // Sealing is append-only: the manifest digest is signed evidence, and an
+    // ended-but-unsealed session stays distinguishable from a sealed one.
+    case "live.session.sealed": validateFields(value, {
+      required: ["spaceId", "sessionId", "principalId", "manifestDigest", "completeness"],
+      ids: { spaceId: "space", sessionId: "session", principalId: "principal" },
+      digests: ["manifestDigest"],
+      enums: { completeness: LIVE_SESSION_COMPLETENESS },
+    }); return;
+    // The session names one canonical Community object rather than copying
+    // itself into each projection. Binding appends, so a rebinding is visible
+    // as history instead of overwriting where an audience was told to look.
+    case "live.session.bound": validateFields(value, {
+      required: ["spaceId", "sessionId", "principalId", "objectId", "objectKind"],
+      ids: { spaceId: "space", sessionId: "session", principalId: "principal" },
+      strings: ["objectId"],
+      enums: { objectKind: LIVE_SESSION_BINDING_KINDS },
+    }); return;
     case "channel.create": validateFields(value, {
       required: ["schema", "channelId", "communityId", "name", "principalId", "visibility"],
       ids: { channelId: "channel", communityId: "space", principalId: "principal" },
@@ -356,6 +429,8 @@ interface FieldRules {
   /** Validated when present, permitted to be absent. */
   readonly optionalNonnegativeIntegers?: readonly string[];
   readonly enums?: Readonly<Record<string, readonly string[]>>;
+  /** Arrays whose members must each belong to the allowed set, without duplicates. */
+  readonly enumArrays?: Readonly<Record<string, readonly string[]>>;
 }
 
 function validateFields(value: BoundaryValue, rules: FieldRules): void {
@@ -376,6 +451,16 @@ function validateFields(value: BoundaryValue, rules: FieldRules): void {
     }
   }
   for (const [field, allowed] of Object.entries(rules.enums ?? {})) if (!allowed.includes(String(body[field]))) fail("invalid-schema", `Unknown ${field} variant`);
+  for (const [field, allowed] of Object.entries(rules.enumArrays ?? {})) {
+    const items = body[field];
+    if (!Array.isArray(items)) fail("invalid-schema", `${field} must be an array`);
+    const seen = new Set<string>();
+    for (const item of items) {
+      if (!__epochIsString(item) || !allowed.includes(item)) fail("invalid-schema", `Unknown ${field} variant`);
+      if (seen.has(item)) fail("invalid-schema", `Duplicate ${field}: ${item}`);
+      seen.add(item);
+    }
+  }
 }
 
 function record(value: BoundaryValue, label: string): RecordValue {

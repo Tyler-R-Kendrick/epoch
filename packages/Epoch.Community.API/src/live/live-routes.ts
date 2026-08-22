@@ -1,0 +1,576 @@
+import {
+  EpochCommandError,
+  type EpochCommandReceipt,
+  type LivePresentationEnvelopeV2,
+  type LiveSessionSnapshot,
+} from "@epoch/community-runtime";
+import type { LiveJoinLinkStore } from "./join-links";
+import { liveWebhookBodyDigest } from "./media-gateway";
+import type { LiveMediaProvider } from "./media-provider";
+import type { LiveSessionService } from "./live-session-service";
+type BoundaryValue = null | undefined | boolean | number | string | bigint | symbol | Readonly<object>;
+type DictionaryValue = null | undefined | boolean | number | string | bigint | readonly DictionaryValue[] | { readonly [key: string]: DictionaryValue };
+function __epochIsString<T>(value: T): value is T & string { return typeof value === "string"; }
+
+
+/**
+ * The hosted Live Space HTTP surface.
+ *
+ * These routes are an adapter and nothing more: they translate request shapes,
+ * enforce transport-level bounds the domain cannot see (origin, rate, client
+ * count), and hand everything else to the shared command bus. They never decide
+ * authority, and they never answer a question the caller was not authorized to
+ * ask — an unreadable session and a nonexistent one return the same 404, so the
+ * route surface is not an existence oracle.
+ */
+
+export interface LiveRequestAuthorization {
+  readonly principalId: string;
+  /** Session-scoped capabilities resolved by the host's trusted auth boundary. */
+  readonly capabilities?: readonly string[];
+}
+
+export interface LiveRouteRateLimit {
+  readonly windowMs: number;
+  readonly maxRequests: number;
+}
+
+export interface LiveRouteOptions {
+  readonly service: LiveSessionService;
+  /** Resolves identity from a trusted host/session boundary; never from the body. */
+  readonly resolveAuthorization?: (
+    request: Request,
+  ) => LiveRequestAuthorization | undefined | Promise<LiveRequestAuthorization | undefined>;
+  /** Exact origins permitted for browser transports. Empty disables the check for non-browser hosts. */
+  readonly allowedOrigins?: readonly string[];
+  readonly basePath?: string;
+  readonly now: () => number;
+  readonly rateLimit?: LiveRouteRateLimit;
+  /** Injected interval scheduler for SSE heartbeats; omit to disable heartbeats. */
+  readonly scheduleInterval?: (delayMs: number, callback: () => void) => () => void;
+  readonly heartbeatMs?: number;
+  readonly maxEventPageSize?: number;
+  /** Opaque expiring join links; absent means link-based joining is unavailable. */
+  readonly joinLinks?: LiveJoinLinkStore;
+  /** Provider used only to verify inbound webhooks; never reachable from a command. */
+  readonly webhookProvider?: LiveMediaProvider;
+  readonly maxWebhookBodyBytes?: number;
+}
+
+const DEFAULT_BASE_PATH = "/community/live";
+const DEFAULT_MAX_EVENT_PAGE = 256;
+const DEFAULT_MAX_WEBHOOK_BODY_BYTES = 64 * 1024;
+const WEBHOOK_CONTENT_TYPE = "application/webhook+json";
+const SCHEMA_VERSION = 1;
+/** Media and token routes are deliberately absent from the generic command endpoint. */
+const COMMAND_KIND_PREFIX = "live.";
+const COMMAND_KIND_DENY_PREFIXES = ["live.media."];
+
+export interface LiveRateBucket {
+  count: number;
+  resetAtMs: number;
+}
+
+/** Insertions between sweeps. Amortises the scan without timers or handles. */
+export const LIVE_RATE_BUCKET_SWEEP_INTERVAL = 512;
+
+/**
+ * Drop buckets whose window has closed.
+ *
+ * The limiter is keyed by principal, and the principal set is not bounded: a
+ * join link mints a fresh opaque `liveguest_…` id on every redemption, so each
+ * redemption used to cost one map entry that nothing ever removed. Overwriting
+ * on next use only reclaims a key that is seen again, which a one-shot guest
+ * principal never is. Someone holding one valid link could therefore grow the
+ * limiter's own memory, one request at a time, for as long as the process ran.
+ *
+ * Exported so the behaviour is asserted directly rather than inferred from
+ * memory that a test cannot observe.
+ */
+export function sweepExpiredLiveRateBuckets(
+  buckets: Map<string, LiveRateBucket>,
+  nowMs: number,
+): number {
+  let removed = 0;
+  for (const [key, bucket] of buckets) {
+    if (nowMs >= bucket.resetAtMs) {
+      buckets.delete(key);
+      removed += 1;
+    }
+  }
+  return removed;
+}
+
+export function createLiveSessionFetchHandler(options: LiveRouteOptions): (request: Request) => Promise<Response> {
+  const basePath = options.basePath ?? DEFAULT_BASE_PATH;
+  const maxEventPage = options.maxEventPageSize ?? DEFAULT_MAX_EVENT_PAGE;
+  const buckets = new Map<string, LiveRateBucket>();
+  let insertionsSinceSweep = 0;
+
+  function rateLimited(key: string): boolean {
+    const limit = options.rateLimit;
+    if (limit === undefined) return false;
+    const nowMs = options.now();
+    const bucket = buckets.get(key);
+    if (bucket === undefined || nowMs >= bucket.resetAtMs) {
+      insertionsSinceSweep += 1;
+      if (insertionsSinceSweep >= LIVE_RATE_BUCKET_SWEEP_INTERVAL) {
+        insertionsSinceSweep = 0;
+        // Sweep before inserting so this key's fresh window is not collected.
+        sweepExpiredLiveRateBuckets(buckets, nowMs);
+      }
+      buckets.set(key, { count: 1, resetAtMs: nowMs + limit.windowMs });
+      return false;
+    }
+    bucket.count += 1;
+    return bucket.count > limit.maxRequests;
+  }
+
+  /**
+   * Cross-site request forgery over a browser transport starts with an origin
+   * the operator never allow-listed, so the check is exact-match and applies
+   * before any authorization work.
+   */
+  function originRejected(request: Request): boolean {
+    const allowed = options.allowedOrigins;
+    if (allowed === undefined || allowed.length === 0) return false;
+    const origin = request.headers.get("origin");
+    if (origin === null) return false;
+    return !allowed.includes(origin);
+  }
+
+  return async (request) => {
+    const url = new URL(request.url);
+    if (!url.pathname.startsWith(basePath)) return notFound();
+    if (originRejected(request)) return problem(403, "origin-not-allowed", "Origin is not allow-listed for live transports.");
+
+    const authorization = await options.resolveAuthorization?.(request);
+    const actor = authorization?.principalId ?? "anonymous";
+    if (rateLimited(`${actor}:${request.method}`)) {
+      return problem(429, "rate-limited", "Too many live session requests; retry after the window resets.");
+    }
+
+    const route = url.pathname.slice(basePath.length);
+    const segments = route.split("/").filter((segment) => segment !== "");
+
+    // The webhook route is provider-authenticated, not principal-authenticated:
+    // it verifies a signature over the raw body and nothing else grants entry.
+    if (request.method === "POST" && segments.length === 3
+      && segments[0] === "provider" && segments[2] === "webhook") {
+      return webhookResponse(request, segments[1] ?? "");
+    }
+    if (request.method === "POST" && segments.length === 1 && segments[0] === "sessions") {
+      return runCommand(request, "live.session.create", actor);
+    }
+    const sessionId = segments[1];
+    if (segments[0] !== "sessions" || sessionId === undefined) return notFound();
+
+    if (request.method === "GET" && segments.length === 2) {
+      return readCommand("live.session.show", sessionId, actor);
+    }
+    if (request.method === "POST" && segments.length === 3 && segments[2] === "commands") {
+      return runCommand(request, undefined, actor, sessionId);
+    }
+    if (request.method === "POST" && segments.length === 3 && segments[2] === "join") {
+      return joinResponse(request, sessionId, actor);
+    }
+    if (request.method === "POST" && segments.length === 3 && segments[2] === "join-links") {
+      return issueJoinLinkResponse(request, sessionId, actor);
+    }
+    if (request.method === "POST" && segments.length === 4 && segments[2] === "media" && segments[3] === "token") {
+      return mediaTokenResponse(request, sessionId, actor);
+    }
+    if (request.method === "GET" && segments.length === 4 && segments[2] === "presentation") {
+      if (segments[3] === "checkpoint") return checkpointResponse(sessionId, actor);
+      if (segments[3] === "events") return eventsResponse(url, sessionId, actor);
+      if (segments[3] === "stream") return streamResponse(request, sessionId, actor);
+    }
+    return notFound();
+  };
+
+  async function runCommand(
+    request: Request,
+    fixedKind: string | undefined,
+    actor: string,
+    sessionId?: string,
+  ): Promise<Response> {
+    let body: Readonly<Record<string, DictionaryValue>>;
+    try {
+      body = await objectBody(request);
+    } catch {
+      return problem(400, "invalid-body", "Request body must be a JSON object.");
+    }
+    const kind = fixedKind ?? stringField(body, "kind");
+    if (kind === undefined || !kind.startsWith(COMMAND_KIND_PREFIX)) {
+      return problem(400, "unsupported-command", "Only live.* commands are accepted on this endpoint.");
+    }
+    if (COMMAND_KIND_DENY_PREFIXES.some((prefix) => kind.startsWith(prefix))) {
+      return problem(404, "not-found", NOT_FOUND_DETAIL);
+    }
+    const input = dictionaryField(body, "input");
+    const merged = sessionId === undefined ? input : { ...input, sessionId };
+    return execute({
+      kind,
+      input: merged,
+      source: "api",
+      actor,
+      ...(body.confirmed === true && { confirmed: true }),
+    });
+  }
+
+  async function readCommand(kind: string, sessionId: string, actor: string): Promise<Response> {
+    return execute({ kind, input: { sessionId }, source: "api", actor });
+  }
+
+  /**
+   * Joining accepts either an authenticated principal or a join-link token.
+   * A token never carries more than the observer grant it was minted for, and
+   * a token for another session is simply not a token for this one.
+   */
+  async function joinResponse(request: Request, sessionId: string, actor: string): Promise<Response> {
+    let body: Readonly<Record<string, DictionaryValue>>;
+    try {
+      body = await objectBody(request);
+    } catch {
+      return problem(400, "invalid-body", "Request body must be a JSON object.");
+    }
+    const token = stringField(body, "token");
+    if (token === undefined) {
+      return execute({ kind: "live.participant.join", input: { sessionId }, source: "api", actor });
+    }
+    if (options.joinLinks === undefined) return problem(404, "not-found", NOT_FOUND_DETAIL);
+    const redemption = options.joinLinks.redeem(token);
+    if (redemption.kind === "refused" || redemption.sessionId !== sessionId) {
+      // Every refusal reads the same from outside: a guessed, expired, revoked,
+      // exhausted, or cross-session token is one indistinguishable failure.
+      return problem(404, "not-found", NOT_FOUND_DETAIL);
+    }
+    return execute({
+      kind: "live.participant.join",
+      input: { sessionId },
+      source: "api",
+      actor: redemption.observerPrincipalId,
+    });
+  }
+
+  async function issueJoinLinkResponse(request: Request, sessionId: string, actor: string): Promise<Response> {
+    if (options.joinLinks === undefined) return problem(404, "not-found", NOT_FOUND_DETAIL);
+    let body: Readonly<Record<string, DictionaryValue>>;
+    try {
+      body = await objectBody(request);
+    } catch {
+      return problem(400, "invalid-body", "Request body must be a JSON object.");
+    }
+    // Minting a link is a session-management act, so it is authorized by the
+    // same command the host would run anywhere else.
+    const authorized = await options.service.run<LiveSessionSnapshot>({
+      kind: "live.session.show",
+      input: { sessionId },
+      source: "api",
+      actor,
+    });
+    if (authorized.policy.decision !== "allow") return problem(403, "policy-denied", "The command was refused by policy.");
+    if (authorized.data.ownerPrincipalId !== actor) {
+      return problem(403, "policy-denied", "Only the session owner may mint join links.");
+    }
+    const lifetimeMs = numberField(body, "lifetimeMs") ?? 60 * 60 * 1000;
+    try {
+      const issued = options.joinLinks.issue({
+        sessionId,
+        issuedByPrincipalId: actor,
+        lifetimeMs,
+        ...(numberField(body, "maxRedemptions") !== undefined && { maxRedemptions: numberField(body, "maxRedemptions") ?? 1 }),
+      });
+      // The token appears exactly once, in this response.
+      return json({
+        schemaVersion: SCHEMA_VERSION,
+        token: issued.token,
+        link: issued.record,
+      });
+    } catch {
+      return problem(409, "join-link-limit", "This session already has the maximum number of active join links.");
+    }
+  }
+
+  async function mediaTokenResponse(request: Request, sessionId: string, actor: string): Promise<Response> {
+    let body: Readonly<Record<string, DictionaryValue>>;
+    try {
+      body = await objectBody(request);
+    } catch {
+      return problem(400, "invalid-body", "Request body must be a JSON object.");
+    }
+    const sources = Array.isArray(body.sources) ? body.sources.filter(__epochIsString) : [];
+    return execute({
+      kind: "live.media.issueToken",
+      input: { sessionId, sources },
+      source: "api",
+      actor,
+    });
+  }
+
+  /**
+   * Provider webhooks are untrusted input until the signature over the raw
+   * body verifies. Size and content type are checked before any parsing, the
+   * event is bound to a known session, and the result enters the domain as a
+   * command — never as a direct write.
+   */
+  async function webhookResponse(request: Request, providerKind: string): Promise<Response> {
+    const provider = options.webhookProvider;
+    if (provider === undefined || provider.kind !== providerKind) {
+      return problem(404, "not-found", NOT_FOUND_DETAIL);
+    }
+    const contentType = request.headers.get("content-type") ?? "";
+    if (!contentType.startsWith(WEBHOOK_CONTENT_TYPE)) {
+      return problem(415, "unsupported-media-type", "Provider webhooks must use application/webhook+json.");
+    }
+    const rawBody = await request.text();
+    const maxBytes = options.maxWebhookBodyBytes ?? DEFAULT_MAX_WEBHOOK_BODY_BYTES;
+    if (rawBody.length > maxBytes) {
+      return problem(413, "payload-too-large", "Provider webhook body exceeds the accepted size.");
+    }
+    const verified = await provider.verifyWebhook({
+      rawBody,
+      signature: request.headers.get("authorization") ?? "",
+      contentType: WEBHOOK_CONTENT_TYPE,
+    });
+    if (verified.outcome === "rejected") {
+      return problem(401, "webhook-unverified", "Provider webhook signature did not verify.");
+    }
+    // A duplicate is an already-handled delivery, acknowledged without
+    // re-entering the domain — so it is answered before any binding work.
+    if (verified.outcome === "duplicate") {
+      return json({ schemaVersion: SCHEMA_VERSION, accepted: true, duplicate: true });
+    }
+    const sessionId = stringField(dictionaryField(await safeJson(rawBody), "epoch"), "sessionId");
+    if (sessionId === undefined || verified.roomRef === undefined) {
+      return problem(400, "webhook-unbound", "Provider webhook is not bound to a known live session.");
+    }
+    return execute({
+      kind: "live.media.providerEvent",
+      input: {
+        sessionId,
+        providerKind,
+        eventKind: verified.eventKind ?? "unknown",
+        roomRef: verified.roomRef,
+        eventDigest: liveWebhookBodyDigest(rawBody),
+      },
+      source: "api",
+      // Provider ingress runs as a system principal; it holds no session grant
+      // and can therefore never act as a participant.
+      actor: `liveprovider_${providerKind}`,
+    });
+  }
+
+  async function execute(request: {
+    readonly kind: string;
+    readonly input: Readonly<Record<string, DictionaryValue>>;
+    readonly source: "api";
+    readonly actor: string;
+    readonly confirmed?: boolean;
+  }): Promise<Response> {
+    try {
+      const receipt = await options.service.run(request);
+      return json({ schemaVersion: SCHEMA_VERSION, receipt }, statusForReceipt(receipt));
+    } catch (error) {
+      if (!(error instanceof Error)) throw error;
+      return errorResponse(error);
+    }
+  }
+
+  async function checkpointResponse(sessionId: string, actor: string): Promise<Response> {
+    try {
+      const snapshot = await options.service.snapshot({ sessionId, actor, afterSequence: 0 });
+      return json({
+        schemaVersion: SCHEMA_VERSION,
+        ...(snapshot.checkpoint !== undefined && { checkpoint: snapshot.checkpoint }),
+        envelopes: snapshot.envelopes,
+        releasedThroughSequence: snapshot.releasedThroughSequence,
+        lifecycle: snapshot.session.lifecycle,
+      });
+    } catch (error) {
+      if (!(error instanceof Error)) throw error;
+      return errorResponse(error);
+    }
+  }
+
+  async function eventsResponse(url: URL, sessionId: string, actor: string): Promise<Response> {
+    const after = integerParameter(url, "after", 0);
+    const limit = Math.min(maxEventPage, integerParameter(url, "limit", maxEventPage));
+    try {
+      const envelopes = await options.service.events({ sessionId, actor, afterSequence: after, limit });
+      return json({
+        schemaVersion: SCHEMA_VERSION,
+        envelopes,
+        nextAfter: envelopes.at(-1)?.sequence ?? after,
+      });
+    } catch (error) {
+      if (!(error instanceof Error)) throw error;
+      return errorResponse(error);
+    }
+  }
+
+  /**
+   * Server-sent events with `Last-Event-ID` resume.
+   *
+   * The cursor is the envelope sequence, so a reconnecting spectator names
+   * exactly what it already has and receives exactly what it missed. Delivery
+   * is bounded by the hub; when a bound is hit the connection is refused
+   * outright rather than silently dropping frames a client would never know
+   * were missing.
+   */
+  async function streamResponse(request: Request, sessionId: string, actor: string): Promise<Response> {
+    const lastEventId = request.headers.get("last-event-id");
+    const resumeFrom = lastEventId === null ? integerParameter(new URL(request.url), "after", 0) : toInteger(lastEventId, 0);
+    let backlog: readonly LivePresentationEnvelopeV2[];
+    try {
+      backlog = await options.service.events({
+        sessionId, actor, afterSequence: resumeFrom, limit: maxEventPage,
+      });
+    } catch (error) {
+      if (!(error instanceof Error)) throw error;
+      return errorResponse(error);
+    }
+
+    const encoder = new TextEncoder();
+    let cancelHeartbeat: (() => void) | undefined;
+    let subscription: { close(): void } | undefined;
+    let refused = false;
+
+    const stream = new ReadableStream<Uint8Array>({
+      start(controller) {
+        const send = (chunk: string): void => {
+          try {
+            controller.enqueue(encoder.encode(chunk));
+          } catch {
+            // The peer went away between frames; cleanup happens in cancel().
+          }
+        };
+        for (const envelope of backlog) send(sseFrame(envelope));
+        const opened = options.service.hub.subscribe(sessionId, {
+          onEnvelope: (envelope) => send(sseFrame(envelope)),
+          onClose: (reason) => {
+            send(`event: closed\ndata: ${JSON.stringify({ reason })}\n\n`);
+            cancelHeartbeat?.();
+            controller.close();
+          },
+        });
+        if (opened === undefined) {
+          refused = true;
+          send(`event: refused\ndata: ${JSON.stringify({ reason: "capacity" })}\n\n`);
+          controller.close();
+          return;
+        }
+        subscription = opened;
+        if (options.scheduleInterval !== undefined && (options.heartbeatMs ?? 0) > 0) {
+          cancelHeartbeat = options.scheduleInterval(options.heartbeatMs ?? 0, () => send(": heartbeat\n\n"));
+        }
+      },
+      cancel() {
+        cancelHeartbeat?.();
+        subscription?.close();
+      },
+    });
+
+    return new Response(stream, {
+      status: refused ? 503 : 200,
+      headers: {
+        "Content-Type": "text/event-stream",
+        "Cache-Control": "no-store",
+        "Connection": "keep-alive",
+        "X-Accel-Buffering": "no",
+      },
+    });
+  }
+}
+
+function sseFrame(envelope: LivePresentationEnvelopeV2): string {
+  return `id: ${envelope.sequence}\nevent: presentation\ndata: ${JSON.stringify(envelope)}\n\n`;
+}
+
+/**
+ * A denial never distinguishes "you may not" from "it does not exist" on read
+ * paths, because that distinction is itself private information.
+ */
+const NOT_FOUND_DETAIL = "Live session not found.";
+
+function statusForReceipt(receipt: EpochCommandReceipt): number {
+  if (receipt.policy.decision === "deny") return 403;
+  if (receipt.policy.decision === "confirm") return 409;
+  return 200;
+}
+
+function errorResponse(error: Error | EpochCommandError): Response {
+  const code = error instanceof EpochCommandError ? error.code : "internal-error";
+  if (code === "not-found") return problem(404, "not-found", NOT_FOUND_DETAIL);
+  if (code === "policy-denied") return problem(403, "policy-denied", "The command was refused by policy.");
+  if (code === "invalid-input") return problem(400, "invalid-input", "The command input was rejected.");
+  if (code === "unknown-command") return problem(400, "unsupported-command", "Unknown live command.");
+  return problem(500, "internal-error", "The live session request could not be completed.");
+}
+
+function notFound(): Response {
+  return problem(404, "not-found", NOT_FOUND_DETAIL);
+}
+
+function problem(status: number, code: string, detail: string): Response {
+  return json({ schemaVersion: SCHEMA_VERSION, error: { code, detail } }, status);
+}
+
+function json(value: BoundaryValue, status = 200): Response {
+  return new Response(JSON.stringify(value), {
+    status,
+    headers: { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store" },
+  });
+}
+
+async function objectBody(request: Request): Promise<Readonly<Record<string, DictionaryValue>>> {
+  const text = await request.text();
+  if (text.trim() === "") return {};
+  const value: DictionaryValue = JSON.parse(text);
+  if (!isDictionary(value)) throw new Error("Request body must be a JSON object.");
+  return value;
+}
+
+function isDictionary(value: DictionaryValue): value is { readonly [key: string]: DictionaryValue } {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function stringField(body: Readonly<Record<string, DictionaryValue>>, key: string): string | undefined {
+  const value = body[key];
+  return __epochIsString(value) && value.trim() !== "" ? value : undefined;
+}
+
+function dictionaryField(
+  body: Readonly<Record<string, DictionaryValue>>,
+  key: string,
+): Readonly<Record<string, DictionaryValue>> {
+  const value = body[key];
+  return isDictionary(value) ? value : {};
+}
+
+function integerParameter(url: URL, name: string, fallback: number): number {
+  return toInteger(url.searchParams.get(name), fallback);
+}
+
+function __epochIsNumber<T>(value: T): value is T & number { return typeof value === "number"; }
+
+function numberField(body: Readonly<Record<string, DictionaryValue>>, key: string): number | undefined {
+  const value = body[key];
+  return __epochIsNumber(value) && Number.isSafeInteger(value) && value > 0 ? value : undefined;
+}
+
+/** Read the session binding a provider embeds in its webhook payload. */
+async function safeJson(rawBody: string): Promise<Readonly<Record<string, DictionaryValue>>> {
+  try {
+    const value: DictionaryValue = JSON.parse(rawBody);
+    return isDictionary(value) ? value : {};
+  } catch {
+    return {};
+  }
+}
+
+function toInteger(value: string | null, fallback: number): number {
+  if (value === null) return fallback;
+  const parsed = Number.parseInt(value, 10);
+  return Number.isSafeInteger(parsed) && parsed >= 0 ? parsed : fallback;
+}

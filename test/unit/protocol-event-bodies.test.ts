@@ -339,6 +339,53 @@ function canonicalBodies() {
       principalId: id("principal"),
       watermarkEventId: "msg-1",
     },
+    "live.session.created": {
+      spaceId: id("space"),
+      sessionId: id("session"),
+      principalId: id("principal"),
+      sessionKind: "live",
+      viewName: "main",
+      visibility: "community",
+      securityMode: "semantic-only",
+      policyDigest: "livepol_0001",
+    },
+    "live.session.lifecycle": {
+      spaceId: id("space"),
+      sessionId: id("session"),
+      principalId: id("principal"),
+      command: "start",
+      from: "lobby",
+      to: "live",
+    },
+    "live.session.policy": {
+      spaceId: id("space"),
+      sessionId: id("session"),
+      principalId: id("principal"),
+      policyDigest: "livepol_0002",
+      change: "narrowing",
+    },
+    "live.session.consent": {
+      spaceId: id("space"),
+      sessionId: id("session"),
+      principalId: id("principal"),
+      policyDigest: "livepol_0001",
+      decision: "granted",
+      scopes: ["semantic-capture", "audio"],
+    },
+    "live.session.sealed": {
+      spaceId: id("space"),
+      sessionId: id("session"),
+      principalId: id("principal"),
+      manifestDigest: digest("f"),
+      completeness: "semantic-only",
+    },
+    "live.session.bound": {
+      spaceId: id("space"),
+      sessionId: id("session"),
+      principalId: id("principal"),
+      objectId: "obj-live-thread",
+      objectKind: "thread",
+    },
   } satisfies CanonicalBodies;
 }
 

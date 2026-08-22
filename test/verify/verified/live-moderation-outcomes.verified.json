@@ -1,0 +1,146 @@
+{
+  "actions": [
+    "pause",
+    "revokeParticipant",
+    "endSession",
+    "quarantineAction"
+  ],
+  "outcomes": [
+    {
+      "action": "pause",
+      "live": {
+        "action": "pause",
+        "applied": true,
+        "cannotUndo": [
+          "4 released envelope(s) are already public; spectators may hold copies and they cannot be recalled"
+        ],
+        "effects": [
+          "release is held at the current sequence; nothing new reaches the audience"
+        ],
+        "releasedThroughSequence": 4
+      },
+      "nothingReleased": {
+        "action": "pause",
+        "applied": true,
+        "cannotUndo": [],
+        "effects": [
+          "release is held at the current sequence; nothing new reaches the audience"
+        ],
+        "releasedThroughSequence": 0
+      },
+      "sealed": {
+        "action": "pause",
+        "applied": false,
+        "cannotUndo": [
+          "4 released envelope(s) are already public; spectators may hold copies and they cannot be recalled",
+          "the replay manifest is sealed; its contents are immutable evidence and are not edited by moderation",
+          "a sealed session cannot be paused, revoked from, or ended: there is nothing further to restrain"
+        ],
+        "effects": [],
+        "releasedThroughSequence": 4
+      }
+    },
+    {
+      "action": "revokeParticipant",
+      "live": {
+        "action": "revokeParticipant",
+        "applied": true,
+        "cannotUndo": [
+          "4 released envelope(s) are already public; spectators may hold copies and they cannot be recalled"
+        ],
+        "effects": [
+          "the participant's grant ends; their future publishes and media are denied"
+        ],
+        "releasedThroughSequence": 4
+      },
+      "nothingReleased": {
+        "action": "revokeParticipant",
+        "applied": true,
+        "cannotUndo": [],
+        "effects": [
+          "the participant's grant ends; their future publishes and media are denied"
+        ],
+        "releasedThroughSequence": 0
+      },
+      "sealed": {
+        "action": "revokeParticipant",
+        "applied": false,
+        "cannotUndo": [
+          "4 released envelope(s) are already public; spectators may hold copies and they cannot be recalled",
+          "the replay manifest is sealed; its contents are immutable evidence and are not edited by moderation",
+          "a sealed session cannot be paused, revoked from, or ended: there is nothing further to restrain"
+        ],
+        "effects": [],
+        "releasedThroughSequence": 4
+      }
+    },
+    {
+      "action": "endSession",
+      "live": {
+        "action": "endSession",
+        "applied": true,
+        "cannotUndo": [
+          "4 released envelope(s) are already public; spectators may hold copies and they cannot be recalled"
+        ],
+        "effects": [
+          "release stops and no further joins are accepted"
+        ],
+        "releasedThroughSequence": 4
+      },
+      "nothingReleased": {
+        "action": "endSession",
+        "applied": true,
+        "cannotUndo": [],
+        "effects": [
+          "release stops and no further joins are accepted"
+        ],
+        "releasedThroughSequence": 0
+      },
+      "sealed": {
+        "action": "endSession",
+        "applied": false,
+        "cannotUndo": [
+          "4 released envelope(s) are already public; spectators may hold copies and they cannot be recalled",
+          "the replay manifest is sealed; its contents are immutable evidence and are not edited by moderation",
+          "a sealed session cannot be paused, revoked from, or ended: there is nothing further to restrain"
+        ],
+        "effects": [],
+        "releasedThroughSequence": 4
+      }
+    },
+    {
+      "action": "quarantineAction",
+      "live": {
+        "action": "quarantineAction",
+        "applied": true,
+        "cannotUndo": [
+          "4 released envelope(s) are already public; spectators may hold copies and they cannot be recalled"
+        ],
+        "effects": [
+          "the action id is denied for the rest of the session"
+        ],
+        "releasedThroughSequence": 4
+      },
+      "nothingReleased": {
+        "action": "quarantineAction",
+        "applied": true,
+        "cannotUndo": [],
+        "effects": [
+          "the action id is denied for the rest of the session"
+        ],
+        "releasedThroughSequence": 0
+      },
+      "sealed": {
+        "action": "quarantineAction",
+        "applied": false,
+        "cannotUndo": [
+          "4 released envelope(s) are already public; spectators may hold copies and they cannot be recalled",
+          "the replay manifest is sealed; its contents are immutable evidence and are not edited by moderation",
+          "a sealed session cannot be paused, revoked from, or ended: there is nothing further to restrain"
+        ],
+        "effects": [],
+        "releasedThroughSequence": 4
+      }
+    }
+  ]
+}

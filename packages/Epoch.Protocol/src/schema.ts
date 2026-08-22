@@ -1,4 +1,14 @@
-import { PROTOCOL_EVENT_SCHEMAS } from "./events";
+import {
+  LIVE_SESSION_BINDING_KINDS,
+  LIVE_SESSION_COMPLETENESS,
+  LIVE_SESSION_CONSENT_SCOPES,
+  LIVE_SESSION_LIFECYCLE_COMMANDS,
+  LIVE_SESSION_LIFECYCLE_STATES,
+  LIVE_SESSION_POLICY_CHANGES,
+  LIVE_SESSION_SECURITY_MODES,
+  LIVE_SESSION_VISIBILITIES,
+  PROTOCOL_EVENT_SCHEMAS,
+} from "./events";
 import { CANONICAL_ID_KINDS, type CanonicalIdKind } from "./ids";
 type DictionaryValue = null | undefined | boolean | number | string | bigint | readonly DictionaryValue[] | { readonly [key: string]: DictionaryValue };
 
@@ -111,6 +121,36 @@ const simpleBodies = {
     spaceId: id("space"), anchorId: id("anchor"), principalId: id("principal"), revisionId,
     path: repositoryPath, structuralPath: nonemptyString, contentDigest: digest,
   }),
+  liveSessionCreatedBody: object(["spaceId", "sessionId", "principalId", "sessionKind", "viewName", "visibility", "securityMode", "policyDigest"], {
+    spaceId: id("space"), sessionId: id("session"), principalId: id("principal"),
+    sessionKind: { const: "live" }, viewName: nonemptyString,
+    visibility: { enum: [...LIVE_SESSION_VISIBILITIES] },
+    securityMode: { enum: [...LIVE_SESSION_SECURITY_MODES] },
+    policyDigest: nonemptyString,
+  }),
+  liveSessionLifecycleBody: object(["spaceId", "sessionId", "principalId", "command", "from", "to"], {
+    spaceId: id("space"), sessionId: id("session"), principalId: id("principal"),
+    command: { enum: [...LIVE_SESSION_LIFECYCLE_COMMANDS] },
+    from: { enum: [...LIVE_SESSION_LIFECYCLE_STATES] },
+    to: { enum: [...LIVE_SESSION_LIFECYCLE_STATES] },
+  }),
+  liveSessionPolicyBody: object(["spaceId", "sessionId", "principalId", "policyDigest", "change"], {
+    spaceId: id("space"), sessionId: id("session"), principalId: id("principal"),
+    policyDigest: nonemptyString, change: { enum: [...LIVE_SESSION_POLICY_CHANGES] },
+  }),
+  liveSessionConsentBody: object(["spaceId", "sessionId", "principalId", "policyDigest", "decision", "scopes"], {
+    spaceId: id("space"), sessionId: id("session"), principalId: id("principal"),
+    policyDigest: nonemptyString, decision: { enum: ["granted", "withdrawn"] },
+    scopes: arrayOf({ enum: [...LIVE_SESSION_CONSENT_SCOPES] }),
+  }),
+  liveSessionSealedBody: object(["spaceId", "sessionId", "principalId", "manifestDigest", "completeness"], {
+    spaceId: id("space"), sessionId: id("session"), principalId: id("principal"),
+    manifestDigest: digest, completeness: { enum: [...LIVE_SESSION_COMPLETENESS] },
+  }),
+  liveSessionBoundBody: object(["spaceId", "sessionId", "principalId", "objectId", "objectKind"], {
+    spaceId: id("space"), sessionId: id("session"), principalId: id("principal"),
+    objectId: nonemptyString, objectKind: { enum: [...LIVE_SESSION_BINDING_KINDS] },
+  }),
   channelCreateBody: object(["schema", "channelId", "communityId", "name", "principalId", "visibility"], {
     schema: { const: "epoch.channel/v1" }, channelId: id("channel"), communityId: id("space"),
     name: nonemptyString, principalId: id("principal"), visibility: { enum: ["public", "shared", "private"] },
@@ -193,6 +233,9 @@ const bodyDefinitionByType = {
   "space.turn.recorded": "spaceTurnRecordedBody", "space.budget.allocated": "spaceBudgetAllocatedBody", "space.capture.opened": "spaceCaptureOpenedBody",
   "space.capture.closed": "spaceCaptureClosedBody", "space.capture.operation": "spaceCaptureOperationBody",
   "space.anchor.recorded": "spaceAnchorRecordedBody", "space.turn.receipt": "spaceTurnReceiptBody",
+  "live.session.created": "liveSessionCreatedBody", "live.session.lifecycle": "liveSessionLifecycleBody",
+  "live.session.policy": "liveSessionPolicyBody", "live.session.consent": "liveSessionConsentBody",
+  "live.session.sealed": "liveSessionSealedBody", "live.session.bound": "liveSessionBoundBody",
   "channel.create": "channelCreateBody", "channel.message": "channelMessageBody",
   "channel.presence": "channelPresenceBody", "channel.read": "channelReadBody",
 };
