@@ -72,11 +72,36 @@ export function createLiveSessionHub(options: LiveSessionHubOptions = {}): LiveS
       };
     },
 
+    /**
+     * Fan out to everyone still listening, and contain anyone who is not.
+     *
+     * A spectator's callback writes to a socket, and a socket can be gone: an
+     * SSE writer whose client vanished throws on the next write. Delivering in
+     * a bare loop let that one throw abort the fan-out, so every subscriber
+     * after it in the set lost that envelope and every later one — and the
+     * broadcast cursor had already advanced past them, so nothing redelivered.
+     * One dead peer silently truncated the session for everybody.
+     *
+     * A subscriber that cannot receive is removed, told why, and the rest of
+     * the fan-out continues. Iteration runs over a snapshot so that removing
+     * one, or a callback that subscribes another, cannot decide who sees the
+     * envelope currently in flight.
+     */
     broadcast(sessionId, envelopes) {
       const subscribers = sessions.get(sessionId);
       if (subscribers === undefined) return;
       for (const envelope of envelopes) {
-        for (const subscriber of subscribers) subscriber.onEnvelope(envelope);
+        for (const subscriber of [...subscribers]) {
+          if (!subscribers.has(subscriber)) continue;
+          try {
+            subscriber.onEnvelope(envelope);
+          } catch {
+            if (subscribers.delete(subscriber)) total -= 1;
+            // The close notice is best-effort: a subscriber that already threw
+            // once is not trusted to handle being told about it.
+            try { subscriber.onClose?.("delivery-failed"); } catch { /* already gone */ }
+          }
+        }
       }
     },
 
