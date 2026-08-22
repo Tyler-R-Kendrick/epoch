@@ -81,6 +81,7 @@ export function createRemoteLiveSpacePort(options: RemoteLiveOptions): LiveSpace
       confirmed: true,
     }),
     showSession: (sessionId) => get(`/community/live/sessions/${encodeURIComponent(sessionId)}`),
+    bindThread: (input) => command(input.sessionId, "live.session.bindThread", { threadObjectId: input.threadObjectId }),
     listSessions: () => command("none", "live.session.list"),
     preflight: (sessionId) => command(sessionId, "live.session.preflight"),
     configure: (input) => command(input.sessionId, "live.session.configure", { policy: policyJson(input.policy) }),

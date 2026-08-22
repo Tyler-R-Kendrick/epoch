@@ -17,6 +17,7 @@ import { runCommunityOramaBackendTests } from "./unit/community-orama-backend.te
 import { runCommunitySqliteSearchTests } from "./unit/community-sqlite-search.test";
 import { runCommunitySearchCliTests } from "./unit/community-search-cli.test";
 import { runCliLiveRemoteTests } from "./unit/cli-live-remote.test";
+import { runLiveSpacesCommunityBindingTests } from "./unit/live-spaces-community-binding.test";
 import { runCommunityWebRenderParityTests } from "./unit/community-web-render-parity.test";
 import { runCommunityWebAppThemeTests } from "./unit/community-web-app-themes.test";
 import { runCommunityWebLanguageModelAbsenceTests } from "./unit/community-web-app-language-model-absence.test";
@@ -137,6 +138,7 @@ async function main(): Promise<void> {
   await runCommunitySqliteSearchTests();
   await runCommunitySearchCliTests();
   await runCliLiveRemoteTests();
+  await runLiveSpacesCommunityBindingTests();
   await runCommunityApiProjectionTests();
   await runCommunityCoverageTests();
   await runCommunityRuntimeTests();

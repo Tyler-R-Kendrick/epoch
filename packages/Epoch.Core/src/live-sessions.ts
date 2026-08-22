@@ -24,6 +24,7 @@ export type LiveSessionSecurityMode = "semantic-only" | "private-e2ee" | "privat
 export type LiveSessionConsentScope =
   | "semantic-capture" | "audio" | "camera" | "screen-share" | "captions" | "recording" | "external-egress";
 export type LiveSessionCompleteness = "complete" | "semantic-only" | "media-missing" | "partial";
+export type LiveSessionBindingKind = "thread" | "change";
 export type LiveSessionPolicyChange = "initial" | "narrowing" | "widening" | "mixed";
 
 interface LiveLifecycleTransition {
@@ -54,6 +55,16 @@ export interface LiveSessionRecord {
   readonly sealedEventId?: string;
   readonly manifestDigest?: string;
   readonly completeness?: LiveSessionCompleteness;
+  /**
+   * The one canonical Community object every projection targets.
+   *
+   * Absent means "not bound yet", never "no discussion" — a session that has
+   * not named its thread has nowhere canonical to put questions, moderation,
+   * or annotations, and the surfaces above say so rather than opening a
+   * private store of their own.
+   */
+  readonly boundObjectId?: string;
+  readonly boundObjectKind?: LiveSessionBindingKind;
   readonly consent: readonly {
     readonly principalId: string;
     readonly scopes: readonly LiveSessionConsentScope[];
@@ -135,6 +146,8 @@ export class SignedLiveSessionStore {
     let sealedEventId: string | undefined;
     let manifestDigest: string | undefined;
     let completeness: LiveSessionCompleteness | undefined;
+    let boundObjectId: string | undefined;
+    let boundObjectKind: LiveSessionBindingKind | undefined;
     const consent = new Map<string, {
       principalId: string;
       scopes: readonly LiveSessionConsentScope[];
@@ -161,6 +174,13 @@ export class SignedLiveSessionStore {
           policyDigest: String(event.payload.policyDigest),
           decision: event.payload.decision === "withdrawn" ? "withdrawn" : "granted",
         });
+      } else if (event.type === "live.session.bound") {
+        // Last binding wins, and every earlier one stays in the log — a
+        // rebinding is history, not an overwrite of where an audience was
+        // told to look.
+        boundObjectId = String(event.payload.objectId);
+        // SAFETY: protocol validation constrains objectKind to the enum before append.
+        boundObjectKind = String(event.payload.objectKind) as LiveSessionBindingKind;
       } else if (event.type === "live.session.sealed") {
         lifecycle = "sealed";
         sealedEventId = event.id;
@@ -186,6 +206,8 @@ export class SignedLiveSessionStore {
       ...(sealedEventId !== undefined && { sealedEventId }),
       ...(manifestDigest !== undefined && { manifestDigest }),
       ...(completeness !== undefined && { completeness }),
+      ...(boundObjectId !== undefined && { boundObjectId }),
+      ...(boundObjectKind !== undefined && { boundObjectKind }),
       consent: [...consent.values()],
     };
   }
@@ -214,6 +236,39 @@ export class SignedLiveSessionStore {
     this.append("live.session.lifecycle", {
       spaceId: session.spaceId, sessionId, principalId,
       command: input.command, from: session.lifecycle, to: transition.to,
+    });
+    return this.showSession(sessionId);
+  }
+
+  /**
+   * Name the one canonical Community object this session lives as.
+   *
+   * The mandate for a session is that it is a Community entity mounted into
+   * projections, not copied into them, so this records a single object id that
+   * `#live`, Activity, search, a channel list, and the replay list all target.
+   * Binding appends: a rebinding leaves the previous one in the log rather
+   * than silently moving where an audience was told to look.
+   *
+   * Refused after the session is sealed, for the same reason the rest of a
+   * sealed session is: a replay manifest that can still be repointed is not a
+   * manifest.
+   */
+  bindEntity(sessionId: string, input: {
+    readonly objectId: string;
+    readonly objectKind: LiveSessionBindingKind;
+    readonly principal?: string;
+  }): LiveSessionRecord {
+    const session = this.requireMutable(sessionId);
+    const principalId = this.requireRole(session.spaceId, input.principal, ["owner"], "bind a live session to a Community object");
+    if (!isNonEmptyString(input.objectId)) {
+      refuse("invalid-input", "a Community binding requires a non-empty object id");
+    }
+    if (input.objectKind !== "thread" && input.objectKind !== "change") {
+      refuse("invalid-input", `unknown Community binding kind: ${String(input.objectKind)}`);
+    }
+    this.append("live.session.bound", {
+      spaceId: session.spaceId, sessionId, principalId,
+      objectId: input.objectId, objectKind: input.objectKind,
     });
     return this.showSession(sessionId);
   }

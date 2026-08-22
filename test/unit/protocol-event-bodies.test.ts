@@ -379,6 +379,13 @@ function canonicalBodies() {
       manifestDigest: digest("f"),
       completeness: "semantic-only",
     },
+    "live.session.bound": {
+      spaceId: id("space"),
+      sessionId: id("session"),
+      principalId: id("principal"),
+      objectId: "obj-live-thread",
+      objectKind: "thread",
+    },
   } satisfies CanonicalBodies;
 }
 

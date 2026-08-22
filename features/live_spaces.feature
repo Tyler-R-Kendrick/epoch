@@ -40,8 +40,10 @@ Feature: Live Spaces
     Then the request is recorded but grants nothing
     When the host records a presentation checkpoint
     And the contributor annotates that checkpoint on the board file
-    And the contributor forks the session at that checkpoint
+    Then the annotation is a record on the session's Community thread
+    When the contributor forks the session at that checkpoint
     Then the fork records provenance back to the session and checkpoint
+    And the fork opens a Change carrying that provenance
 
   @persona.maintainer
   Scenario: Maintainer grants a temporary collaborator and revocation ends the access
