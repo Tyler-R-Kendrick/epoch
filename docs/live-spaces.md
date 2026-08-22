@@ -616,6 +616,29 @@ than no rule, because the author believes the file is covered.
 unit test asserts both directions, including the deny-path consequence, and a
 mutant that removes the placeholder step is killed by that test.
 
+### What review of the edge found
+
+Two things, neither of which a lane would have caught, because both are about
+code that was never wrong on any input a test supplies.
+
+The rate limiter is keyed by principal, and the principal set is not bounded —
+a join link mints a fresh opaque `liveguest_…` id on every redemption. Its
+bucket map was only ever written, never swept: overwriting on next use reclaims
+a key that is seen again, which a one-shot guest principal never is. Someone
+holding one valid link could grow the limiter's own memory, one request at a
+time, for the life of the process. Expired buckets are now swept on an
+amortised schedule, and the sweep is exported so a test asserts it directly
+rather than inferring it from memory it cannot observe.
+
+Join-link redemption also carried a constant-time comparison that compared a
+value with itself recomputed — always true, never taken — under a comment
+claiming there was "no content-dependent comparison anywhere in the path". The
+actual lookup is a hash-map get, which offers no such guarantee. The real
+defence is that lookup happens on a digest, so the stored value is not a usable
+credential and the compared value is not the secret. The dead line is gone and
+the comment now says that instead. A comparison that advertises a property it
+does not provide is worse than no comparison, because it stops people looking.
+
 ## Honest limitations
 
 - Path patterns support `*`, `**`, and `?`. There is no character-class or

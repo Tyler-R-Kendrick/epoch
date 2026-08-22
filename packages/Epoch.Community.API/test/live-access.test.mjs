@@ -10,6 +10,7 @@ import {
   createLiveJoinLinkStore,
   createLiveMediaGateway,
   createLiveSessionFetchHandler,
+  sweepExpiredLiveRateBuckets,
   createLiveSessionHub,
   createLiveSessionService,
   liveWebhookBodyDigest,
@@ -289,4 +290,28 @@ test("a webhook that names no known session is refused before the domain sees it
   });
   assert.equal(response.status, 400);
   assert.equal((await response.json()).error.code, "webhook-unbound");
+});
+
+test("expired rate buckets are swept so a one-shot principal cannot grow the limiter forever", () => {
+  // The limiter is keyed by principal, and join links mint a fresh opaque
+  // principal per redemption. Overwriting on next use reclaims nothing for a
+  // principal that is never seen again, so without a sweep the map is a leak
+  // an untrusted holder of one valid link can drive, one request at a time.
+  const buckets = new Map();
+  for (let index = 0; index < 1000; index += 1) {
+    buckets.set(`liveguest_${index}:GET`, { count: 1, resetAtMs: 1_000 });
+  }
+  buckets.set("still-open:GET", { count: 1, resetAtMs: 10_000 });
+
+  const removed = sweepExpiredLiveRateBuckets(buckets, 5_000);
+
+  assert.equal(removed, 1000, "closed windows were not reclaimed");
+  assert.equal(buckets.size, 1, "sweep did not leave exactly the open window");
+  assert.equal(buckets.has("still-open:GET"), true, "sweep collected a window that is still open");
+});
+
+test("a bucket whose window is still open survives the sweep at its own boundary", () => {
+  const buckets = new Map([["a:GET", { count: 3, resetAtMs: 5_000 }]]);
+  assert.equal(sweepExpiredLiveRateBuckets(buckets, 4_999), 0, "collected a window one tick early");
+  assert.equal(sweepExpiredLiveRateBuckets(buckets, 5_000), 1, "did not collect at the reset instant");
 });

@@ -66,10 +66,46 @@ const SCHEMA_VERSION = 1;
 const COMMAND_KIND_PREFIX = "live.";
 const COMMAND_KIND_DENY_PREFIXES = ["live.media."];
 
+export interface LiveRateBucket {
+  count: number;
+  resetAtMs: number;
+}
+
+/** Insertions between sweeps. Amortises the scan without timers or handles. */
+export const LIVE_RATE_BUCKET_SWEEP_INTERVAL = 512;
+
+/**
+ * Drop buckets whose window has closed.
+ *
+ * The limiter is keyed by principal, and the principal set is not bounded: a
+ * join link mints a fresh opaque `liveguest_…` id on every redemption, so each
+ * redemption used to cost one map entry that nothing ever removed. Overwriting
+ * on next use only reclaims a key that is seen again, which a one-shot guest
+ * principal never is. Someone holding one valid link could therefore grow the
+ * limiter's own memory, one request at a time, for as long as the process ran.
+ *
+ * Exported so the behaviour is asserted directly rather than inferred from
+ * memory that a test cannot observe.
+ */
+export function sweepExpiredLiveRateBuckets(
+  buckets: Map<string, LiveRateBucket>,
+  nowMs: number,
+): number {
+  let removed = 0;
+  for (const [key, bucket] of buckets) {
+    if (nowMs >= bucket.resetAtMs) {
+      buckets.delete(key);
+      removed += 1;
+    }
+  }
+  return removed;
+}
+
 export function createLiveSessionFetchHandler(options: LiveRouteOptions): (request: Request) => Promise<Response> {
   const basePath = options.basePath ?? DEFAULT_BASE_PATH;
   const maxEventPage = options.maxEventPageSize ?? DEFAULT_MAX_EVENT_PAGE;
-  const buckets = new Map<string, { count: number; resetAtMs: number }>();
+  const buckets = new Map<string, LiveRateBucket>();
+  let insertionsSinceSweep = 0;
 
   function rateLimited(key: string): boolean {
     const limit = options.rateLimit;
@@ -77,6 +113,12 @@ export function createLiveSessionFetchHandler(options: LiveRouteOptions): (reque
     const nowMs = options.now();
     const bucket = buckets.get(key);
     if (bucket === undefined || nowMs >= bucket.resetAtMs) {
+      insertionsSinceSweep += 1;
+      if (insertionsSinceSweep >= LIVE_RATE_BUCKET_SWEEP_INTERVAL) {
+        insertionsSinceSweep = 0;
+        // Sweep before inserting so this key's fresh window is not collected.
+        sweepExpiredLiveRateBuckets(buckets, nowMs);
+      }
       buckets.set(key, { count: 1, resetAtMs: nowMs + limit.windowMs });
       return false;
     }
