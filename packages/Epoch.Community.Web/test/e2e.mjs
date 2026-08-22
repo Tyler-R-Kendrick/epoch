@@ -4273,6 +4273,7 @@ const CASES = [
         return log("Tab did not yield to prompt: " + JSON.stringify(toPrompt));
       }
       await page.keyboard.press("Tab");
+      await settleColumnFocus(page, ".cn-comment");
       const back = await page.evaluate(() => ({
         key: document.activeElement?.closest?.(".cn-comment")?.getAttribute("data-key"),
         mark: window.CW_APP.state.feedMark,
@@ -4285,6 +4286,7 @@ const CASES = [
       await page.keyboard.press("Tab");
       await page.waitForFunction(() => document.activeElement === document.querySelector("[data-cli]"));
       await page.keyboard.press("Shift+Tab");
+      await settleColumnFocus(page, ".cn-comment");
       const shiftBack = await page.evaluate(() => ({
         key: document.activeElement?.closest?.(".cn-comment")?.getAttribute("data-key"),
         mark: window.CW_APP.state.feedMark,
@@ -4308,11 +4310,16 @@ const CASES = [
         document.querySelector('.cn-blade[data-blade-kind="list"] .cn-item[aria-current="true"]')
           ?.focus({ preventScroll: true });
       });
+      // focusColumns() also focuses a column on a later frame, which can land
+      // after the synchronous focus above. Pressing Tab before focus settles
+      // sends it to the native tab order instead of the yield-back chord, and
+      // the prompt never arrives.
+      await settleColumnFocus(page, '.cn-blade[data-blade-kind="list"] .cn-item');
       await page.keyboard.press("Tab");
       await page.waitForFunction(() => document.activeElement === document.querySelector("[data-cli]"));
       await page.fill("[data-cli]", "");
       await page.keyboard.press("Tab");
-      await page.waitForTimeout(60);
+      await settleColumnFocus(page, '.cn-blade[data-blade-kind="list"] .cn-item');
       const restored = await page.evaluate(() => ({
         columnFocus: !!window.CW_APP.state.columnFocus,
         onCli: document.activeElement === document.querySelector("[data-cli]"),
@@ -5753,9 +5760,17 @@ const CASES = [
         window.CW_APP.focusColumns();
         window.CW_APP.render(true);
       });
-      await page.waitForFunction(() =>
-        window.CW_APP.state.columnFocus &&
-        document.activeElement !== document.querySelector("[data-cli]"), null, { timeout: 90000 });
+      // Wait for a column to actually hold DOM focus, not merely for the CLI to
+      // lose it. focusColumns() blurs the prompt synchronously and focuses a
+      // column in a later animation frame, so "not the CLI" is already true
+      // while document.body holds focus — and a Tab pressed there walks the
+      // native tab order to the skip link instead of returning to the prompt.
+      await page.waitForFunction(() => {
+        const active = document.activeElement;
+        const mount = document.querySelector("[data-mount]");
+        return window.CW_APP.state.columnFocus && !!mount && mount.contains(active) &&
+          active !== document.querySelector("[data-cli]");
+      }, null, { timeout: 90000 });
       await page.keyboard.press("Tab");
       await page.waitForFunction(() => document.activeElement === document.querySelector("[data-cli]"), null, { timeout: 90000 });
       await page.fill("[data-cli]", "c");
@@ -10893,6 +10908,25 @@ const CASES = [
 async function path(page) {
   await page.waitForTimeout(120);
   return page.evaluate(() => window.CW_APP.state.path);
+}
+/**
+ * Wait for DOM focus to reach a column, after a chord that hands it back.
+ *
+ * `focusColumns()` sets `state.columnFocus` synchronously but focuses the
+ * element in a later animation frame, so reading `document.activeElement` in
+ * the same tick as the key press reports the state before the frame ran. A
+ * fixed sleep is the same race with a budget; this waits for the condition the
+ * assertion is about.
+ *
+ * It swallows the timeout on purpose: the caller's own assertion then reports
+ * what it actually found, which is a far better failure than a bare timeout.
+ */
+async function settleColumnFocus(page, selector) {
+  await page.waitForFunction(
+    (sel) => !!document.activeElement?.closest?.(sel),
+    selector,
+    { timeout: 10000 },
+  ).catch(() => { /* the assertion below reports what it found */ });
 }
 async function go(page, to) {
   await page.evaluate((t) => window.CW_APP.navigate(t, { keepCli: true }), to);
