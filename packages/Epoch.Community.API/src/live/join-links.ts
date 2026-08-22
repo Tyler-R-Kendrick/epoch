@@ -1,4 +1,4 @@
-import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
 
 /**
  * Opaque, expiring join links.
@@ -94,11 +94,14 @@ export function createLiveJoinLinkStore(options: LiveJoinLinkStoreOptions): Live
 
     redeem(token) {
       const digest = digestOfToken(token);
+      // Lookup is by digest, so the value compared here is never the credential:
+      // recovering the token from a stored digest is the preimage problem, and
+      // lookup timing reveals a digest the caller already supplied. That is the
+      // whole defence — there is no constant-time comparison in this path, and a
+      // previous version of this line claimed one while comparing a value with
+      // itself, which is worse than saying nothing.
       const record = byDigest.get(digest);
       if (record === undefined) return { kind: "refused", reason: "unknown" };
-      // The map lookup already matched; this confirms it without a
-      // content-dependent comparison anywhere in the path.
-      if (!constantTimeEquals(digest, digestOfToken(token))) return { kind: "refused", reason: "unknown" };
       if (record.revoked) return { kind: "refused", reason: "revoked" };
       if (options.now() >= record.expiresAtMs) return { kind: "refused", reason: "expired" };
       if (record.redemptions >= record.maxRedemptions) return { kind: "refused", reason: "exhausted" };
@@ -131,11 +134,4 @@ export function createLiveJoinLinkStore(options: LiveJoinLinkStoreOptions): Live
 /** Links are stored hashed: a database copy does not yield working credentials. */
 export function digestOfToken(token: string): string {
   return createHash("sha256").update(token).digest("hex");
-}
-
-function constantTimeEquals(left: string, right: string): boolean {
-  const leftBytes = Buffer.from(left, "utf8");
-  const rightBytes = Buffer.from(right, "utf8");
-  if (leftBytes.length !== rightBytes.length) return false;
-  return timingSafeEqual(leftBytes, rightBytes);
 }
