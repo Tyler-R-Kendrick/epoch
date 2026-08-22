@@ -113,7 +113,7 @@
     "untrustedContent": false
   },
   {
-    "capability": "live.presentation.read",
+    "capability": "live.presentation.publish",
     "kind": "live.presentation.checkpoint",
     "readOnly": false,
     "required": [

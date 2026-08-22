@@ -255,12 +255,26 @@ export function createLivePresentationPublisher(options: LivePublisherOptions): 
       return { kind: "applied", change, policyDigest, invalidatedQueued };
     },
 
+    /**
+     * Marking the same point twice yields the same checkpoint.
+     *
+     * The id is derived from the stream position — session, sequence, log head
+     * — so two marks at one position are one checkpoint by construction. It
+     * used to append a second record under that same id with a later offset,
+     * which meant an already-issued checkpoint's content changed underneath
+     * anything that had recorded it (a fork's provenance, a spectator's resync
+     * point) and the sealed manifest listed the id twice. The first marking is
+     * the moment that point was established, so it is the one that stands.
+     */
     checkpoint(): LivePresentationCheckpoint {
       const head = digestOf(released.map((envelope) => envelope.liveEventId));
+      const checkpointId = identifier("livechk", { sessionId: options.sessionId, sequence, head });
+      const existing = checkpoints.find((candidate) => candidate.checkpointId === checkpointId);
+      if (existing !== undefined) return existing;
       const checkpoint: LivePresentationCheckpoint = {
         schemaVersion: 1,
         sessionId: options.sessionId,
-        checkpointId: identifier("livechk", { sessionId: options.sessionId, sequence, head }),
+        checkpointId,
         sequence,
         presentationLogHead: head,
         sourceViewRef: policy.presentationViewRef,

@@ -677,9 +677,18 @@ export function createLocalLiveSpacePort(options: LocalLiveSpacePortOptions): Li
       };
     },
 
+    /**
+     * A checkpoint is a mark in the presentation stream, not a reading
+     * position: spectators resync from it and forks are cut at it. So it is
+     * gated exactly like publishing. An observer holds a grant to watch, and
+     * watching does not write to what everyone else is watching.
+     */
     checkpoint(input) {
       const session = requireSession(input.sessionId);
-      requireActive(session, input.actor);
+      const participant = requireActive(session, input.actor);
+      if (participant.role === "observer") {
+        fail("policy-denied", "observer grants do not authorize recording a checkpoint");
+      }
       const checkpoint = session.publisher.checkpoint();
       session.checkpoints.set(checkpoint.checkpointId, checkpoint);
       return { data: checkpoint };
@@ -1137,7 +1146,10 @@ export function createLiveSpaceCommandExtensions(
     },
     {
       descriptor: descriptor("live.presentation.checkpoint", "Record a presentation checkpoint spectators can resync and fork from.",
-        "live.presentation.read", false, false, schema({ sessionId: stringProperty("Live session id.") }, ["sessionId"])),
+        // A checkpoint is written into the stream, so it is authorized like a
+        // publication. It previously declared live.presentation.read, which let
+        // a read grant perform a write.
+        "live.presentation.publish", false, false, schema({ sessionId: stringProperty("Live session id.") }, ["sessionId"])),
       run: withPort((live, input, actor) => live.checkpoint({ sessionId: requiredString(input, "sessionId"), actor })),
     },
     {

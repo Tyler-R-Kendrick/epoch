@@ -29,6 +29,7 @@ export function runLiveSpacesLogTests(): void {
   replayDecisionsStayPresentationLocal();
   forkRequiresMaterializableCheckpoint();
   replayManifestReportsHonestCompleteness();
+  repeatedCheckpointsAtOnePositionAreOneCheckpoint();
 }
 
 function catalogOf(): LiveActionCatalog {
@@ -266,4 +267,38 @@ function replayManifestReportsHonestCompleteness(): void {
   assert.deepEqual(manifest.policyDigests, [publisher.state().policyDigest]);
   // The manifest head is deterministic for the same released set.
   assert.equal(publisher.buildReplayManifest("semantic-only").presentationLogHead, manifest.presentationLogHead);
+}
+
+/**
+ * A checkpoint is a point in the stream, so marking that point twice is one
+ * checkpoint — not two records sharing an id.
+ *
+ * The id is derived from session, sequence and log head, so a second marking
+ * at the same position collides by construction. It used to append anyway,
+ * with a later offset, so an issued checkpoint's content changed underneath a
+ * fork that had already recorded it, and the sealed manifest listed the id
+ * twice. Advancing the stream is what makes a new checkpoint.
+ */
+function repeatedCheckpointsAtOnePositionAreOneCheckpoint(): void {
+  const clock = fakeClock();
+  const publisher = publisherWith(clock);
+  const first = publisher.checkpoint();
+  // Time moves between the two markings, which is exactly what used to make
+  // the second record differ from the first under one id.
+  clock.advance(500);
+  const second = publisher.checkpoint();
+  assert.deepEqual(second, first, "the same position must return the identical checkpoint, offset included");
+
+  // Advancing the stream moves the point, and that is a different checkpoint.
+  capture(publisher, "view.open", "packages/app/board.ts");
+  clock.advance(5000);
+  publisher.release();
+  const advanced = publisher.checkpoint();
+  assert.notEqual(advanced.checkpointId, first.checkpointId, "a released envelope must move the checkpoint");
+
+  // The sealed manifest lists each checkpoint once: repeated marking cannot
+  // inflate the evidence a replay is verified against.
+  const manifest = publisher.buildReplayManifest("semantic-only");
+  assert.deepEqual([...manifest.checkpointIds], [first.checkpointId, advanced.checkpointId]);
+  assert.equal(new Set(manifest.checkpointIds).size, manifest.checkpointIds.length);
 }
