@@ -36,9 +36,15 @@ if ! node -e "process.exit(0)" >"$probe_file" 2>&1; then
 fi
 rm -f "$probe_file"
 
-# 2. Install only when the toolchain is actually missing. Prefer `npm
-# install` over `npm ci` when a tree already exists, since `npm ci` deletes
-# node_modules first by design and would throw away a perfectly good cache.
+# 2. Install only when the toolchain is actually missing.
+#
+# The probe covers every binary the gate ladder shells out to, not just one.
+# A single-binary probe (this hook checked only tsgo) reports "already
+# installed" for a tree that is merely partly installed: a live session was
+# observed with tsgo present but `oxlint` absent entirely and `@eslint/js`
+# missing its entry point, so `npm run lint` and `npm run lint:oxlint` both
+# failed while the hook reported the toolchain ready. Anything a gate invokes
+# by name belongs in this list.
 #
 # Guard against a Playwright postinstall hang: this environment is
 # documented to pre-install Chromium at PLAYWRIGHT_BROWSERS_PATH with
@@ -47,14 +53,41 @@ rm -f "$probe_file"
 # then blocks on a browser download with no visible progress. Set it
 # defensively (without clobbering a real override) rather than let every
 # future session rediscover the same hang.
+required_bins="tsgo oxlint eslint konsistent"
+
+missing_bins() {
+  local found=""
+  local bin
+  for bin in $required_bins; do
+    if [ ! -x "node_modules/.bin/$bin" ]; then
+      found="$found $bin"
+    fi
+  done
+  # SAFETY: word-splitting is the intended contract here; the caller tests
+  # this for emptiness and prints it as a list.
+  echo "${found# }"
+}
+
 install_status=0
-if [ ! -x node_modules/.bin/tsgo ]; then
-  echo "SessionStart: node_modules/.bin/tsgo missing -- installing dependencies." >&2
+missing="$(missing_bins)"
+if [ -n "$missing" ]; then
+  echo "SessionStart: missing from node_modules/.bin: $missing -- installing dependencies." >&2
   : "${PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD:=1}"
   export PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD
   if [ -d node_modules ]; then
+    # Prefer `npm install` over `npm ci` when a tree already exists, since
+    # `npm ci` deletes node_modules first by design and would throw away a
+    # perfectly good cache. But a half-written tree makes `npm install` fail
+    # with ENOTEMPTY while renaming a package it cannot replace, and no
+    # amount of retrying repairs that -- only a clean tree does. So fall
+    # through to `npm ci` rather than leaving the session unlintable.
     npm install
     install_status=$?
+    if [ "$install_status" -ne 0 ]; then
+      echo "SessionStart: npm install exited $install_status (a corrupt tree cannot be repaired in place) -- retrying with npm ci." >&2
+      npm ci
+      install_status=$?
+    fi
   else
     npm ci
     install_status=$?
@@ -67,12 +100,30 @@ fi
 # lifecycle script (scripts/install-hooks.mjs, which wires core.hooksPath to
 # .githooks/), and that must complete before anything relies on the
 # toolchain or on the git hooks being active.
+missing="$(missing_bins)"
 if [ "$install_status" -ne 0 ]; then
-  echo "SessionStart: dependency install exited $install_status -- build-dependent gates (typecheck, build, test) will likely fail until this is investigated manually." >&2
-elif [ -x node_modules/.bin/tsgo ]; then
-  echo "SessionStart: toolchain ready (node_modules/.bin/tsgo present)." >&2
+  echo "SessionStart: dependency install exited $install_status -- gates will likely fail until this is investigated manually." >&2
+elif [ -z "$missing" ]; then
+  echo "SessionStart: toolchain ready ($required_bins present in node_modules/.bin)." >&2
 else
-  echo "SessionStart: install reported success but node_modules/.bin/tsgo is still missing -- investigate manually." >&2
+  echo "SessionStart: install reported success but these are still missing: $missing -- investigate manually." >&2
+fi
+
+# Wire the git hooks directly rather than trusting that "prepare" ran. A
+# session was observed with core.hooksPath unset because its install was
+# skipped as already-satisfied, and another where `npm ci` stalled in a later
+# postinstall before reaching "prepare" -- in both the pre-commit and
+# pre-push gates were silently inactive, which is the failure mode the gates
+# exist to prevent. scripts/install-hooks.mjs is idempotent and fail-open, so
+# calling it when the config is missing costs nothing when it is already set.
+if [ -d .githooks ] && [ -z "$(git config core.hooksPath 2>/dev/null)" ]; then
+  echo "SessionStart: core.hooksPath is unset -- wiring .githooks." >&2
+  node scripts/install-hooks.mjs >/dev/null 2>&1
+  if [ -n "$(git config core.hooksPath 2>/dev/null)" ]; then
+    echo "SessionStart: git hooks wired (core.hooksPath=$(git config core.hooksPath))." >&2
+  else
+    echo "SessionStart: could not wire core.hooksPath -- pre-commit and pre-push gates will not run locally." >&2
+  fi
 fi
 
 exit 0
