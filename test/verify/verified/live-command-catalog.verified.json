@@ -1,0 +1,297 @@
+[
+  {
+    "capability": "live.media.subscribe",
+    "kind": "live.media.issueToken",
+    "readOnly": false,
+    "required": [
+      "sessionId"
+    ],
+    "requiresConfirmation": false,
+    "untrustedContent": false
+  },
+  {
+    "capability": "live.media.admin",
+    "kind": "live.media.providerEvent",
+    "readOnly": false,
+    "required": [
+      "eventDigest",
+      "eventKind",
+      "providerKind",
+      "roomRef",
+      "sessionId"
+    ],
+    "requiresConfirmation": false,
+    "untrustedContent": false
+  },
+  {
+    "capability": "live.incident.report",
+    "kind": "live.moderation.report",
+    "readOnly": false,
+    "required": [
+      "reason",
+      "sessionId"
+    ],
+    "requiresConfirmation": false,
+    "untrustedContent": false
+  },
+  {
+    "capability": "live.participant.grant",
+    "kind": "live.participant.grant",
+    "readOnly": false,
+    "required": [
+      "principalId",
+      "role",
+      "sessionId"
+    ],
+    "requiresConfirmation": true,
+    "untrustedContent": false
+  },
+  {
+    "capability": "live.participant.request",
+    "kind": "live.participant.join",
+    "readOnly": false,
+    "required": [
+      "sessionId"
+    ],
+    "requiresConfirmation": false,
+    "untrustedContent": false
+  },
+  {
+    "capability": "live.session.manage",
+    "kind": "live.participant.lockJoins",
+    "readOnly": false,
+    "required": [
+      "locked",
+      "sessionId"
+    ],
+    "requiresConfirmation": false,
+    "untrustedContent": false
+  },
+  {
+    "capability": "live.participant.request",
+    "kind": "live.participant.requestGrant",
+    "readOnly": false,
+    "required": [
+      "capability",
+      "sessionId"
+    ],
+    "requiresConfirmation": false,
+    "untrustedContent": false
+  },
+  {
+    "capability": "live.participant.revoke",
+    "kind": "live.participant.revoke",
+    "readOnly": false,
+    "required": [
+      "principalId",
+      "sessionId"
+    ],
+    "requiresConfirmation": true,
+    "untrustedContent": false
+  },
+  {
+    "capability": "live.presentation.annotate",
+    "kind": "live.presentation.annotate",
+    "readOnly": false,
+    "required": [
+      "body",
+      "checkpointId",
+      "sessionId"
+    ],
+    "requiresConfirmation": false,
+    "untrustedContent": false
+  },
+  {
+    "capability": "live.presentation.annotate",
+    "kind": "live.presentation.bookmark",
+    "readOnly": false,
+    "required": [
+      "checkpointId",
+      "sessionId"
+    ],
+    "requiresConfirmation": false,
+    "untrustedContent": false
+  },
+  {
+    "capability": "live.presentation.read",
+    "kind": "live.presentation.checkpoint",
+    "readOnly": false,
+    "required": [
+      "sessionId"
+    ],
+    "requiresConfirmation": false,
+    "untrustedContent": false
+  },
+  {
+    "capability": "live.presentation.fork",
+    "kind": "live.presentation.forkAt",
+    "readOnly": false,
+    "required": [
+      "checkpointId",
+      "sessionId"
+    ],
+    "requiresConfirmation": false,
+    "untrustedContent": false
+  },
+  {
+    "capability": "live.presentation.publish",
+    "kind": "live.presentation.publish",
+    "readOnly": false,
+    "required": [
+      "actionId",
+      "sessionId"
+    ],
+    "requiresConfirmation": false,
+    "untrustedContent": false
+  },
+  {
+    "capability": "live.presentation.read",
+    "kind": "live.presentation.status",
+    "readOnly": true,
+    "required": [
+      "sessionId"
+    ],
+    "requiresConfirmation": false,
+    "untrustedContent": false
+  },
+  {
+    "capability": "live.session.manage",
+    "kind": "live.session.bindThread",
+    "readOnly": false,
+    "required": [
+      "sessionId",
+      "threadObjectId"
+    ],
+    "requiresConfirmation": false,
+    "untrustedContent": false
+  },
+  {
+    "capability": "live.presentation.configure",
+    "kind": "live.session.configure",
+    "readOnly": false,
+    "required": [
+      "sessionId"
+    ],
+    "requiresConfirmation": true,
+    "untrustedContent": false
+  },
+  {
+    "capability": "live.session.manage",
+    "kind": "live.session.consent",
+    "readOnly": false,
+    "required": [
+      "scopes",
+      "sessionId"
+    ],
+    "requiresConfirmation": false,
+    "untrustedContent": false
+  },
+  {
+    "capability": "live.session.create",
+    "kind": "live.session.create",
+    "readOnly": false,
+    "required": [
+      "spaceId"
+    ],
+    "requiresConfirmation": false,
+    "untrustedContent": false
+  },
+  {
+    "capability": "live.session.end",
+    "kind": "live.session.end",
+    "readOnly": false,
+    "required": [
+      "sessionId"
+    ],
+    "requiresConfirmation": true,
+    "untrustedContent": false
+  },
+  {
+    "capability": "live.session.read",
+    "kind": "live.session.list",
+    "readOnly": true,
+    "required": [],
+    "requiresConfirmation": false,
+    "untrustedContent": false
+  },
+  {
+    "capability": "live.session.manage",
+    "kind": "live.session.openLobby",
+    "readOnly": false,
+    "required": [
+      "sessionId"
+    ],
+    "requiresConfirmation": false,
+    "untrustedContent": false
+  },
+  {
+    "capability": "live.session.read",
+    "kind": "live.session.operations",
+    "readOnly": true,
+    "required": [
+      "sessionId"
+    ],
+    "requiresConfirmation": false,
+    "untrustedContent": false
+  },
+  {
+    "capability": "live.session.manage",
+    "kind": "live.session.pause",
+    "readOnly": false,
+    "required": [
+      "sessionId"
+    ],
+    "requiresConfirmation": false,
+    "untrustedContent": false
+  },
+  {
+    "capability": "live.session.read",
+    "kind": "live.session.preflight",
+    "readOnly": true,
+    "required": [
+      "sessionId"
+    ],
+    "requiresConfirmation": false,
+    "untrustedContent": false
+  },
+  {
+    "capability": "live.session.manage",
+    "kind": "live.session.resume",
+    "readOnly": false,
+    "required": [
+      "sessionId"
+    ],
+    "requiresConfirmation": false,
+    "untrustedContent": false
+  },
+  {
+    "capability": "live.session.seal",
+    "kind": "live.session.seal",
+    "readOnly": false,
+    "required": [
+      "sessionId"
+    ],
+    "requiresConfirmation": true,
+    "untrustedContent": false
+  },
+  {
+    "capability": "live.session.read",
+    "kind": "live.session.show",
+    "readOnly": true,
+    "required": [
+      "sessionId"
+    ],
+    "requiresConfirmation": false,
+    "untrustedContent": false
+  },
+  {
+    "capability": "live.session.manage",
+    "kind": "live.session.start",
+    "readOnly": false,
+    "required": [
+      "sessionId"
+    ],
+    "requiresConfirmation": true,
+    "untrustedContent": false
+  }
+]

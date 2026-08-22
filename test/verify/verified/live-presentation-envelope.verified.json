@@ -1,0 +1,33 @@
+{
+  "checkpoint": {
+    "checkpointId": "livechk_1354d552",
+    "policyDigest": "livepol_044a6e4c",
+    "presentationLogHead": "c65455ae",
+    "presentationOffsetMs": 30,
+    "schemaVersion": 1,
+    "sequence": 1,
+    "sessionId": "livesession-golden",
+    "sourceViewRef": "views/present"
+  },
+  "envelopes": [
+    {
+      "actionId": "view.open",
+      "actorId": "principal-golden",
+      "args": {
+        "view": "board"
+      },
+      "liveEventId": "liveevt_b0ae8cee",
+      "path": "packages/app/board.ts",
+      "payloadDigest": "194f63c4",
+      "policyDigest": "livepol_044a6e4c",
+      "presentationOffsetMs": 20,
+      "schemaVersion": 2,
+      "sequence": 1,
+      "sessionId": "livesession-golden",
+      "sourceEventIds": [
+        "event-golden"
+      ],
+      "sourceViewRef": "views/present"
+    }
+  ]
+}

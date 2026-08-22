@@ -1,0 +1,15 @@
+{
+  "attention": [
+    "presentation transport is degraded",
+    "2 capture(s) were refused before release",
+    "media: provider-disabled",
+    "captions: provider-disabled"
+  ],
+  "captionLabel": "provider-disabled",
+  "lifecycle": "live",
+  "mediaLabel": "provider-disabled",
+  "overall": "degraded",
+  "quarantinedCount": 2,
+  "releasedThroughSequence": 7,
+  "sessionId": "livesession-golden"
+}

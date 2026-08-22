@@ -1,0 +1,62 @@
+{
+  "bindingKinds": [
+    "thread",
+    "change"
+  ],
+  "completeness": [
+    "complete",
+    "semantic-only",
+    "media-missing",
+    "partial"
+  ],
+  "consentScopes": [
+    "semantic-capture",
+    "audio",
+    "camera",
+    "screen-share",
+    "captions",
+    "recording",
+    "external-egress"
+  ],
+  "eventTypes": [
+    "live.session.created",
+    "live.session.lifecycle",
+    "live.session.policy",
+    "live.session.consent",
+    "live.session.sealed",
+    "live.session.bound"
+  ],
+  "lifecycleCommands": [
+    "openLobby",
+    "start",
+    "pause",
+    "resume",
+    "end"
+  ],
+  "lifecycleStates": [
+    "draft",
+    "lobby",
+    "live",
+    "paused",
+    "ended",
+    "sealed"
+  ],
+  "policyChanges": [
+    "initial",
+    "narrowing",
+    "widening",
+    "mixed"
+  ],
+  "securityModes": [
+    "semantic-only",
+    "private-e2ee",
+    "private-recordable",
+    "public-broadcast"
+  ],
+  "visibilities": [
+    "private",
+    "community",
+    "unlisted",
+    "public"
+  ]
+}
