@@ -1666,7 +1666,9 @@ var CW_RUNTIME = (() => {
     createCommandReceipt: () => createCommandReceipt,
     createCommunityCommandBus: () => createCommunityCommandBus,
     createCommunityRuntime: () => createCommunityRuntime,
+    createInMemoryLiveTransport: () => createInMemoryLiveTransport,
     createLiveActionCatalog: () => createLiveActionCatalog,
+    createLivePresentationClient: () => createLivePresentationClient,
     createLivePresentationPublisher: () => createLivePresentationPublisher,
     createLiveSpaceCommandExtensions: () => createLiveSpaceCommandExtensions,
     createLiveSpectatorProjection: () => createLiveSpectatorProjection,
@@ -4409,6 +4411,234 @@ ${source ?? ""}`.split("\n");
     if (!context.objectsAvailable) return { kind: "refused", reason: "checkpoint state is not resident and no honest provider can hydrate it" };
     if (!context.policyPermitsCopy) return { kind: "refused", reason: "publication policy does not permit copying this state" };
     return { kind: "forkable", checkpointId: checkpoint.checkpointId, sourceViewRef: checkpoint.sourceViewRef };
+  }
+
+  // packages/Epoch.Community.Runtime/src/live/transport.ts
+  function createInMemoryLiveTransport(options = {}) {
+    const channels = /* @__PURE__ */ new Map();
+    function channel(sessionId) {
+      const existing = channels.get(sessionId);
+      if (existing !== void 0) return existing;
+      const created = { envelopes: [], subscribers: /* @__PURE__ */ new Set() };
+      channels.set(sessionId, created);
+      return created;
+    }
+    return {
+      snapshot(input) {
+        const session = channel(input.sessionId);
+        const after = input.afterSequence ?? session.checkpoint?.sequence ?? 0;
+        return Promise.resolve({
+          ...session.checkpoint !== void 0 && { checkpoint: session.checkpoint },
+          envelopes: session.envelopes.filter((envelope) => envelope.sequence > after),
+          releasedThroughSequence: session.envelopes.at(-1)?.sequence ?? 0
+        });
+      },
+      events(input) {
+        const session = channel(input.sessionId);
+        const limit = input.limit ?? 512;
+        return Promise.resolve(session.envelopes.filter((envelope) => envelope.sequence > input.afterSequence).slice(0, limit));
+      },
+      subscribe(input) {
+        const session = channel(input.sessionId);
+        const subscriber = {
+          onEnvelope: input.onEnvelope,
+          ...input.onStatus !== void 0 && { onStatus: input.onStatus }
+        };
+        session.subscribers.add(subscriber);
+        input.onStatus?.({ connection: "open" });
+        for (const envelope of session.envelopes) {
+          if (envelope.sequence > input.afterSequence) input.onEnvelope(envelope);
+        }
+        return {
+          close() {
+            session.subscribers.delete(subscriber);
+          }
+        };
+      },
+      push(sessionId, envelopes) {
+        const session = channel(sessionId);
+        for (const envelope of envelopes) {
+          const known = session.envelopes.some((item) => item.sequence === envelope.sequence);
+          if (!known) session.envelopes.push(envelope);
+          if (known && options.deliverDuplicates !== true) continue;
+          for (const subscriber of session.subscribers) subscriber.onEnvelope(envelope);
+        }
+        session.envelopes.sort((left, right) => left.sequence - right.sequence);
+      },
+      /** Frames the host released that never reached this subscriber — a real gap. */
+      withhold(sessionId, envelopes) {
+        const session = channel(sessionId);
+        for (const envelope of envelopes) {
+          if (!session.envelopes.some((item) => item.sequence === envelope.sequence)) {
+            session.envelopes.push(envelope);
+          }
+        }
+        session.envelopes.sort((left, right) => left.sequence - right.sequence);
+      },
+      recordCheckpoint(sessionId, checkpoint) {
+        channel(sessionId).checkpoint = checkpoint;
+      },
+      dropSubscribers(sessionId, reason) {
+        const session = channel(sessionId);
+        for (const subscriber of session.subscribers) {
+          subscriber.onStatus?.({ connection: "failed", reason });
+        }
+        session.subscribers.clear();
+      },
+      subscriberCount(sessionId) {
+        return channel(sessionId).subscribers.size;
+      }
+    };
+  }
+  var DEFAULT_BASE_BACKOFF_MS = 500;
+  var DEFAULT_MAX_BACKOFF_MS = 3e4;
+  var DEFAULT_MAX_RECONNECT_ATTEMPTS = 6;
+  function createLivePresentationClient(options) {
+    const projection = createLiveSpectatorProjection({ sessionId: options.sessionId });
+    const baseBackoffMs = options.baseBackoffMs ?? DEFAULT_BASE_BACKOFF_MS;
+    const maxBackoffMs = options.maxBackoffMs ?? DEFAULT_MAX_BACKOFF_MS;
+    const maxReconnectAttempts = options.maxReconnectAttempts ?? DEFAULT_MAX_RECONNECT_ATTEMPTS;
+    let connection = "idle";
+    let subscription;
+    let cancelRetry;
+    let lastCheckpointId;
+    let gapRecoveries = 0;
+    let reconnectAttempts = 0;
+    let stale = false;
+    let stopped = false;
+    let recovering = false;
+    function snapshotState() {
+      const state = projection.state();
+      return {
+        connection,
+        lastSequence: state.lastSequence,
+        ...lastCheckpointId !== void 0 && { lastCheckpointId },
+        appliedCount: state.appliedCount,
+        quarantinedCount: state.quarantinedCount,
+        gapRecoveries,
+        reconnectAttempts,
+        stale
+      };
+    }
+    function emit() {
+      const state = snapshotState();
+      options.onChange?.(state);
+      return state;
+    }
+    function setConnection(next) {
+      connection = next;
+      emit();
+    }
+    async function hydrate() {
+      const snapshot = await options.transport.snapshot({
+        sessionId: options.sessionId,
+        afterSequence: projection.state().lastSequence
+      });
+      if (snapshot.checkpoint !== void 0) {
+        lastCheckpointId = snapshot.checkpoint.checkpointId;
+        projection.resyncFrom(snapshot.checkpoint, snapshot.envelopes);
+      } else {
+        for (const envelope of snapshot.envelopes) projection.apply(envelope);
+      }
+      stale = projection.state().lastSequence < snapshot.releasedThroughSequence;
+    }
+    async function recoverGap() {
+      if (recovering || stopped) return;
+      recovering = true;
+      try {
+        gapRecoveries += 1;
+        setConnection("recovering");
+        const missing = await options.transport.events({
+          sessionId: options.sessionId,
+          afterSequence: projection.state().lastSequence
+        });
+        for (const envelope of missing) projection.apply(envelope);
+        if (projection.state().pendingCount > 0) await hydrate();
+        stale = projection.state().pendingCount > 0;
+        setConnection(subscription === void 0 ? "idle" : "open");
+      } finally {
+        recovering = false;
+      }
+    }
+    function handle(envelope) {
+      const result = projection.apply(envelope);
+      if (result.kind === "gap") {
+        void recoverGap();
+        return;
+      }
+      if (result.kind === "applied") stale = false;
+      emit();
+    }
+    function scheduleReconnect(reason) {
+      if (stopped) return;
+      if (reconnectAttempts >= maxReconnectAttempts) {
+        connection = "failed";
+        stale = true;
+        emit();
+        return;
+      }
+      reconnectAttempts += 1;
+      const jitter = (options.jitter ?? (() => 0.5))();
+      const delay = Math.min(maxBackoffMs, baseBackoffMs * 2 ** (reconnectAttempts - 1)) * (0.5 + jitter / 2);
+      connection = "recovering";
+      stale = true;
+      emit();
+      cancelRetry = options.schedule(Math.round(delay), () => {
+        void reconnect(reason);
+      });
+    }
+    async function reconnect(reason) {
+      if (stopped) return;
+      try {
+        await hydrate();
+        openSubscription();
+        reconnectAttempts = 0;
+      } catch {
+        scheduleReconnect(reason);
+      }
+    }
+    function openSubscription() {
+      subscription?.close();
+      subscription = options.transport.subscribe({
+        sessionId: options.sessionId,
+        afterSequence: projection.state().lastSequence,
+        onEnvelope: handle,
+        onStatus: (status) => {
+          if (status.connection === "failed" || status.connection === "closed") {
+            subscription = void 0;
+            scheduleReconnect(status.reason ?? status.connection);
+            return;
+          }
+          setConnection(status.connection);
+        }
+      });
+      setConnection("open");
+    }
+    return {
+      async start() {
+        setConnection("connecting");
+        await hydrate();
+        openSubscription();
+        return emit();
+      },
+      async resync() {
+        await hydrate();
+        return emit();
+      },
+      projection() {
+        return projection;
+      },
+      state() {
+        return snapshotState();
+      },
+      stop() {
+        stopped = true;
+        cancelRetry?.();
+        subscription?.close();
+        subscription = void 0;
+        setConnection("closed");
+      }
+    };
   }
 
   // packages/Epoch.Community.Runtime/src/live/commands.ts
