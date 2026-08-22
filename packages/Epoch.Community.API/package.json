@@ -12,6 +12,7 @@
   "dependencies": {
     "@epoch/community-core": "0.1.0",
     "@epoch/community-graphql": "0.1.0",
-    "@epoch/community-runtime": "0.1.0"
+    "@epoch/community-runtime": "0.1.0",
+    "livekit-server-sdk": "2.18.0"
   }
 }

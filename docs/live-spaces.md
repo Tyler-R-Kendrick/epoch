@@ -30,7 +30,7 @@ for the executable persona journeys.
 | Media token derivation after Epoch grant, role, policy, and consent checks | Implemented (`@epoch/community-api`, honest `unavailable` with no gateway) |
 | Provider webhook ingress: raw-body verification, size and content-type bounds, session binding, dedup, command-path entry | Implemented (`@epoch/community-api`) |
 | Community Web host/spectator UI, telemetry, moderation service | Not yet implemented |
-| LiveKit adapter | Not implemented; `livekit` is a declared provider kind only, and no media SDK dependency exists |
+| LiveKit adapter behind the provider-neutral port: opaque rooms, least-privilege tokens, participant removal, egress gating, webhook verification | Implemented and labelled **experimental** (`@epoch/community-api`); never validated against a live LiveKit deployment from this repository |
 
 `semantic-only` is a complete product: every scenario, test, and command in
 this slice runs with the media provider disabled and no third-party
@@ -61,6 +61,8 @@ credentials.
                               cursor; every read and write is a bus command
   live/live-routes.ts         fetch handler: sessions, commands, join,
                               checkpoint, events, SSE stream
+  live/livekit-media-provider.ts  optional LiveKit adapter, SDK loaded by
+                              dynamic import only when credentials exist
 ```
 
 ## Hosted transport
@@ -238,6 +240,52 @@ flooding, join-link guessing, SSE credential leakage, cross-session token
 replay against a real provider) are recorded as revisit criteria in
 ADR-0059 and must be addressed before that surface ships.
 
+## The LiveKit adapter
+
+The adapter implements the same provider-neutral port the fake does, so nothing
+above it can tell which is configured except through capability labels.
+
+- **The SDK is optional and lazy.** `livekit-server-sdk` is imported through a
+  dynamic `import()` inside the client factory, so a semantic-only deployment
+  never resolves it, no browser bundle contains it, and a missing module
+  degrades to a refusal rather than a boot crash.
+- **Configuration is reported, never guessed.** No credentials means
+  `provider-disabled`. Partial credentials means `unavailable` and every
+  operation refuses — there is no weaker fallback path.
+- **The label is `experimental`, not `production`.** Nothing in this repository
+  has run the adapter against a live LiveKit deployment. It will stay
+  `experimental` until someone does and records the result.
+- **Rooms are opaque.** A room name is `epoch-<32 hex>` derived from a digest of
+  the session id, so a provider dashboard learns nothing about the work.
+- **Tokens can only lose privilege.** `roomJoin` is scoped to one room, the
+  grant carries exactly the sources that survived the Epoch checks,
+  `canPublishData` is always false, and `roomAdmin`/`roomRecord` never reach a
+  browser participant. TTLs are clamped to the adapter's own ceiling regardless
+  of what the caller asked for, and a token for a room bound to another session
+  is not issuable.
+- **Egress cannot be pointed at an attacker.** Destinations are pre-approved
+  opaque `egress-ref:` keys resolved from server configuration; a caller cannot
+  name a URL, and the operator's real URL is never echoed back. With no egress
+  service deployed, recording and egress are `unavailable` and refuse.
+- **Webhook verification uses the official receiver** over the raw body,
+  because the body-hash encoding is not public and a hand-rolled check could
+  differ from the server in either direction. Events are bound to a room this
+  deployment owns and deduplicated by provider event id.
+- **Errors are normalized.** Provider messages are redacted of the API key and
+  secret and truncated before they travel.
+- **Egress output construction is deliberately unwired.** LiveKit's composite
+  egress takes a typed output message whose shape depends on what an operator
+  deployed and where recordings go. Guessing that shape would mean shipping an
+  unvalidated construction exactly where recordings leave the trust boundary,
+  so the official factory refuses and a deployment must supply an egress
+  adapter before enabling it. Stopping an egress is implemented, because
+  stopping something is safe to get right without a destination.
+
+Automated tests inject client doubles for every network-touching call, so CI
+never reaches a LiveKit server and no test needs credentials. The token tests
+deliberately use the *real* SDK — no network required — so the assertions are
+about the bytes LiveKit would actually receive.
+
 ## Honest limitations
 
 - Released public bytes may be copied by spectators and **cannot be
@@ -247,9 +295,15 @@ ADR-0059 and must be addressed before that surface ships.
   every jurisdiction.
 - The fixed-width cipher hides value length but not the presence or count of
   matches inside a string.
-- The fake media provider demonstrates the contract; it proves nothing about
-  a production provider's behavior. No LiveKit smoke test exists because no
-  LiveKit adapter exists.
+- The fake media provider demonstrates the contract; it proves nothing about a
+  production provider's behavior.
+- The LiveKit adapter is `experimental`. Its token minting and webhook
+  verification are exercised against the official SDK, but no automated test
+  reaches a running LiveKit server, so end-to-end media delivery, participant
+  removal, and egress remain unvalidated here. A manual smoke procedure against
+  a real deployment is required before any deployment relabels it.
+- Self-hosted LiveKit egress is a separate operational dependency. Until an
+  operator deploys it, recording and egress report `unavailable` and refuse.
 
 ## Configuration
 
