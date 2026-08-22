@@ -3277,12 +3277,40 @@ async function openMembersRoll(path: string): Promise<void> {
     (window as { CW_APP: { navigate(path: string, options?: JsonObject): void } })
       .CW_APP.navigate(target, { keepCli: true });
   }, path);
-  await page.waitForFunction((target: string) => {
-    // SAFETY: The scenario fixture establishes this test-only contract before the value is consumed.
-    const runtime = (window as { CW_MAP?: { findMember(handle: string): { state?: string } | null } });
-    const items = document.querySelectorAll(`[data-blade-path="${target}"] .cn-item[data-key]`);
-    return !!runtime.CW_MAP && items.length > 0;
-  }, path, { timeout: 10_000 });
+  try {
+    // The ceiling matches this repo's convention for waits that have to survive
+    // a loaded runner (90s, as in the browser suite: "CI runners under load
+    // have flaked on the 30s default"). Standalone this settles in about three
+    // seconds; the ceiling only ever costs anything on a run that was going to
+    // fail anyway, and 10s was low enough to lose to a full instrumented lane.
+    await page.waitForFunction((target: string) => {
+      // SAFETY: The scenario fixture establishes this test-only contract before the value is consumed.
+      const runtime = (window as { CW_MAP?: { findMember(handle: string): { state?: string } | null } });
+      const items = document.querySelectorAll(`[data-blade-path="${target}"] .cn-item[data-key]`);
+      return !!runtime.CW_MAP && items.length > 0;
+    }, path, { timeout: 90_000 });
+  } catch {
+    // A bare "Timeout exceeded" cannot say which half of the condition was
+    // unmet, so reading it means re-running the whole lane to find out — which
+    // is what a reader does when this aborts a coverage run and the failure
+    // arrives labelled "Coverage". Report what was actually observed.
+    const observed = await page.evaluate((target: string) => {
+      // SAFETY: The scenario fixture establishes this test-only contract before the value is consumed.
+      const runtime = (window as {
+        CW_MAP?: unknown;
+        CW_APP?: { state?: { path?: string } };
+      });
+      return {
+        hasMap: !!runtime.CW_MAP,
+        keyedItems: document.querySelectorAll(`[data-blade-path="${target}"] .cn-item[data-key]`).length,
+        anyItems: document.querySelectorAll(`[data-blade-path="${target}"] .cn-item`).length,
+        blades: Array.from(document.querySelectorAll("[data-blade-path]"))
+          .map((el) => el.getAttribute("data-blade-path") ?? ""),
+        path: runtime.CW_APP?.state?.path ?? null,
+      };
+    }, path);
+    throw new Error(`members roll never settled at ${path}: ${JSON.stringify(observed)}`);
+  }
 }
 
 When("I open the board members roll", async function () {
