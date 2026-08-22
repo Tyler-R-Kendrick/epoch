@@ -289,9 +289,9 @@ about the bytes LiveKit would actually receive.
 
 ## Adapter parity
 
-The CLI, the SDK, WebMCP, the HTTP routes, and (later) the browser are five
-spellings of one command bus. Each translates argument shapes; none decides
-what a command means or who may run it.
+The CLI, the SDK, WebMCP, the HTTP routes, and the browser are five spellings
+of one command bus. Each translates argument shapes; none decides what a
+command means or who may run it.
 
 | Surface | Entry | Confirmation |
 |---|---|---|
@@ -299,6 +299,7 @@ what a command means or who may run it.
 | SDK | `createLiveSpaceClient(runtime)` | `{ confirmed: true }` argument |
 | WebMCP | catalog-projected tools | host declares `confirmedKinds` after real interaction |
 | HTTP | `POST …/commands` | `confirmed` in the body |
+| Community Web | `live.*` registered actions | pointer or key origin only |
 
 Consequences worth stating:
 
@@ -321,6 +322,44 @@ Consequences worth stating:
   from the CLI; only a host that satisfied confirmation through real
   interaction can pass it on.
 
+## The board as host
+
+Community Web hosts through the same bus and adds nothing of its own. The
+panel asks and reports; every decision it displays was made underneath it.
+
+**Preflight is the product, not a nicety.** The failure mode of a Live Space is
+silent and unrecoverable: a pixel stream leaks by showing, but this leaks by
+publishing an action whose arguments carry something the host forgot was in
+scope, to an audience that has already copied it. So the board runs the same
+policy object and the same sanitizer configuration the publisher will use
+after start, and renders the result as the allow-list a spectator would
+actually receive. Denials are listed before allowances, because a host reading
+the report is looking for the thing that should not be in it.
+
+**The safety chrome is static.** The region, its heading, and the standing
+statement — *published actions and allowed paths, never your screen, never
+your keystrokes; released bytes cannot be recalled* — live in `board.html`
+beside the recovery controls, not in a `data-cw-slot`. A slot is filled from a
+manifest, and a manifest a model wrote could place nothing there. What is
+published, and to whom, is not a layout question.
+
+**Controls follow the lifecycle a receipt reported.** A control the current
+state does not permit is absent rather than disabled: a greyed Start beside a
+failing preflight invites a second click, and the honest statement is that
+there is nothing to click yet. Start and end take confirmation from a pointer
+or keyboard origin only — an agent reaching the same action through WebMCP
+arrives with a different origin and gets the bus's confirmation refusal,
+because an audience appearing is a decision a person makes.
+
+**A browser with no deployment says so.** A Live Session is signed against a
+Space that a deployment owns, so the board is a client of one or it is not
+hosting at all. There is no in-memory stand-in, deliberately: a local fake
+would look identical to the real thing right up to the moment someone believed
+an audience was watching. With no port configured the command family is still
+registered and answers `unavailable` with the reason, and the panel shows that
+reason and offers no controls. A missing command would be indistinguishable
+from a broken page.
+
 ## Honest limitations
 
 - Released public bytes may be copied by spectators and **cannot be
@@ -339,6 +378,12 @@ Consequences worth stating:
   a real deployment is required before any deployment relabels it.
 - Self-hosted LiveKit egress is a separate operational dependency. Until an
   operator deploys it, recording and egress report `unavailable` and refuse.
+- The board hosts against a configured deployment only. No deployment is
+  configured in the shipped page, so the honest steady state of Community Web
+  today is `unavailable` — the panel is real and the refusal is real, but no
+  browser has yet hosted a session end to end.
+- The board is a host surface. Spectator viewing, replay, and fork-from-
+  checkpoint are not on it yet; those reach the same bus from the CLI and SDK.
 
 ## Configuration
 

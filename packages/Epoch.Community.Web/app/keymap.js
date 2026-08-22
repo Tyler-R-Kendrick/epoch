@@ -58,6 +58,7 @@
         "history.back": ["Alt+Left"],
         "history.forward": ["Alt+Right"],
         "stream.protect": ["Ctrl+Shift+.", "Ctrl+Shift+>"],
+        "live.preflight": ["Ctrl+Shift+L"],
       },
     },
     vim: {
@@ -93,6 +94,7 @@
         "history.back": ["Alt+Left"],
         "history.forward": ["Alt+Right"],
         "stream.protect": ["Ctrl+Shift+.", "Ctrl+Shift+>"],
+        "live.preflight": ["Ctrl+Shift+L"],
       },
     },
     // Yazi mgr defaults: https://yazi-rs.github.io/docs/configuration/keymap/
@@ -129,6 +131,7 @@
         "history.back": ["Shift+H", "Alt+Left"],
         "history.forward": ["Shift+L", "Alt+Right"],
         "stream.protect": ["Ctrl+Shift+.", "Ctrl+Shift+>"],
+        "live.preflight": ["Ctrl+Shift+L"],
       },
     },
     // Emacs motion/edit culture: C-n/p/f/b, C-s search, C-g cancel, M-x execute.
@@ -165,6 +168,7 @@
         "history.back": ["Alt+Left"],
         "history.forward": ["Alt+Right"],
         "stream.protect": ["Ctrl+Shift+.", "Ctrl+Shift+>"],
+        "live.preflight": ["Ctrl+Shift+L"],
       },
     },
     // Lazygit universal/files defaults: j/k, h/l panels, / filter, x discard,
@@ -201,6 +205,7 @@
         "history.back": ["Alt+Left"],
         "history.forward": ["Alt+Right"],
         "stream.protect": ["Ctrl+Shift+.", "Ctrl+Shift+>"],
+        "live.preflight": ["Ctrl+Shift+L"],
       },
     },
   };

@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { After, Given, Then, When } from "@cucumber/cucumber";
@@ -16,11 +16,16 @@ import {
   createLiveActionCatalog,
   createLivePresentationPublisher,
   createLiveSpectatorProjection,
+  createCommunityRuntime,
+  createLiveSpaceCommandExtensions,
   createLocalLiveSpacePort,
   EpochCommandError,
   normalizeLivePublicationPolicy,
+  type CommunityCommandBus,
+  type EpochCommandReceipt,
   type LiveApplyResult,
   type LivePresentationEnvelopeV2,
+  type LivePreflightReport,
   type LivePresentationPublisher,
   type LiveSessionSnapshot,
   type LiveSpaceApplicationPort,
@@ -57,6 +62,9 @@ interface LiveWorld {
   lateJoiner?: LiveSpectatorProjection;
   applyResults?: readonly LiveApplyResult[];
   mediaReadiness?: LiveMediaReadiness;
+  preflight?: LivePreflightReport;
+  boardBus?: CommunityCommandBus;
+  boardReceipt?: EpochCommandReceipt;
 }
 
 let world: LiveWorld = { createdDirs: [] };
@@ -110,6 +118,22 @@ function sessionId(): string {
 function snapshotOf(record: { readonly data: unknown }): LiveSessionSnapshot {
   // SAFETY: the local live space port returns LiveSessionSnapshot data for session commands.
   return record.data as LiveSessionSnapshot;
+}
+
+interface LiveRefusal {
+  readonly refused: string;
+  readonly reason: string;
+}
+
+function refusalOf(record: { readonly data: unknown }): LiveRefusal {
+  // SAFETY: with no port configured every live command answers this shape.
+  const data = record.data as LiveRefusal;
+  return { refused: String(data.refused), reason: String(data.reason) };
+}
+
+function preflightOf(record: { readonly data: unknown }): LivePreflightReport {
+  // SAFETY: the local live space port returns LivePreflightReport data for live.session.preflight.
+  return record.data as LivePreflightReport;
 }
 
 async function publishAs(actor: string, actionId: string, args: Readonly<Record<string, string | { readonly [key: string]: string }>>, path?: string): Promise<PublishDecisionData> {
@@ -448,4 +472,103 @@ Then("an end-to-end-encrypted session refuses provider recording and egress", fu
     securityMode: "private-e2ee", recording: true, externalEgress: true, serverTranscription: false,
   });
   assert.equal(decision.kind, "refused");
+});
+
+// -------------------------------------------------------- board host surface
+
+/**
+ * The board is a renderer over the shared bus, so these steps drive the bus the
+ * board drives and read the receipts it renders. What is asserted about the
+ * page itself is only what the page authors rather than renders: the standing
+ * statement about publication, which no revision may rewrite.
+ */
+const BOARD_APP = join(process.cwd(), "packages/Epoch.Community.Web/app");
+
+function boardSource(file: string): string {
+  return readFileSync(join(BOARD_APP, file), "utf8");
+}
+
+Given("a host is preparing a live session on the board", async function () {
+  world.port = newSemanticPort();
+  const created = snapshotOf(await world.port.createSession({
+    spaceId: "space-live", actor: HOST,
+    policy: {
+      visibility: "community",
+      presentationViewRef: "views/present",
+      allowedPathPatterns: ["packages/app/**"],
+      allowedActionIds: ["view.open"],
+    },
+  }));
+  world.sessionId = created.sessionId;
+});
+
+When("the host runs preflight", async function () {
+  const port = world.port ?? (() => { throw new Error("no port in scope"); })();
+  const sessionId = world.sessionId ?? (() => { throw new Error("no session in scope"); })();
+  world.preflight = preflightOf(await port.preflight(sessionId));
+});
+
+Then("the board names the paths and actions an audience would receive", function () {
+  const report = world.preflight ?? (() => { throw new Error("no preflight in scope"); })();
+  assert.deepEqual(report.allowedPathPatterns, ["packages/app/**"]);
+  assert.deepEqual(report.allowedActionIds, ["view.open"]);
+});
+
+Then("the board names what is never published regardless of policy", function () {
+  const report = world.preflight ?? (() => { throw new Error("no preflight in scope"); })();
+  assert.ok(report.immutableDenials.length > 0, "an allow-list still has paths it can never widen to");
+});
+
+Then("start stays unavailable while preflight reports an error", async function () {
+  const report = world.preflight ?? (() => { throw new Error("no preflight in scope"); })();
+  const port = world.port ?? (() => { throw new Error("no port in scope"); })();
+  const sessionId = world.sessionId ?? (() => { throw new Error("no session in scope"); })();
+  // Consent has not been recorded, so preflight fails and start must too.
+  assert.equal(report.startAllowed, false);
+  assert.ok(report.errors.length > 0, "a refusal must say why");
+  await assert.rejects(
+    async () => { await port.lifecycle({ sessionId, actor: HOST, command: "start" }); },
+    EpochCommandError,
+  );
+});
+
+Given("the board has no Live Space deployment configured", function () {
+  world.boardBus = createCommunityRuntime({
+    namespace: "board-feature",
+    actor: HOST,
+    policies: { capabilities: ["*"] },
+    extensions: createLiveSpaceCommandExtensions(undefined, () => HOST),
+  }).commands;
+});
+
+When("the host opens a live session on the board", async function () {
+  const bus = world.boardBus ?? (() => { throw new Error("no board bus in scope"); })();
+  world.boardReceipt = await bus.execute({ kind: "live.session.show", input: { sessionId: "live-anything" } });
+});
+
+Then("the board reports the session unavailable and names what is missing", function () {
+  const receipt = world.boardReceipt ?? (() => { throw new Error("no receipt in scope"); })();
+  const refusal = refusalOf(receipt);
+  assert.equal(refusal.refused, "unavailable", "the bus must answer, not throw");
+  // "unavailable" alone is not an answer — the reason has to name what is
+  // missing, or an operator cannot tell a misconfiguration from a defect.
+  assert.match(refusal.reason, /port|configur/u);
+});
+
+Then("the board offers no publishing controls", function () {
+  // Controls are built from the lifecycle a receipt reported. With no session
+  // there is no lifecycle, so the row is empty rather than hopefully disabled.
+  const live = boardSource("live.js");
+  assert.match(live, /if \(noteKind === "unavailable"\) return "";/u,
+    "an unavailable session must render no controls at all");
+});
+
+Then("the board still states that publication is semantic-only and cannot be recalled", function () {
+  const board = boardSource("board.html");
+  const creed = /<p[^>]*data-live-creed[^>]*>([\s\S]*?)<\/p>/u.exec(board)
+    ?? (() => { throw new Error("the board must author a publication statement"); })();
+  const text = creed[1].replace(/\s+/gu, " ").trim();
+  assert.match(text, /never your screen/iu);
+  assert.match(text, /never your keystrokes/iu);
+  assert.match(text, /cannot be recalled/iu);
 });
