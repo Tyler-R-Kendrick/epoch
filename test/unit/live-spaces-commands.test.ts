@@ -22,6 +22,7 @@ export async function runLiveSpacesCommandTests(): Promise<void> {
   await adapterSourcesYieldEquivalentReceipts();
   await unavailablePortReturnsHonestReceipt();
   await participantAuthorityIsEnforcedByThePort();
+  await observersCannotRecordCheckpoints();
 }
 
 const HOST = "principal-host";
@@ -276,4 +277,51 @@ async function participantAuthorityIsEnforcedByThePort(): Promise<void> {
   // Non-owners hold no management authority.
   await assert.rejects(async () => { await port.lifecycle({ sessionId, actor: "principal-guest", command: "end" }); },
     (error: Error) => error instanceof EpochCommandError && error.code === "policy-denied");
+}
+
+/**
+ * A checkpoint is a mark in the shared stream, not a private reading position.
+ *
+ * The command previously accepted any active participant and declared a read
+ * capability, so an observer could append checkpoints to a session they were
+ * only watching — into the log spectators resync and fork from, with no bound
+ * on how many. Watching does not write to what everyone else is watching.
+ */
+async function observersCannotRecordCheckpoints(): Promise<void> {
+  const port = portOf();
+  const created = await port.createSession({ spaceId: "space-1", actor: HOST, policy: CREATE_INPUT.policy });
+  // SAFETY: the local port returns LiveSessionSnapshot data for createSession.
+  const sessionId = (created.data as LiveSessionSnapshot).sessionId;
+  await port.recordConsent({ sessionId, actor: HOST, scopes: ["semantic-capture"] });
+  await port.lifecycle({ sessionId, actor: HOST, command: "openLobby" });
+  await port.lifecycle({ sessionId, actor: HOST, command: "start" });
+  await port.join({ sessionId, actor: "principal-guest" });
+
+  await assert.rejects(
+    async () => { await port.checkpoint({ sessionId, actor: "principal-guest" }); },
+    (error: Error) => error instanceof EpochCommandError && error.code === "policy-denied",
+    "an observer must not be able to record a checkpoint",
+  );
+
+  // A collaborator may: the gate is the role, not the act.
+  await port.grant({ sessionId, actor: HOST, principalId: "principal-guest", role: "collaborator" });
+  const collaborator = await port.checkpoint({ sessionId, actor: "principal-guest" });
+  // SAFETY: the local port returns checkpoint data.
+  const recorded = collaborator.data as { checkpointId: string };
+  assert.match(recorded.checkpointId, /^livechk_/u, "a collaborator's checkpoint is recorded");
+
+  // And the host always may. Marking the same stream position returns the
+  // same checkpoint rather than minting a second one — a checkpoint is a
+  // point, and the point has not moved.
+  const host = await port.checkpoint({ sessionId, actor: HOST });
+  // SAFETY: the local port returns checkpoint data.
+  assert.deepEqual(host.data, collaborator.data,
+    "the same stream position must yield the identical checkpoint, offset included");
+
+  // Revocation closes it again: a stale client cannot keep writing marks.
+  await port.revoke({ sessionId, actor: HOST, principalId: "principal-guest" });
+  await assert.rejects(
+    async () => { await port.checkpoint({ sessionId, actor: "principal-guest" }); },
+    (error: Error) => error instanceof EpochCommandError && error.code === "policy-denied",
+  );
 }

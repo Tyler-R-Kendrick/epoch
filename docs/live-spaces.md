@@ -525,6 +525,25 @@ accepted unread is worse than no golden, because it launders the change.
 behind them. Nothing here replaces those; the generated lanes exist because a
 security filter is only as good as the shapes it has seen.
 
+### What the characterization lane found
+
+Reading the command-catalog golden showed `live.presentation.checkpoint`
+declaring `capability: "live.presentation.read"` while `readOnly: false`. Its
+handler gated on "is an active participant", where publishing rejects
+observers outright — so an observer could append checkpoints to a session they
+were only watching, into the log spectators resync and fork from, with no bound
+on how many. A checkpoint is a mark in the shared stream, not a private reading
+position, so it is now authorized exactly like a publication.
+
+Fixing that surfaced a second defect in the same command. The checkpoint id is
+derived from the stream position — session, sequence, log head — so marking one
+position twice collides by construction, and the second marking used to be
+appended anyway with a later offset. An already-issued checkpoint's content
+therefore changed underneath anything that had recorded it, and the sealed
+manifest listed the same id twice. Marking a position that is already marked
+now returns the existing checkpoint; advancing the stream is what makes a new
+one.
+
 ### What the property lane found
 
 The value-shaped secret check recognised exactly two things: a PEM private-key
