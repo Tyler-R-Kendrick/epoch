@@ -99,14 +99,21 @@ export function pathMatchesLivePattern(path: string, pattern: string): boolean {
     const prefix = cleaned.slice(0, -3);
     if (path === prefix || path.startsWith(`${prefix}/`)) return true;
   }
+  // Wildcards become placeholders first, then the remainder is regex-escaped,
+  // then the placeholders expand. `?` must take part in that: left alone it
+  // survived escaping as a quantifier over the preceding character, so a deny
+  // rule spelled `**/secret?.txt` released `secrets.txt` and hid `secre.txt`.
+  // It is a single-character glob, and like `*` it never spans a separator.
   const escaped = cleaned
     .replaceAll("**/", "\0dbl\0")
     .replaceAll("**", "\0all\0")
     .replaceAll("*", "\0one\0")
+    .replaceAll("?", "\0chr\0")
     .replaceAll(/[.+^${}()|[\]\\]/gu, "\\$&")
     .replaceAll("\0dbl\0", "(?:.*/)?")
     .replaceAll("\0all\0", ".*")
-    .replaceAll("\0one\0", "[^/]*");
+    .replaceAll("\0one\0", "[^/]*")
+    .replaceAll("\0chr\0", "[^/]");
   return new RegExp(`^${escaped}$`, "u").test(path);
 }
 

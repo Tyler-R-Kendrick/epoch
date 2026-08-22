@@ -7,6 +7,7 @@ import {
   isSecretKeyName,
   nextLiveLifecycle,
   normalizeLivePublicationPolicy,
+  pathMatchesLivePattern,
   runLivePreflight,
   sanitizeLiveArgs,
   type LivePublicationPolicy,
@@ -32,6 +33,7 @@ export function runLiveSpacesPolicyTests(): void {
   policyChangeClassificationDrivesConfirmation();
   immutableDenyBaselineCannotBeNegated();
   allowListStartsFromNothingVisible();
+  singleCharacterGlobIsNotAQuantifier();
   recursiveSanitizerCatchesNestedSecrets();
   credentialsAreRefusedUnderAnyKeyName();
   recursiveSanitizerRejectsHostileValues();
@@ -364,4 +366,35 @@ function credentialsAreRefusedUnderAnyKeyName(): void {
     assert.equal(sanitizeLiveArgs({ view: text }, context).kind, "emit",
       `refused ordinary text as if it were a credential: ${text}`);
   }
+}
+
+/**
+ * `?` in a path pattern is a single-character glob, not a regular-expression
+ * quantifier.
+ *
+ * The escape pass converted `*` and `**` but left `?` alone, so it reached the
+ * compiled expression as a quantifier over the preceding character. A deny rule
+ * written `**\/secret?.txt` to hide `secrets.txt` therefore published it, and
+ * hid `secre.txt` instead — a deny rule that fails open on exactly the file it
+ * names. Assert the glob meaning in both directions, and on the deny path that
+ * makes it a disclosure rather than a curiosity.
+ */
+function singleCharacterGlobIsNotAQuantifier(): void {
+  // `?` stands for exactly one character.
+  assert.equal(pathMatchesLivePattern("notes.txt", "note?.txt"), true);
+  assert.equal(pathMatchesLivePattern("secrets.txt", "**/secret?.txt"), true);
+
+  // It is not optional, and it is not a quantifier over what precedes it.
+  assert.equal(pathMatchesLivePattern("note.txt", "note?.txt"), false);
+  assert.equal(pathMatchesLivePattern("secre.txt", "**/secret?.txt"), false);
+  assert.equal(pathMatchesLivePattern("secret.txt", "**/secret?.txt"), false);
+
+  // One character, never a separator: `?` must not span a path boundary.
+  assert.equal(pathMatchesLivePattern("a/b", "a?b"), false);
+
+  // The consequence that matters: a deny rule naming the file must refuse it.
+  const policy = policyOf({ allowedPathPatterns: ["**"], deniedPathPatterns: ["**/secret?.txt"] });
+  assert.deepEqual(evaluateLivePath("secrets.txt", policy),
+    { kind: "deny", reason: "not-in-presentation-view" },
+    "a deny rule failed open on the file it names");
 }

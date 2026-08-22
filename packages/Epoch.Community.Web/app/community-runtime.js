@@ -4105,7 +4105,7 @@ ${source ?? ""}`.split("\n");
       const prefix = cleaned.slice(0, -3);
       if (path === prefix || path.startsWith(`${prefix}/`)) return true;
     }
-    const escaped = cleaned.replaceAll("**/", "\0dbl\0").replaceAll("**", "\0all\0").replaceAll("*", "\0one\0").replaceAll(/[.+^${}()|[\]\\]/gu, "\\$&").replaceAll("\0dbl\0", "(?:.*/)?").replaceAll("\0all\0", ".*").replaceAll("\0one\0", "[^/]*");
+    const escaped = cleaned.replaceAll("**/", "\0dbl\0").replaceAll("**", "\0all\0").replaceAll("*", "\0one\0").replaceAll("?", "\0chr\0").replaceAll(/[.+^${}()|[\]\\]/gu, "\\$&").replaceAll("\0dbl\0", "(?:.*/)?").replaceAll("\0all\0", ".*").replaceAll("\0one\0", "[^/]*").replaceAll("\0chr\0", "[^/]");
     return new RegExp(`^${escaped}$`, "u").test(path);
   }
   function normalizeLivePattern(pattern) {
