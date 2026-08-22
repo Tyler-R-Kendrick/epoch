@@ -221,6 +221,7 @@
     "mutation:xmpp": "node test/mutation/run-xmpp-mutants.mjs",
     "mutation:protocol": "node test/mutation/run-protocol-mutants.mjs",
     "mutation:community-web": "node test/mutation/run-community-web-mutants.mjs",
+    "mutation:live-spaces": "node test/mutation/run-live-spaces-mutants.mjs",
     "fuzz:regression": "npm run build -- --pretty false && node dist/test/fuzz/regressions/corpus-regression.test.js && node dist/test/fuzz/regressions/jazzer-swhid-forge-malformed.test.js",
     "fuzz:promote": "node test/fuzz/promote.mjs",
     "change-graph:benchmark": "node benchmarks/change-graph-convergence.mjs",

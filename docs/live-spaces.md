@@ -521,6 +521,18 @@ nobody meant to publish is on a dashboard. Refresh with
 `EPOCH_UPDATE_VERIFIED=1` and read the diff before accepting it — a golden
 accepted unread is worse than no golden, because it launders the change.
 
+**Mutation.** `npm run mutation:live-spaces` weakens one guarantee at a time —
+drops `**/.env` from the immutable deny baseline, ignores secret key names,
+ignores secret value shapes, accepts unverified captures, blinds the spectator
+to gaps, un-idempotents the checkpoint, and re-permits observers to publish and
+to checkpoint — rebuilds, and requires the Live Spaces suites to fail each time.
+All eight are killed.
+
+Coverage measures which lines ran. This measures whether anything would have
+noticed them running differently, which is the distinction that matters for a
+publication filter: a test can execute every branch of a rule without asserting
+the rule holds. A surviving mutant is a guarantee nothing is really testing.
+
 **Scenario (Gherkin) and unit tests** carry the cases with a named persona
 behind them. Nothing here replaces those; the generated lanes exist because a
 security filter is only as good as the shapes it has seen.
