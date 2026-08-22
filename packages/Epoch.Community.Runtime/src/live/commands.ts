@@ -113,89 +113,96 @@ export interface LiveSessionSnapshot {
   readonly sealed: boolean;
 }
 
+/**
+ * Every method may answer synchronously or with a promise. The in-process port
+ * is synchronous; a port that forwards to a hosted deployment is not, and the
+ * bus awaits either without the surfaces above noticing a difference.
+ */
+export type LiveOutcome = EpochCommandOutcome | Promise<EpochCommandOutcome>;
+
 export interface LiveSpaceApplicationPort {
   createSession(input: {
     readonly spaceId: string;
     readonly actor: string;
     readonly policy: LivePublicationPolicyInput;
-  }): EpochCommandOutcome;
-  showSession(sessionId: string): EpochCommandOutcome;
-  listSessions(): EpochCommandOutcome;
-  preflight(sessionId: string): EpochCommandOutcome;
+  }): LiveOutcome;
+  showSession(sessionId: string): LiveOutcome;
+  listSessions(): LiveOutcome;
+  preflight(sessionId: string): LiveOutcome;
   configure(input: {
     readonly sessionId: string;
     readonly actor: string;
     readonly policy: LivePublicationPolicyInput;
     readonly confirmed: boolean;
-  }): EpochCommandOutcome;
+  }): LiveOutcome;
   recordConsent(input: {
     readonly sessionId: string;
     readonly actor: string;
     readonly scopes: readonly LiveConsentScope[];
-  }): EpochCommandOutcome;
+  }): LiveOutcome;
   lifecycle(input: {
     readonly sessionId: string;
     readonly actor: string;
     readonly command: Exclude<LiveLifecycleCommand, "seal">;
-  }): EpochCommandOutcome;
+  }): LiveOutcome;
   seal(input: {
     readonly sessionId: string;
     readonly actor: string;
     readonly completeness: LiveReplayCompleteness;
-  }): EpochCommandOutcome;
-  join(input: { readonly sessionId: string; readonly actor: string }): EpochCommandOutcome;
+  }): LiveOutcome;
+  join(input: { readonly sessionId: string; readonly actor: string }): LiveOutcome;
   requestGrant(input: {
     readonly sessionId: string;
     readonly actor: string;
     readonly capability: string;
-  }): EpochCommandOutcome;
+  }): LiveOutcome;
   grant(input: {
     readonly sessionId: string;
     readonly actor: string;
     readonly principalId: string;
     readonly role: LiveParticipantRole;
-  }): EpochCommandOutcome;
+  }): LiveOutcome;
   revoke(input: {
     readonly sessionId: string;
     readonly actor: string;
     readonly principalId: string;
-  }): EpochCommandOutcome;
+  }): LiveOutcome;
   lockJoins(input: {
     readonly sessionId: string;
     readonly actor: string;
     readonly locked: boolean;
-  }): EpochCommandOutcome;
+  }): LiveOutcome;
   publish(input: {
     readonly sessionId: string;
     readonly actor: string;
     readonly actionId: string;
     readonly args: Readonly<Record<string, DictionaryValue>>;
     readonly path?: string;
-  }): EpochCommandOutcome;
-  status(sessionId: string): EpochCommandOutcome;
-  checkpoint(input: { readonly sessionId: string; readonly actor: string }): EpochCommandOutcome;
+  }): LiveOutcome;
+  status(sessionId: string): LiveOutcome;
+  checkpoint(input: { readonly sessionId: string; readonly actor: string }): LiveOutcome;
   bookmark(input: {
     readonly sessionId: string;
     readonly actor: string;
     readonly checkpointId: string;
-  }): EpochCommandOutcome;
+  }): LiveOutcome;
   annotate(input: {
     readonly sessionId: string;
     readonly actor: string;
     readonly checkpointId: string;
     readonly body: string;
     readonly path?: string;
-  }): EpochCommandOutcome;
+  }): LiveOutcome;
   forkAt(input: {
     readonly sessionId: string;
     readonly actor: string;
     readonly checkpointId: string;
-  }): EpochCommandOutcome;
+  }): LiveOutcome;
   report(input: {
     readonly sessionId: string;
     readonly actor: string;
     readonly reason: string;
-  }): EpochCommandOutcome;
+  }): LiveOutcome;
   /** Derive a media credential only after Epoch grant and session checks pass. */
   issueMediaToken(input: {
     readonly sessionId: string;
@@ -751,8 +758,8 @@ export function createLiveSpaceCommandExtensions(
    * A server that joins a guest on a redeemed link therefore acts as that
    * guest, not as whoever happened to configure the runtime.
    */
-  function withPort(run: (live: LiveSpaceApplicationPort, input: Readonly<Record<string, DictionaryValue>>, actor: string) => EpochCommandOutcome) {
-    return (input: Readonly<Record<string, DictionaryValue>>, context: EpochCommandContext): EpochCommandOutcome => {
+  function withPort(run: (live: LiveSpaceApplicationPort, input: Readonly<Record<string, DictionaryValue>>, actor: string) => LiveOutcome) {
+    return (input: Readonly<Record<string, DictionaryValue>>, context: EpochCommandContext): LiveOutcome => {
       if (port === undefined) {
         return {
           data: { refused: "unavailable", reason: PORT_UNAVAILABLE },

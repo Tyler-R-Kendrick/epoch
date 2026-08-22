@@ -19,7 +19,7 @@ export async function runLiveSpacesCommandTests(): Promise<void> {
   await semanticOnlyHostLoopWorksEndToEnd();
   await adapterSourcesYieldEquivalentReceipts();
   await unavailablePortReturnsHonestReceipt();
-  participantAuthorityIsEnforcedByThePort();
+  await participantAuthorityIsEnforcedByThePort();
 }
 
 const HOST = "principal-host";
@@ -191,41 +191,41 @@ async function unavailablePortReturnsHonestReceipt(): Promise<void> {
   assert.match(receipt.data.reason, /no Live Space application port/u);
 }
 
-function participantAuthorityIsEnforcedByThePort(): void {
+async function participantAuthorityIsEnforcedByThePort(): Promise<void> {
   const port = portOf();
-  const created = port.createSession({ spaceId: "space-1", actor: HOST, policy: CREATE_INPUT.policy });
+  const created = await port.createSession({ spaceId: "space-1", actor: HOST, policy: CREATE_INPUT.policy });
   // SAFETY: the local port returns LiveSessionSnapshot data for createSession.
   const sessionId = (created.data as LiveSessionSnapshot).sessionId;
-  port.recordConsent({ sessionId, actor: HOST, scopes: ["semantic-capture"] });
-  port.lifecycle({ sessionId, actor: HOST, command: "openLobby" });
-  port.lifecycle({ sessionId, actor: HOST, command: "start" });
+  await port.recordConsent({ sessionId, actor: HOST, scopes: ["semantic-capture"] });
+  await port.lifecycle({ sessionId, actor: HOST, command: "openLobby" });
+  await port.lifecycle({ sessionId, actor: HOST, command: "start" });
 
   // Joining grants observation only; observers cannot publish.
-  port.join({ sessionId, actor: "principal-guest" });
-  assert.throws(() => port.publish({ sessionId, actor: "principal-guest", actionId: "view.open", args: {} }),
+  await port.join({ sessionId, actor: "principal-guest" });
+  await assert.rejects(async () => { await port.publish({ sessionId, actor: "principal-guest", actionId: "view.open", args: {} }); },
     (error: Error) => error instanceof EpochCommandError && error.code === "policy-denied");
   // A grant request is recorded but grants nothing.
-  const requested = port.requestGrant({ sessionId, actor: "principal-guest", capability: "live.presentation.publish" });
+  const requested = await port.requestGrant({ sessionId, actor: "principal-guest", capability: "live.presentation.publish" });
   // SAFETY: the local port returns the request record for requestGrant.
   assert.equal((requested.data as { granted: boolean }).granted, false);
-  assert.throws(() => port.publish({ sessionId, actor: "principal-guest", actionId: "view.open", args: {} }),
+  await assert.rejects(async () => { await port.publish({ sessionId, actor: "principal-guest", actionId: "view.open", args: {} }); },
     (error: Error) => error instanceof EpochCommandError && error.code === "policy-denied");
   // An explicit scoped grant works; revocation wins over the stale client.
-  port.grant({ sessionId, actor: HOST, principalId: "principal-guest", role: "collaborator" });
-  const published = port.publish({
+  await port.grant({ sessionId, actor: HOST, principalId: "principal-guest", role: "collaborator" });
+  const published = await port.publish({
     sessionId, actor: "principal-guest", actionId: "view.open",
     args: { view: "board" }, path: "packages/app/board.ts",
   });
   // SAFETY: the local port returns publish decision data.
   assert.equal((published.data as { decision: { kind: string } }).decision.kind, "queued");
-  port.revoke({ sessionId, actor: HOST, principalId: "principal-guest" });
-  assert.throws(() => port.publish({ sessionId, actor: "principal-guest", actionId: "view.open", args: {} }),
+  await port.revoke({ sessionId, actor: HOST, principalId: "principal-guest" });
+  await assert.rejects(async () => { await port.publish({ sessionId, actor: "principal-guest", actionId: "view.open", args: {} }); },
     (error: Error) => error instanceof EpochCommandError && error.code === "policy-denied");
   // Locking joins refuses new joiners but keeps existing participants.
-  port.lockJoins({ sessionId, actor: HOST, locked: true });
-  assert.throws(() => port.join({ sessionId, actor: "principal-late" }),
+  await port.lockJoins({ sessionId, actor: HOST, locked: true });
+  await assert.rejects(async () => { await port.join({ sessionId, actor: "principal-late" }); },
     (error: Error) => error instanceof EpochCommandError && error.code === "policy-denied");
   // Non-owners hold no management authority.
-  assert.throws(() => port.lifecycle({ sessionId, actor: "principal-guest", command: "end" }),
+  await assert.rejects(async () => { await port.lifecycle({ sessionId, actor: "principal-guest", command: "end" }); },
     (error: Error) => error instanceof EpochCommandError && error.code === "policy-denied");
 }

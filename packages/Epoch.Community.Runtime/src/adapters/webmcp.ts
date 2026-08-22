@@ -58,14 +58,28 @@ export interface CreateWebMcpToolsOptions {
    */
   readonly confirmedKinds?: readonly string[];
   readonly source?: "webmcp";
+  /**
+   * Command kinds withheld from registration. Tool visibility is not
+   * authorization — the bus refuses these regardless — but a short-lived media
+   * credential is not something to advertise to every page agent, so the
+   * secret-bearing provider commands are withheld by default.
+   */
+  readonly excludeKinds?: readonly string[];
 }
+
+/** Provider operations that mint or ingest credentials, withheld by default. */
+export const DEFAULT_WEBMCP_EXCLUDED_KINDS: readonly string[] = Object.freeze([
+  "live.media.issueToken",
+  "live.media.providerEvent",
+]);
 
 export function createWebMcpTools(
   runtime: CommunityRuntime,
   options: CreateWebMcpToolsOptions = {},
 ): readonly WebMcpToolDescriptor[] {
   const confirmed = new Set(options.confirmedKinds ?? []);
-  return runtime.commands.catalog.map((descriptor) => ({
+  const excluded = new Set(options.excludeKinds ?? DEFAULT_WEBMCP_EXCLUDED_KINDS);
+  return runtime.commands.catalog.filter((descriptor) => !excluded.has(descriptor.kind)).map((descriptor) => ({
     name: toolName(descriptor.kind),
     description: descriptor.summary,
     inputSchema: descriptor.inputSchema,
