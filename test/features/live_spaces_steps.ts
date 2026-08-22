@@ -112,8 +112,8 @@ function snapshotOf(record: { readonly data: unknown }): LiveSessionSnapshot {
   return record.data as LiveSessionSnapshot;
 }
 
-function publishAs(actor: string, actionId: string, args: Readonly<Record<string, string | { readonly [key: string]: string }>>, path?: string): PublishDecisionData {
-  const outcome = port().publish({
+async function publishAs(actor: string, actionId: string, args: Readonly<Record<string, string | { readonly [key: string]: string }>>, path?: string): Promise<PublishDecisionData> {
+  const outcome = await port().publish({
     sessionId: sessionId(), actor, actionId, args,
     ...(path !== undefined && { path }),
   });
@@ -123,9 +123,10 @@ function publishAs(actor: string, actionId: string, args: Readonly<Record<string
   return data;
 }
 
-function statusData(): StatusData {
+async function statusData(): Promise<StatusData> {
+  const outcome = await port().status(sessionId());
   // SAFETY: the local live space port returns presentation status data.
-  return port().status(sessionId()).data as StatusData;
+  return outcome.data as StatusData;
 }
 
 function newSemanticPort(): LiveSpaceApplicationPort {
@@ -138,8 +139,8 @@ function newSemanticPort(): LiveSpaceApplicationPort {
   });
 }
 
-function startSession(portInstance: LiveSpaceApplicationPort, allowedPathPatterns: readonly string[]): string {
-  const created = snapshotOf(portInstance.createSession({
+async function startSession(portInstance: LiveSpaceApplicationPort, allowedPathPatterns: readonly string[]): Promise<string> {
+  const created = snapshotOf(await portInstance.createSession({
     spaceId: "space-live", actor: HOST,
     policy: {
       visibility: "community",
@@ -148,9 +149,9 @@ function startSession(portInstance: LiveSpaceApplicationPort, allowedPathPattern
       allowedActionIds: ["view.open", "diff.show"],
     },
   }));
-  portInstance.recordConsent({ sessionId: created.sessionId, actor: HOST, scopes: ["semantic-capture"] });
-  portInstance.lifecycle({ sessionId: created.sessionId, actor: HOST, command: "openLobby" });
-  portInstance.lifecycle({ sessionId: created.sessionId, actor: HOST, command: "start" });
+  await portInstance.recordConsent({ sessionId: created.sessionId, actor: HOST, scopes: ["semantic-capture"] });
+  await portInstance.lifecycle({ sessionId: created.sessionId, actor: HOST, command: "openLobby" });
+  await portInstance.lifecycle({ sessionId: created.sessionId, actor: HOST, command: "start" });
   return created.sessionId;
 }
 
@@ -226,16 +227,16 @@ Then("the sealed session refuses any further change", function () {
 
 // ------------------------------------------------ publication and authority
 
-Given("a live session is publishing from an allow-listed application path", function () {
+Given("a live session is publishing from an allow-listed application path", async function () {
   world.port = newSemanticPort();
-  world.sessionId = startSession(world.port, ["packages/app/**"]);
-  const published = publishAs(HOST, "view.open", { view: "board" }, "packages/app/board.ts");
+  world.sessionId = await startSession(world.port, ["packages/app/**"]);
+  const published = await publishAs(HOST, "view.open", { view: "board" }, "packages/app/board.ts");
   assert.equal(published.decision.kind, "queued");
   assert.equal(published.releasedNow, 1);
 });
 
-When("the host's tooling emits an action whose nested arguments carry an API key", function () {
-  publishAs(HOST, "view.open", { config: { apiKey: SECRET } });
+When("the host's tooling emits an action whose nested arguments carry an API key", async function () {
+  await publishAs(HOST, "view.open", { config: { apiKey: SECRET } });
 });
 
 Then("the secret-bearing action is dropped as an immutable denial", function () {
@@ -246,60 +247,61 @@ Then("the publication is dropped as an immutable denial", function () {
   assert.deepEqual(world.lastPublish?.decision, { kind: "dropped", reason: "immutable-deny" });
 });
 
-Then("the released stream contains only the allow-listed action", function () {
-  const status = statusData();
+Then("the released stream contains only the allow-listed action", async function () {
+  const status = await statusData();
   assert.equal(status.envelopes.length, 1);
   assert.equal(status.envelopes[0]?.path, "packages/app/board.ts");
   assert.equal(status.quarantined, 1);
 });
 
-Then("no released envelope or quarantine record contains the secret value", function () {
-  assert.equal(JSON.stringify(statusData()).includes(SECRET), false);
+Then("no released envelope or quarantine record contains the secret value", async function () {
+  assert.equal(JSON.stringify(await statusData()).includes(SECRET), false);
 });
 
-When("the host tries to publish an action that touches an environment secrets file", function () {
+When("the host tries to publish an action that touches an environment secrets file", async function () {
   // Even a session that allow-lists every path cannot expose the baseline.
   world.port = newSemanticPort();
-  world.sessionId = startSession(world.port, ["**"]);
-  publishAs(HOST, "view.open", { view: "env" }, "apps/api/.env");
+  world.sessionId = await startSession(world.port, ["**"]);
+  await publishAs(HOST, "view.open", { view: "env" }, "apps/api/.env");
 });
 
-Then("the denial holds even though the session allow-lists every path", function () {
-  const session = snapshotOf(port().showSession(sessionId()));
+Then("the denial holds even though the session allow-lists every path", async function () {
+  const session = snapshotOf(await port().showSession(sessionId()));
   assert.equal(session.lifecycle, "live");
-  assert.equal(statusData().envelopes.length, 0);
+  assert.equal((await statusData()).envelopes.length, 0);
 });
 
-When("the contributor joins the session as an observer", function () {
-  const joined = snapshotOf(port().join({ sessionId: sessionId(), actor: GUEST }));
+When("the contributor joins the session as an observer", async function () {
+  const joined = snapshotOf(await port().join({ sessionId: sessionId(), actor: GUEST }));
   const participant = joined.participants.find((entry) => entry.principalId === GUEST);
   assert.equal(participant?.role, "observer");
 });
 
-Then("the contributor cannot publish into the session", function () {
-  assert.throws(() => publishAs(GUEST, "view.open", { view: "board" }),
-    (error) => error instanceof EpochCommandError && error.code === "policy-denied");
+Then("the contributor cannot publish into the session", async function () {
+  await assert.rejects(async () => { await publishAs(GUEST, "view.open", { view: "board" }); },
+    (error: Error) => error instanceof EpochCommandError && error.code === "policy-denied");
 });
 
-When("the contributor requests publish capability", function () {
-  const outcome = port().requestGrant({ sessionId: sessionId(), actor: GUEST, capability: "live.presentation.publish" });
+When("the contributor requests publish capability", async function () {
+  const outcome = await port().requestGrant({ sessionId: sessionId(), actor: GUEST, capability: "live.presentation.publish" });
   // SAFETY: the local live space port returns the grant request record.
   assert.equal((outcome.data as { granted: boolean }).granted, false);
 });
 
-Then("the request is recorded but grants nothing", function () {
-  assert.throws(() => publishAs(GUEST, "view.open", { view: "board" }),
-    (error) => error instanceof EpochCommandError && error.code === "policy-denied");
+Then("the request is recorded but grants nothing", async function () {
+  await assert.rejects(async () => { await publishAs(GUEST, "view.open", { view: "board" }); },
+    (error: Error) => error instanceof EpochCommandError && error.code === "policy-denied");
 });
 
-When("the host records a presentation checkpoint", function () {
+When("the host records a presentation checkpoint", async function () {
+  const outcome = await port().checkpoint({ sessionId: sessionId(), actor: HOST });
   // SAFETY: the local live space port returns checkpoint data.
-  world.checkpointId = (port().checkpoint({ sessionId: sessionId(), actor: HOST }).data as { checkpointId: string }).checkpointId;
+  world.checkpointId = (outcome.data as { checkpointId: string }).checkpointId;
 });
 
-When("the contributor annotates that checkpoint on the board file", function () {
+When("the contributor annotates that checkpoint on the board file", async function () {
   if (world.checkpointId === undefined) throw new Error("no checkpoint in scope");
-  const outcome = port().annotate({
+  const outcome = await port().annotate({
     sessionId: sessionId(), actor: GUEST, checkpointId: world.checkpointId,
     body: "the rail is two columns too wide", path: "packages/app/board.ts",
   });
@@ -307,9 +309,9 @@ When("the contributor annotates that checkpoint on the board file", function () 
   assert.match((outcome.data as { annotationId: string }).annotationId, /^liveanno_/u);
 });
 
-When("the contributor forks the session at that checkpoint", function () {
+When("the contributor forks the session at that checkpoint", async function () {
   if (world.checkpointId === undefined) throw new Error("no checkpoint in scope");
-  const outcome = port().forkAt({ sessionId: sessionId(), actor: GUEST, checkpointId: world.checkpointId });
+  const outcome = await port().forkAt({ sessionId: sessionId(), actor: GUEST, checkpointId: world.checkpointId });
   // SAFETY: the local live space port returns fork provenance data.
   world.forkProvenance = (outcome.data as { provenance: { sessionId: string; checkpointId: string } }).provenance;
 });
@@ -318,13 +320,13 @@ Then("the fork records provenance back to the session and checkpoint", function 
   assert.deepEqual(world.forkProvenance, { sessionId: sessionId(), checkpointId: world.checkpointId });
 });
 
-Given("the host has granted a contributor temporary collaborator capability", function () {
-  port().join({ sessionId: sessionId(), actor: GUEST });
-  port().grant({ sessionId: sessionId(), actor: HOST, principalId: GUEST, role: "collaborator" });
+Given("the host has granted a contributor temporary collaborator capability", async function () {
+  await port().join({ sessionId: sessionId(), actor: GUEST });
+  await port().grant({ sessionId: sessionId(), actor: HOST, principalId: GUEST, role: "collaborator" });
 });
 
-When("the contributor publishes an allow-listed action", function () {
-  publishAs(GUEST, "diff.show", { view: "board" }, "packages/app/board.ts");
+When("the contributor publishes an allow-listed action", async function () {
+  await publishAs(GUEST, "diff.show", { view: "board" }, "packages/app/board.ts");
 });
 
 Then("the contributor's action is released into the stream", function () {
@@ -332,13 +334,13 @@ Then("the contributor's action is released into the stream", function () {
   assert.equal(world.lastPublish?.releasedNow, 1);
 });
 
-When("the host revokes the contributor's grant", function () {
-  port().revoke({ sessionId: sessionId(), actor: HOST, principalId: GUEST });
+When("the host revokes the contributor's grant", async function () {
+  await port().revoke({ sessionId: sessionId(), actor: HOST, principalId: GUEST });
 });
 
-Then("the contributor's next publication attempt is refused", function () {
-  assert.throws(() => publishAs(GUEST, "diff.show", { view: "board" }, "packages/app/board.ts"),
-    (error) => error instanceof EpochCommandError && error.code === "policy-denied");
+Then("the contributor's next publication attempt is refused", async function () {
+  await assert.rejects(async () => { await publishAs(GUEST, "diff.show", { view: "board" }, "packages/app/board.ts"); },
+    (error: Error) => error instanceof EpochCommandError && error.code === "policy-denied");
 });
 
 // ------------------------------------------------- reconnect and convergence
@@ -423,12 +425,12 @@ Given("the live media provider is disabled", async function () {
   world.mediaReadiness = await createDisabledLiveMediaProvider().readiness();
 });
 
-Then("media readiness reports itself provider-disabled while the semantic session still works", function () {
+Then("media readiness reports itself provider-disabled while the semantic session still works", async function () {
   assert.equal(world.mediaReadiness?.ready, false);
   assert.equal(world.mediaReadiness?.label, "provider-disabled");
   world.port = newSemanticPort();
-  world.sessionId = startSession(world.port, ["packages/app/**"]);
-  const published = publishAs(HOST, "view.open", { view: "board" }, "packages/app/board.ts");
+  world.sessionId = await startSession(world.port, ["packages/app/**"]);
+  const published = await publishAs(HOST, "view.open", { view: "board" }, "packages/app/board.ts");
   assert.equal(published.releasedNow, 1);
 });
 

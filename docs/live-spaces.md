@@ -29,6 +29,7 @@ for the executable persona journeys.
 | Opaque expiring join links hashed at rest, redeeming to single-session observer grants | Implemented (`@epoch/community-api`) |
 | Media token derivation after Epoch grant, role, policy, and consent checks | Implemented (`@epoch/community-api`, honest `unavailable` with no gateway) |
 | Provider webhook ingress: raw-body verification, size and content-type bounds, session binding, dedup, command-path entry | Implemented (`@epoch/community-api`) |
+| `epoch live …` CLI family, typed SDK client, WebMCP tools with secret-bearing commands withheld | Implemented (`@epoch/community-runtime`, `@epoch/cli`) |
 | Community Web host/spectator UI, telemetry, moderation service | Not yet implemented |
 | LiveKit adapter behind the provider-neutral port: opaque rooms, least-privilege tokens, participant removal, egress gating, webhook verification | Implemented and labelled **experimental** (`@epoch/community-api`); never validated against a live LiveKit deployment from this repository |
 
@@ -285,6 +286,40 @@ Automated tests inject client doubles for every network-touching call, so CI
 never reaches a LiveKit server and no test needs credentials. The token tests
 deliberately use the *real* SDK — no network required — so the assertions are
 about the bytes LiveKit would actually receive.
+
+## Adapter parity
+
+The CLI, the SDK, WebMCP, the HTTP routes, and (later) the browser are five
+spellings of one command bus. Each translates argument shapes; none decides
+what a command means or who may run it.
+
+| Surface | Entry | Confirmation |
+|---|---|---|
+| CLI | `epoch live …` | `--confirm` |
+| SDK | `createLiveSpaceClient(runtime)` | `{ confirmed: true }` argument |
+| WebMCP | catalog-projected tools | host declares `confirmedKinds` after real interaction |
+| HTTP | `POST …/commands` | `confirmed` in the body |
+
+Consequences worth stating:
+
+- **The CLI owns no Live Space state.** Sessions belong to a deployment, so
+  `epoch live` forwards to the configured Community remote (`--remote` or
+  `EPOCH_COMMUNITY_URL`) and prints the receipt that came back. With no remote
+  configured the command still runs and still returns a receipt — one that says
+  the host has no Live Space port, rather than inventing a local session that
+  no spectator could ever join.
+- **A terminal never holds a media credential.** There is no `epoch live media`
+  verb, and the remote port refuses token issuance outright rather than
+  fetching a short-lived secret into shell history.
+- **WebMCP withholds the credential-bearing commands by default**
+  (`live.media.issueToken`, `live.media.providerEvent`). Visibility is not
+  authorization — the bus refuses them regardless — but a transport credential
+  is not something to advertise to every page agent. An operator can widen or
+  narrow that set explicitly.
+- **An agent gets the same refusal a person gets.** An unconfirmed
+  `live.session.start` comes back as `confirm` from WebMCP exactly as it does
+  from the CLI; only a host that satisfied confirmation through real
+  interaction can pass it on.
 
 ## Honest limitations
 

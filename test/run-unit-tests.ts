@@ -16,6 +16,7 @@ import { runCommunityOperationsWebTests } from "./unit/community-operations-web.
 import { runCommunityOramaBackendTests } from "./unit/community-orama-backend.test";
 import { runCommunitySqliteSearchTests } from "./unit/community-sqlite-search.test";
 import { runCommunitySearchCliTests } from "./unit/community-search-cli.test";
+import { runCliLiveRemoteTests } from "./unit/cli-live-remote.test";
 import { runCommunityWebRenderParityTests } from "./unit/community-web-render-parity.test";
 import { runCommunityWebAppThemeTests } from "./unit/community-web-app-themes.test";
 import { runCommunityWebLanguageModelAbsenceTests } from "./unit/community-web-app-language-model-absence.test";
@@ -81,6 +82,7 @@ import { runLiveSpacesLogTests } from "./unit/live-spaces-log.test";
 import { runLiveSpacesCoreTests } from "./unit/live-spaces-core.test";
 import { runLiveSpacesCommandTests } from "./unit/live-spaces-commands.test";
 import { runLiveSpacesTransportTests } from "./unit/live-spaces-transport.test";
+import { runLiveSpacesAdapterTests } from "./unit/live-spaces-adapters.test";
 import { runChangeGraphBrowserWrapperTests } from "./unit/change-graph-browser-wrappers.test";
 import { runChangeGraphCliTests } from "./unit/change-graph-cli.test";
 import { runNomenclatureContractTests } from "./unit/nomenclature-contract.test";
@@ -133,6 +135,7 @@ async function main(): Promise<void> {
   await runCommunityOramaBackendTests();
   await runCommunitySqliteSearchTests();
   await runCommunitySearchCliTests();
+  await runCliLiveRemoteTests();
   await runCommunityApiProjectionTests();
   await runCommunityCoverageTests();
   await runCommunityRuntimeTests();
@@ -184,6 +187,7 @@ async function main(): Promise<void> {
   await runLiveSpacesCoreTests();
   await runLiveSpacesCommandTests();
   await runLiveSpacesTransportTests();
+  await runLiveSpacesAdapterTests();
   await runNomenclatureContractTests();
   runSemanticPipelineTests();
   runExtensionMechanismTests();

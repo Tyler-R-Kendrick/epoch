@@ -2,12 +2,15 @@ import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import {
   createCommunityRuntime,
+  createLiveSpaceCommandExtensions,
   executeCommunityRuntimeCommand,
   isCommunityRuntimeInvocation,
   setCliBundleReader,
   type CommunityRuntime,
   type EpochIntegrationStorage,
+  type LiveSpaceApplicationPort,
 } from "@epoch/community-runtime";
+import { createRemoteLiveSpacePort, resolveCommunityRemote } from "./live";
 import { main as communityForgeMain, type CommunityCliIO } from "@epoch/community-cli";
 type DictionaryValue = null | undefined | boolean | number | string | bigint | readonly DictionaryValue[] | { readonly [key: string]: DictionaryValue };
 type BoundaryValue = null | undefined | boolean | number | string | bigint | symbol | Readonly<object>;
@@ -46,7 +49,10 @@ export async function executeCommunityCli(
     // SAFETY: Bundle files are JSON objects validated by the workspace import command.
     return JSON.parse(readFileSync(resolve(path), "utf8")) as BoundaryValue;
   });
-  const result = await executeCommunityRuntimeCommand(openWorkspaceRuntime(repoRoot), [command, ...args]);
+  const result = await executeCommunityRuntimeCommand(
+    openWorkspaceRuntime(repoRoot, resolveCommunityRemote(args, process.env)),
+    [command, ...args],
+  );
   const target = outputPath(args);
   if (target !== undefined && result.ok && result.receipt !== undefined) {
     writeFileSync(resolve(target), `${JSON.stringify(result.receipt.data, undefined, 2)}\n`);
@@ -71,14 +77,25 @@ function outputPath(args: readonly string[]): string | undefined {
   return value;
 }
 
-export function openWorkspaceRuntime(repoRoot: string): CommunityRuntime {
+export function openWorkspaceRuntime(repoRoot: string, communityRemote?: string): CommunityRuntime {
   const root = resolve(repoRoot);
+  const actor = process.env.EPOCH_AUTHOR ?? "cli";
+  // Live Space state belongs to a deployment, not to this terminal. With no
+  // remote configured the extensions get no port and answer honestly.
+  const livePort: LiveSpaceApplicationPort | undefined = communityRemote === undefined
+    ? undefined
+    : createRemoteLiveSpacePort({
+      baseUrl: communityRemote,
+      fetch: (request) => globalThis.fetch(request),
+      principalId: actor,
+    });
   return createCommunityRuntime({
     namespace: "epoch-community-cli",
-    actor: process.env.EPOCH_AUTHOR ?? "cli",
+    actor,
     storage: createFileStorage(join(root, ".epoch", "ui-workspace.json")),
     defaultSource: "cli",
     policies: { capabilities: ["*"] },
+    extensions: createLiveSpaceCommandExtensions(livePort, () => actor),
   });
 }
 

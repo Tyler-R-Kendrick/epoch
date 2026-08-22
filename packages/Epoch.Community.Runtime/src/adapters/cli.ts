@@ -44,7 +44,34 @@ export const communityRuntimeUsage = [
   "  epoch view list",
   "  epoch view switch VIEW",
   "",
+  "  epoch live create --space SPACE [--view REF] [--visibility private|community|unlisted|public]",
+  "                    [--path GLOB]... [--action ID]... [--delay MS]",
+  "  epoch live show SESSION",
+  "  epoch live list",
+  "  epoch live preflight SESSION",
+  "  epoch live consent SESSION --scope SCOPE...",
+  "  epoch live lobby SESSION",
+  "  epoch live start SESSION --confirm",
+  "  epoch live pause SESSION",
+  "  epoch live resume SESSION",
+  "  epoch live end SESSION --confirm",
+  "  epoch live seal SESSION [--completeness complete|semantic-only|media-missing|partial] --confirm",
+  "  epoch live publish SESSION --action ID [--path PATH] [--args JSON]",
+  "  epoch live status SESSION",
+  "  epoch live checkpoint SESSION",
+  "  epoch live join SESSION",
+  "  epoch live request-grant SESSION --capability CAPABILITY",
+  "  epoch live grant SESSION --principal ID --role cohost|collaborator|agent|observer --confirm",
+  "  epoch live revoke SESSION --principal ID --confirm",
+  "  epoch live lock SESSION on|off",
+  "  epoch live bookmark SESSION --checkpoint ID",
+  "  epoch live annotate SESSION --checkpoint ID --body TEXT [--path PATH]",
+  "  epoch live fork SESSION --checkpoint ID",
+  "  epoch live report SESSION --reason TEXT",
+  "",
   "Add --json to print the command receipt verbatim.",
+  "Live commands need a configured Community remote; without one they report",
+  "that the deployment has no Live Space port rather than pretending to work.",
 ].join("\n");
 
 export async function executeCommunityRuntimeCommand(
@@ -71,17 +98,21 @@ export async function executeCommunityRuntimeCommand(
 
 export function isCommunityRuntimeInvocation(argv: readonly string[]): boolean {
   const group = argv[0];
-  return group === "ui" || group === "view";
+  return group === "ui" || group === "view" || group === "live";
 }
+
+/** One command's parsed argument dictionary. */
+type ParsedInput = Readonly<Record<string, DictionaryValue>>;
 
 interface ParsedRequest {
   readonly kind: string;
-  readonly input: Readonly<Record<string, DictionaryValue>>;
+  readonly input: ParsedInput;
 }
 
 function parse(args: readonly string[], runtime: CommunityRuntime): ParsedRequest {
   const [group, command, ...rest] = args;
   if (group === "view") return parseViewGroup(command, rest);
+  if (group === "live") return parseLiveGroup(command, rest);
   if (group !== "ui") throw new EpochCommandError("invalid-command", communityRuntimeUsage);
 
   switch (command) {
@@ -165,6 +196,126 @@ function parseViewGroup(command: string | undefined, rest: readonly string[]): P
   }
 }
 
+/**
+ * `epoch live …` is a spelling of the same commands the browser and WebMCP
+ * call. It never carries provider credentials and never reaches a media
+ * endpoint: `live.media.*` has no CLI spelling at all, because a terminal is
+ * not where a short-lived transport credential should be printed.
+ */
+function parseLiveGroup(command: string | undefined, rest: readonly string[]): ParsedRequest {
+  const lifecycleKind = command === undefined ? undefined : liveLifecycleKind(command);
+  if (lifecycleKind !== undefined) {
+    return { kind: lifecycleKind, input: { sessionId: requirePositional(rest, 0, "SESSION") } };
+  }
+
+  switch (command) {
+    case "create":
+      return {
+        kind: "live.session.create",
+        input: {
+          spaceId: requireOption(rest, "space"),
+          policy: {
+            ...optionValue(rest, "view", "presentationViewRef"),
+            ...optionValue(rest, "visibility", "visibility"),
+            ...optionValue(rest, "security-mode", "securityMode"),
+            allowedPathPatterns: repeatedOption(rest, "path"),
+            allowedActionIds: repeatedOption(rest, "action"),
+            ...numberOption(rest, "delay", "publicationDelayMs"),
+          },
+        },
+      };
+    case "show":
+      return { kind: "live.session.show", input: { sessionId: requirePositional(rest, 0, "SESSION") } };
+    case "list":
+      return { kind: "live.session.list", input: {} };
+    case "preflight":
+      return { kind: "live.session.preflight", input: { sessionId: requirePositional(rest, 0, "SESSION") } };
+    case "consent":
+      return {
+        kind: "live.session.consent",
+        input: { sessionId: requirePositional(rest, 0, "SESSION"), scopes: repeatedOption(rest, "scope") },
+      };
+    case "seal":
+      return {
+        kind: "live.session.seal",
+        input: {
+          sessionId: requirePositional(rest, 0, "SESSION"),
+          ...optionValue(rest, "completeness", "completeness"),
+        },
+      };
+    case "publish":
+      return {
+        kind: "live.presentation.publish",
+        input: {
+          sessionId: requirePositional(rest, 0, "SESSION"),
+          actionId: requireOption(rest, "action"),
+          args: jsonOption(rest, "args"),
+          ...optionValue(rest, "path", "path"),
+        },
+      };
+    case "status":
+      return { kind: "live.presentation.status", input: { sessionId: requirePositional(rest, 0, "SESSION") } };
+    case "checkpoint":
+      return { kind: "live.presentation.checkpoint", input: { sessionId: requirePositional(rest, 0, "SESSION") } };
+    case "join":
+      return { kind: "live.participant.join", input: { sessionId: requirePositional(rest, 0, "SESSION") } };
+    case "request-grant":
+      return {
+        kind: "live.participant.requestGrant",
+        input: { sessionId: requirePositional(rest, 0, "SESSION"), capability: requireOption(rest, "capability") },
+      };
+    case "grant":
+      return {
+        kind: "live.participant.grant",
+        input: {
+          sessionId: requirePositional(rest, 0, "SESSION"),
+          principalId: requireOption(rest, "principal"),
+          role: requireOption(rest, "role"),
+        },
+      };
+    case "revoke":
+      return {
+        kind: "live.participant.revoke",
+        input: { sessionId: requirePositional(rest, 0, "SESSION"), principalId: requireOption(rest, "principal") },
+      };
+    case "lock":
+      return {
+        kind: "live.participant.lockJoins",
+        input: {
+          sessionId: requirePositional(rest, 0, "SESSION"),
+          locked: requirePositional(rest, 1, "on|off") === "on",
+        },
+      };
+    case "bookmark":
+      return {
+        kind: "live.presentation.bookmark",
+        input: { sessionId: requirePositional(rest, 0, "SESSION"), checkpointId: requireOption(rest, "checkpoint") },
+      };
+    case "annotate":
+      return {
+        kind: "live.presentation.annotate",
+        input: {
+          sessionId: requirePositional(rest, 0, "SESSION"),
+          checkpointId: requireOption(rest, "checkpoint"),
+          body: requireOption(rest, "body"),
+          ...optionValue(rest, "path", "path"),
+        },
+      };
+    case "fork":
+      return {
+        kind: "live.presentation.forkAt",
+        input: { sessionId: requirePositional(rest, 0, "SESSION"), checkpointId: requireOption(rest, "checkpoint") },
+      };
+    case "report":
+      return {
+        kind: "live.moderation.report",
+        input: { sessionId: requirePositional(rest, 0, "SESSION"), reason: requireOption(rest, "reason") },
+      };
+    default:
+      throw new EpochCommandError("invalid-command", communityRuntimeUsage);
+  }
+}
+
 function parsePropose(rest: readonly string[], runtime: CommunityRuntime): ParsedRequest {
   const view = requirePositional(rest, 0, "VIEW");
   // SAFETY: The module validates or constructs this value before applying the asserted contract.
@@ -235,7 +386,7 @@ function requirePositional(args: readonly string[], index: number, label: string
   return value;
 }
 
-function positionalString(args: readonly string[], index: number, key: string): Readonly<Record<string, DictionaryValue>> {
+function positionalString(args: readonly string[], index: number, key: string): ParsedInput {
   const value = args.filter((argument) => !argument.startsWith("--"))[index];
   return value === undefined ? {} : { [key]: value };
 }
@@ -246,9 +397,67 @@ function requireOption(args: readonly string[], name: string): string {
   return value;
 }
 
-function optionValue(args: readonly string[], name: string, key: string): Readonly<Record<string, DictionaryValue>> {
+function optionValue(args: readonly string[], name: string, key: string): ParsedInput {
   const value = readOption(args, name);
   return value === undefined ? {} : { [key]: value };
+}
+
+/** Repeated flags accumulate, so an allow-list is built one entry at a time. */
+function repeatedOption(args: readonly string[], name: string): readonly string[] {
+  const values: string[] = [];
+  for (let index = 0; index < args.length; index += 1) {
+    if (args[index] !== `--${name}`) continue;
+    const value = args[index + 1];
+    if (value === undefined || value.startsWith("--")) {
+      throw new EpochCommandError("invalid-input", `Option --${name} requires a value.`);
+    }
+    values.push(value);
+  }
+  return values;
+}
+
+const LIVE_LIFECYCLE_VERBS = {
+  lobby: "live.session.openLobby",
+  start: "live.session.start",
+  pause: "live.session.pause",
+  resume: "live.session.resume",
+  end: "live.session.end",
+} satisfies Readonly<Record<string, string>>;
+
+function liveLifecycleKind(verb: string): string | undefined {
+  return Object.hasOwn(LIVE_LIFECYCLE_VERBS, verb) && isLifecycleVerb(verb) ? LIVE_LIFECYCLE_VERBS[verb] : undefined;
+}
+
+function isLifecycleVerb(verb: string): verb is keyof typeof LIVE_LIFECYCLE_VERBS {
+  return Object.hasOwn(LIVE_LIFECYCLE_VERBS, verb);
+}
+
+/** Inference keeps the numeric evidence the parsed option actually carries. */
+function numberOption(args: readonly string[], name: string, key: string) {
+  const value = readOption(args, name);
+  if (value === undefined) return {};
+  const parsed = Number(value);
+  if (!Number.isSafeInteger(parsed)) throw new EpochCommandError("invalid-input", `Option --${name} must be an integer.`);
+  return { [key]: parsed };
+}
+
+function jsonOption(args: readonly string[], name: string): ParsedInput {
+  const value = readOption(args, name);
+  if (value === undefined) return {};
+  let parsed: DictionaryValue;
+  try {
+    parsed = JSON.parse(value);
+  } catch {
+    throw new EpochCommandError("invalid-input", `Option --${name} must be valid JSON.`);
+  }
+  if (!isJsonDictionary(parsed)) {
+    throw new EpochCommandError("invalid-input", `Option --${name} must be a JSON object.`);
+  }
+  return parsed;
+}
+
+function isJsonDictionary(value: DictionaryValue): value is { readonly [key: string]: DictionaryValue } {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 function readOption(args: readonly string[], name: string): string | undefined {
