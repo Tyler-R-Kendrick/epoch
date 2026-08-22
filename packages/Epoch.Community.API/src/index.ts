@@ -56,6 +56,7 @@ export * from "./community-source";
 export * from "./live/media-provider";
 export * from "./live/join-links";
 export * from "./live/media-gateway";
+export * from "./live/livekit-media-provider";
 export * from "./live/live-session-service";
 export * from "./live/live-routes";
 export * from "./convergence";
