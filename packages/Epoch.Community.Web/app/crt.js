@@ -17,7 +17,8 @@
  * still rather than deleting it: the geometry, grille and room all survive.
  *
  * The scene is drawn to an offscreen 2D canvas; this pass is the display.
- * Installs `window.CW_CRT`, matching the app's classic-script global pattern.
+ * Installs `CW_CRT` on the global, matching the app's classic-script pattern
+ * (as `value-kind.js` does); `landing.js` reads it as `window.CW_CRT`.
  */
 (function (global) {
   "use strict";
@@ -352,4 +353,4 @@
     triadPitch: triadPitch,
     create: create,
   };
-})(typeof window !== "undefined" ? window : globalThis);
+}(globalThis));

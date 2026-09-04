@@ -24,13 +24,33 @@ const ROOT = join(process.cwd(), "packages/Epoch.Community.Web/app");
 
 type UniformValue = readonly number[];
 
-interface UniformWrites {
-  readonly [name: string]: UniformValue;
+/** Opaque GL handles. The stub never inspects them; the pass only passes them back. */
+interface GlHandle {
+  readonly handle: number;
+}
+
+/**
+ * What `getUniformLocation` hands back: the uniform's name when the shader
+ * declared it, and `null` when it did not — which is what real WebGL does, and
+ * the whole point of the stub.
+ */
+type UniformSlot = string | null;
+
+/** The scene canvas the pass uploads. The stub needs only its identity. */
+interface SceneSource {
+  readonly label: string;
+}
+
+type GlResult = GlHandle | UniformSlot | boolean | number | undefined;
+type GlCall = (...args: never[]) => GlResult;
+/** A WebGL context as the pass uses it: numeric enums plus entry points. */
+interface GlContext {
+  readonly [member: string]: GlCall | number;
 }
 
 interface CrtPass {
   readonly resize: (bufferWidth: number, bufferHeight: number, cssWidth: number, cssHeight: number) => void;
-  readonly draw: (source: unknown, seconds: number, scrub: CrtScrub) => void;
+  readonly draw: (source: SceneSource, seconds: number, scrub: CrtScrub) => void;
   readonly dispose: () => void;
 }
 
@@ -42,49 +62,53 @@ interface CrtScrub {
   readonly motion: number;
 }
 
+interface CrtTerminalPreset {
+  readonly curve: readonly [number, number];
+  readonly scanDensity: number;
+  readonly scanDepth: number;
+  readonly triadCss: number;
+  readonly grille: number;
+  readonly chroma: number;
+  readonly bar: number;
+  readonly flicker: number;
+  readonly grain: number;
+  readonly vignette: number;
+  readonly gain: number;
+  readonly halo: number;
+  readonly sheen: readonly [number, number, number];
+  readonly room: readonly [number, number, number];
+}
+
 interface CrtModule {
-  readonly TERMINAL: {
-    readonly curve: readonly [number, number];
-    readonly scanDensity: number;
-    readonly scanDepth: number;
-    readonly triadCss: number;
-    readonly grille: number;
-    readonly chroma: number;
-    readonly bar: number;
-    readonly flicker: number;
-    readonly grain: number;
-    readonly vignette: number;
-    readonly gain: number;
-    readonly halo: number;
-    readonly sheen: readonly [number, number, number];
-    readonly room: readonly [number, number, number];
-  };
+  readonly TERMINAL: CrtTerminalPreset;
   readonly UNIFORMS: readonly string[];
   readonly FRAGMENT_SHADER: string;
   readonly VERTEX_SHADER: string;
   readonly scanLines: (cssHeight: number, density: number) => number;
   readonly triadPitch: (bufferWidth: number, cssWidth: number, triadCss: number) => number;
-  readonly create: (gl: unknown) => CrtPass | null;
+  readonly create: (gl: GlContext) => CrtPass | null;
+}
+
+interface GlHealth {
+  readonly linkOk?: boolean;
+  readonly compileOk?: boolean;
 }
 
 /** A WebGL stub that records every uniform write by name. */
-function fakeGl(options: { readonly linkOk?: boolean; readonly compileOk?: boolean } = {}): {
-  readonly gl: Record<string, unknown>;
-  readonly writes: UniformWrites;
-  readonly declared: Set<string>;
-  readonly draws: () => number;
-  readonly deleted: () => number;
-  readonly sources: () => readonly string[];
-} {
+function fakeGl(health: GlHealth = {}) {
   const writes: Record<string, UniformValue> = {};
-  const declared = new Set<string>();
   const sources: string[] = [];
   let drawCount = 0;
   let deletedCount = 0;
-  const record = (name: unknown, ...values: number[]): void => {
-    if (typeof name === "string") writes[name] = values;
+  const handle = (): GlHandle => ({ handle: 1 });
+  const record = (slot: UniformSlot, ...values: number[]): undefined => {
+    // A slot is null exactly when the shader never declared that uniform; real
+    // WebGL drops those writes silently, so the stub drops them too and the
+    // "written every frame" assertions below notice the hole.
+    if (slot !== null) writes[slot] = values;
+    return undefined;
   };
-  const gl: Record<string, unknown> = {
+  const gl = {
     VERTEX_SHADER: 1,
     FRAGMENT_SHADER: 2,
     COMPILE_STATUS: 3,
@@ -105,39 +129,38 @@ function fakeGl(options: { readonly linkOk?: boolean; readonly compileOk?: boole
     TRIANGLES: 18,
     TRIANGLE_STRIP: 19,
     UNPACK_FLIP_Y_WEBGL: 20,
-    createShader: () => ({}),
-    shaderSource: (_shader: unknown, src: string) => sources.push(src),
-    compileShader: () => undefined,
-    getShaderParameter: () => options.compileOk !== false,
-    getShaderInfoLog: () => "",
-    deleteShader: () => undefined,
-    createProgram: () => ({}),
-    attachShader: () => undefined,
-    linkProgram: () => undefined,
-    getProgramParameter: () => options.linkOk !== false,
-    getProgramInfoLog: () => "",
-    deleteProgram: () => { deletedCount += 1; },
-    useProgram: () => undefined,
-    createBuffer: () => ({}),
-    bindBuffer: () => undefined,
-    bufferData: () => undefined,
-    deleteBuffer: () => { deletedCount += 1; },
-    createTexture: () => ({}),
-    bindTexture: () => undefined,
-    texParameteri: () => undefined,
-    texImage2D: () => undefined,
-    deleteTexture: () => { deletedCount += 1; },
-    pixelStorei: () => undefined,
-    activeTexture: () => undefined,
-    viewport: () => undefined,
-    getAttribLocation: () => 0,
-    enableVertexAttribArray: () => undefined,
-    vertexAttribPointer: () => undefined,
-    getUniformLocation: (_program: unknown, name: string) => {
+    createShader: handle,
+    shaderSource: (_shader: GlHandle, src: string): number => sources.push(src),
+    compileShader: (): undefined => undefined,
+    getShaderParameter: (): boolean => health.compileOk !== false,
+    getShaderInfoLog: (): number => 0,
+    deleteShader: (): undefined => undefined,
+    createProgram: handle,
+    attachShader: (): undefined => undefined,
+    linkProgram: (): undefined => undefined,
+    getProgramParameter: (): boolean => health.linkOk !== false,
+    getProgramInfoLog: (): number => 0,
+    deleteProgram: (): undefined => { deletedCount += 1; return undefined; },
+    useProgram: (): undefined => undefined,
+    createBuffer: handle,
+    bindBuffer: (): undefined => undefined,
+    bufferData: (): undefined => undefined,
+    deleteBuffer: (): undefined => { deletedCount += 1; return undefined; },
+    createTexture: handle,
+    bindTexture: (): undefined => undefined,
+    texParameteri: (): undefined => undefined,
+    texImage2D: (): undefined => undefined,
+    deleteTexture: (): undefined => { deletedCount += 1; return undefined; },
+    pixelStorei: (): undefined => undefined,
+    activeTexture: (): undefined => undefined,
+    viewport: (): undefined => undefined,
+    getAttribLocation: (): number => 0,
+    enableVertexAttribArray: (): undefined => undefined,
+    vertexAttribPointer: (): undefined => undefined,
+    getUniformLocation: (_program: GlHandle, name: string): UniformSlot => {
       // Real WebGL returns null for a uniform the shader never declared (or one
       // the compiler stripped as unused). Mirror that exactly — it is the bug
       // this suite exists to catch.
-      declared.add(name);
       const src = sources.join("\n");
       return new RegExp(`\\buniform\\s+\\w+\\s+${name}\\b`).test(src) ? name : null;
     },
@@ -145,29 +168,37 @@ function fakeGl(options: { readonly linkOk?: boolean; readonly compileOk?: boole
     uniform1f: record,
     uniform2f: record,
     uniform3f: record,
-    drawArrays: () => { drawCount += 1; },
-  };
+    drawArrays: (): undefined => { drawCount += 1; return undefined; },
+  } satisfies GlContext;
   return {
     gl,
     writes,
-    declared,
     draws: () => drawCount,
     deleted: () => deletedCount,
-    sources: () => sources,
   };
 }
 
+interface CrtHost {
+  CW_CRT?: CrtModule;
+}
+
 function loadCrt(): CrtModule {
+  // Classic app scripts install their namespace on the global (value-kind.js
+  // does the same); evaluate crt.js against the real globalThis and read it back.
   const source = readFileSync(join(ROOT, "crt.js"), "utf8");
-  const sandbox: { CW_CRT?: CrtModule } = {};
-  new Function("window", source)(sandbox);
-  if (!sandbox.CW_CRT) throw new Error("crt.js did not install window.CW_CRT");
-  return sandbox.CW_CRT;
+  new Function(source)();
+  // SAFETY: crt.js installs CW_CRT on globalThis; the throw below covers the
+  // case where it did not.
+  const host = globalThis as CrtHost;
+  if (!host.CW_CRT) throw new Error("crt.js did not install CW_CRT on the global");
+  return host.CW_CRT;
 }
 
 function scrub(overrides: Partial<CrtScrub> = {}): CrtScrub {
   return { distort: 0.24, chroma: 1.2, scan: 0.55, bloom: 0.48, motion: 1, ...overrides };
 }
+
+const SCENE: SceneSource = { label: "scene-canvas" };
 
 export async function runCommunityWebCrtPassTests(): Promise<void> {
   const crt = loadCrt();
@@ -217,7 +248,7 @@ export async function runCommunityWebCrtPassTests(): Promise<void> {
   // grille, halation or room colour is the old three-effect tube wearing a new
   // module's name.
   pass.resize(2000, 1200, 1000, 600);
-  pass.draw({}, 3.5, scrub());
+  pass.draw(SCENE, 3.5, scrub());
   const writes = built.writes;
   for (const name of crt.UNIFORMS) {
     assert.ok(name in writes, `${name} is written every frame`);
@@ -236,10 +267,10 @@ export async function runCommunityWebCrtPassTests(): Promise<void> {
   // curve, more aberration, deeper scanlines and more bloom — monotonically, or
   // the ride reads as noise rather than acceleration.
   const calm = fakeGl();
-  const calmPass = calm.gl && crt.create(calm.gl);
+  const calmPass = crt.create(calm.gl);
   assert.ok(calmPass);
   calmPass.resize(1000, 600, 1000, 600);
-  calmPass.draw({}, 1, scrub({ distort: 0.24, chroma: 1.2, scan: 0.55, bloom: 0.48 }));
+  calmPass.draw(SCENE, 1, scrub({ distort: 0.24, chroma: 1.2, scan: 0.55, bloom: 0.48 }));
   const calmCurve = calm.writes.uCurve;
   const calmChroma = calm.writes.uChroma;
   const calmDepth = calm.writes.uScanDepth;
@@ -249,7 +280,7 @@ export async function runCommunityWebCrtPassTests(): Promise<void> {
   const hotPass = crt.create(hot.gl);
   assert.ok(hotPass);
   hotPass.resize(1000, 600, 1000, 600);
-  hotPass.draw({}, 1, scrub({ distort: 0.38, chroma: 2.2, scan: 1, bloom: 0.98 }));
+  hotPass.draw(SCENE, 1, scrub({ distort: 0.38, chroma: 2.2, scan: 1, bloom: 0.98 }));
   assert.ok(hot.writes.uCurve[0] > calmCurve[0], "scroll deepens tube curve");
   assert.ok(hot.writes.uCurve[1] > calmCurve[1]);
   assert.ok(hot.writes.uChroma[0] > calmChroma[0], "scroll widens aberration");
@@ -266,7 +297,7 @@ export async function runCommunityWebCrtPassTests(): Promise<void> {
   const stillPass = crt.create(still.gl);
   assert.ok(stillPass);
   stillPass.resize(1000, 600, 1000, 600);
-  stillPass.draw({}, 9, scrub({ motion: 0 }));
+  stillPass.draw(SCENE, 9, scrub({ motion: 0 }));
   assert.deepEqual(still.writes.uMotion, [0], "reduced motion stops time-driven terms");
   assert.ok(still.writes.uCurve[0] > 0, "reduced motion keeps the tube shape");
   assert.deepEqual(still.writes.uGrille, [crt.TERMINAL.grille], "reduced motion keeps the grille");

@@ -888,7 +888,8 @@
         powerPreference: "high-performance",
       });
     } catch {
-      gl = null;
+      /* Some browsers throw from getContext rather than returning null. Either
+         way gl stays null and the scene falls back to drawing straight to 2D. */
     }
 
     crt = window.CW_CRT ? window.CW_CRT.create(gl) : null;
