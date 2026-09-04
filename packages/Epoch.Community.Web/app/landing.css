@@ -202,8 +202,12 @@ body.cw-landing {
    screen — plus a little more at the curved corners. Without this the headline
    runs off the tube and under the moulding. */
 .cw-landing[data-crt-pass="webgl"] .cw-ride-stage > .cw-landing-page {
+  /* Horizontal room matters most: the glass pulls in hardest at the left and
+     right, and the moulding lives there. Vertically the shader's own inset is
+     already most of the margin, so take only a little more — the chapter panels
+     are tall, and every extra block padding here clips their last line. */
   padding-inline: clamp(1.5rem, 7vw, 7rem);
-  padding-block: clamp(1rem, 5vh, 4rem);
+  padding-block: clamp(0.25rem, 1.5vh, 1.25rem);
   box-sizing: border-box;
 }
 .cw-landing[data-crt-pass="webgl"] .cw-scroll-rail {
