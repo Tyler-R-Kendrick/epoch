@@ -874,8 +874,9 @@
       return;
     }
 
-    /* shader.se-grade CRT: WebGL barrel lens + chromatic aberration + vignette.
-       Scene draws to an offscreen 2D buffer; the display canvas is the CRT pass. */
+    /* CRT tube pass. The scene draws to an offscreen 2D buffer; the display
+       canvas is the tube (crt.js — geometry, grille, raster, halation, room).
+       Reduced motion still gets the tube, held still via motion 0. */
     var gl = null;
     var crt = null;
     try {
@@ -890,106 +891,7 @@
       gl = null;
     }
 
-    function compile(type, src) {
-      var sh = gl.createShader(type);
-      gl.shaderSource(sh, src);
-      gl.compileShader(sh);
-      if (!gl.getShaderParameter(sh, gl.COMPILE_STATUS)) {
-        gl.deleteShader(sh);
-        return null;
-      }
-      return sh;
-    }
-
-    function buildCrt() {
-      if (!gl) return null;
-      var vs = compile(
-        gl.VERTEX_SHADER,
-        "attribute vec2 aPos; varying vec2 vUv; void main(){ vUv=aPos*0.5+0.5; gl_Position=vec4(aPos,0.0,1.0); }"
-      );
-      var fs = compile(
-        gl.FRAGMENT_SHADER,
-        [
-          "precision mediump float;",
-          "varying vec2 vUv;",
-          "uniform sampler2D uTex;",
-          "uniform vec2 uRes;",
-          "uniform float uDistort;",
-          "uniform float uBorders;",
-          "uniform float uChroma;",
-          "uniform float uVignette;",
-          "uniform float uTime;",
-          "vec2 barrel(vec2 uv, float k){",
-          "  vec2 c = uv - 0.5;",
-          "  float r2 = dot(c,c);",
-          "  return c * (1.0 + k * r2) + 0.5;",
-          "}",
-          "float borderMask(vec2 uv, float soft){",
-          "  vec2 e = smoothstep(0.0, soft, uv) * (1.0 - smoothstep(1.0 - soft, 1.0, uv));",
-          "  return e.x * e.y;",
-          "}",
-          "void main(){",
-          "  float k = uDistort;",
-          "  vec2 aspect = vec2(uRes.x / max(uRes.y, 1.0), 1.0);",
-          "  vec2 c = (vUv - 0.5) * aspect;",
-          "  float r2 = dot(c, c);",
-          "  vec2 warped = c * (1.0 + k * r2);",
-          "  vec2 uv = warped / aspect + 0.5;",
-          "  float soft = mix(0.018, 0.09, uBorders);",
-          "  float mask = borderMask(uv, soft);",
-          "  vec2 dir = length(c) > 0.0001 ? normalize(c) : vec2(0.0);",
-          "  float ca = uChroma * 0.0042 * (1.0 + r2 * 3.4);",
-          "  vec2 off = dir * ca;",
-          "  vec2 uvR = ((c + off) * (1.0 + k * r2)) / aspect + 0.5;",
-          "  vec2 uvG = uv;",
-          "  vec2 uvB = ((c - off) * (1.0 + k * r2)) / aspect + 0.5;",
-          "  float rCh = texture2D(uTex, uvR).r;",
-          "  float gCh = texture2D(uTex, uvG).g;",
-          "  float bCh = texture2D(uTex, uvB).b;",
-          "  vec3 col = vec3(rCh, gCh, bCh);",
-          "  float scan = 0.9 + 0.1 * sin((vUv.y * uRes.y + uTime * 36.0) * 3.14159);",
-          "  col *= scan;",
-          "  float vig = smoothstep(uVignette + 0.62, uVignette * 0.28, length(c));",
-          "  col *= mix(0.28, 1.0, vig);",
-          "  float grain = fract(sin(dot(vUv * uRes + uTime, vec2(12.9898,78.233))) * 43758.5453);",
-          "  col += (grain - 0.5) * 0.028;",
-          "  col = mix(col, col * vec3(0.92, 1.05, 1.08), 0.18);",
-          "  col *= mask;",
-          "  gl_FragColor = vec4(col, 1.0);",
-          "}",
-        ].join("\n")
-      );
-      if (!vs || !fs) return null;
-      var prog = gl.createProgram();
-      gl.attachShader(prog, vs);
-      gl.attachShader(prog, fs);
-      gl.linkProgram(prog);
-      if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) return null;
-      var buf = gl.createBuffer();
-      gl.bindBuffer(gl.ARRAY_BUFFER, buf);
-      gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW);
-      var tex = gl.createTexture();
-      gl.bindTexture(gl.TEXTURE_2D, tex);
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-      return {
-        prog: prog,
-        buf: buf,
-        tex: tex,
-        aPos: gl.getAttribLocation(prog, "aPos"),
-        uTex: gl.getUniformLocation(prog, "uTex"),
-        uRes: gl.getUniformLocation(prog, "uRes"),
-        uDistort: gl.getUniformLocation(prog, "uDistort"),
-        uBorders: gl.getUniformLocation(prog, "uBorders"),
-        uChroma: gl.getUniformLocation(prog, "uChroma"),
-        uVignette: gl.getUniformLocation(prog, "uVignette"),
-        uTime: gl.getUniformLocation(prog, "uTime"),
-      };
-    }
-
-    if (!state.reduce) crt = buildCrt();
+    crt = window.CW_CRT ? window.CW_CRT.create(gl) : null;
     var drawCtx = crt ? sctx : canvas.getContext("2d");
     if (!drawCtx) {
       canvas.setAttribute("data-canvas-failed", "1");
@@ -1038,9 +940,9 @@
       canvas.style.height = h + "px";
       sctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       if (!crt && drawCtx !== sctx) drawCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      if (crt) {
-        gl.viewport(0, 0, bw, bh);
-      }
+      /* Scan count and grille pitch are authored against the screen, so the pass
+         needs CSS pixels as well as the framebuffer it draws into. */
+      if (crt) crt.resize(bw, bh, w, h);
       seed(w, h, h * 0.48);
     }
 
@@ -1178,25 +1080,17 @@
       }
     }
 
-    function blitCrt(ts) {
-      gl.useProgram(crt.prog);
-      gl.bindBuffer(gl.ARRAY_BUFFER, crt.buf);
-      gl.enableVertexAttribArray(crt.aPos);
-      gl.vertexAttribPointer(crt.aPos, 2, gl.FLOAT, false, 0, 0);
-      gl.activeTexture(gl.TEXTURE0);
-      gl.bindTexture(gl.TEXTURE_2D, crt.tex);
-      gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 1);
-      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, scene);
-      gl.uniform1i(crt.uTex, 0);
-      gl.uniform2f(crt.uRes, canvas.width, canvas.height);
-      var distort = parseFloat(body.style.getPropertyValue("--cw-crt-distort")) || 0.16;
-      var chroma = parseFloat(body.style.getPropertyValue("--cw-crt-chroma")) || 1.0;
-      gl.uniform1f(crt.uDistort, state.reduce ? 0.04 : distort);
-      gl.uniform1f(crt.uBorders, 1.0);
-      gl.uniform1f(crt.uChroma, state.reduce ? 0.2 : chroma);
-      gl.uniform1f(crt.uVignette, 0.42);
-      gl.uniform1f(crt.uTime, ts * 0.001);
-      gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+    /* Scroll energy the CRT pass rides. The chapter scrub writes these as CSS
+       custom properties (one writer, no attribute thrash); read them back here
+       so tube intensity and the world stay on the same clock. */
+    function crtScrub() {
+      return {
+        distort: parseFloat(body.style.getPropertyValue("--cw-crt-distort")) || 0.24,
+        chroma: parseFloat(body.style.getPropertyValue("--cw-crt-chroma")) || 1.2,
+        scan: parseFloat(body.style.getPropertyValue("--cw-crt-scan")) || 0.55,
+        bloom: parseFloat(body.style.getPropertyValue("--cw-crt-bloom")) || 0.48,
+        motion: state.reduce ? 0 : 1,
+      };
     }
 
     function draw(ts) {
@@ -1220,7 +1114,7 @@
 
       if (crt) {
         paintScene(sctx, w, h);
-        blitCrt(ts);
+        crt.draw(scene, ts * 0.001, crtScrub());
       } else {
         paintScene(drawCtx, w, h);
       }

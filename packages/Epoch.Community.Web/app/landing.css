@@ -167,6 +167,37 @@ body.cw-landing {
   height: 0;
 }
 
+/* The WebGL pass can only raster what it draws — the scene canvas. Copy is real
+   DOM (selectable, readable by AT), so it never enters the tube texture and,
+   left alone, floats above the screen instead of sitting on it.
+   This is the one tube layer above copy: the same triad pitch and scanline beat
+   as the shader, multiplied over everything inside the bezel. Static, because
+   motion up here would fight the text rather than the scene, and faint, because
+   the copy's contrast floor outranks the effect. */
+.cw-crt-face {
+  position: absolute;
+  inset: clamp(12px, 1.8vw, 26px);
+  border-radius: clamp(10px, 1.4vw, 22px);
+  z-index: 7;
+  pointer-events: none;
+  background:
+    repeating-linear-gradient(
+      0deg,
+      rgba(120, 130, 128, 1) 0 1px,
+      rgba(255, 255, 255, 1) 1px 3px
+    ),
+    repeating-linear-gradient(
+      90deg,
+      rgba(255, 190, 190, 1) 0 1.07px,
+      rgba(190, 255, 200, 1) 1.07px 2.13px,
+      rgba(190, 200, 255, 1) 2.13px 3.2px
+    );
+  background-blend-mode: multiply;
+  mix-blend-mode: multiply;
+  opacity: .3;
+}
+
+
 .cw-crt-screen {
   position: absolute;
   inset: clamp(12px, 1.8vw, 26px);
@@ -314,6 +345,19 @@ body.cw-landing {
 }
 .cw-landing[data-crt-pass="webgl"] .cw-crt-chroma {
   opacity: calc(0.08 + var(--cw-scroll-smooth) * 0.08);
+}
+/* The tube pass now owns falloff, halation and phosphor lift. These overlays
+   stay as the non-WebGL fallback, so here they step back to a thin coat of
+   glass — at full strength the CSS vignette alone crushes the corners past the
+   shader's lifted black and the tube reads as a letterbox again. */
+.cw-landing[data-crt-pass="webgl"] .cw-crt-vignette {
+  opacity: .22;
+}
+.cw-landing[data-crt-pass="webgl"] .cw-crt-bloom {
+  opacity: calc(var(--cw-crt-bloom, 0.45) * 0.34);
+}
+.cw-landing[data-crt-pass="webgl"] .cw-crt-phosphor {
+  opacity: calc(0.22 + var(--cw-scroll-smooth) * 0.12);
 }
 
 @keyframes cw-crt-roll {
@@ -1169,6 +1213,16 @@ body.cw-landing {
     inset 0 0 120px color-mix(in srgb, var(--cw-agent) 10%, transparent);
 }
 .cw-landing[data-chapter="board"] .cw-cyc-grid { opacity: 1; }
+
+/* Chapter swells keep their intent under the tube pass — "what" leans on
+   phosphor, "how" on fringing — but at the WebGL scale, so the shader's own
+   halation and aberration stay the dominant voice instead of stacking. */
+.cw-landing[data-crt-pass="webgl"][data-chapter="what"] .cw-crt-phosphor {
+  opacity: .4;
+}
+.cw-landing[data-crt-pass="webgl"][data-chapter="how"] .cw-crt-chroma {
+  opacity: .2;
+}
 
 .cw-landing-panel.cw-ride-chapter {
   position: relative;

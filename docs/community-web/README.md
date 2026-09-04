@@ -47,6 +47,30 @@ decodes the product thesis when that chapter enters).
 (`landing-fx.js`). Html-in-canvas effects need Chrome’s flag or origin trial and
 fail soft; terminal chapter flashes work without it.
 
+### The CRT tube
+
+The landing renders inside a CRT. The scene canvas draws to an offscreen 2D
+buffer and the display canvas is a single-pass tube shader — `crt.js`, installing
+`window.CW_CRT` — layering barrel geometry, radial aberration, phosphor
+halation, scanlines, an aperture grille, gain, a rolling refresh bar, glass
+sheen, vignette, flicker, grain, and a lit room behind the glass. The look lives
+in one `TERMINAL` preset; scan count and grille pitch derive from **CSS** pixels
+so the raster follows the screen rather than the framebuffer.
+
+Every time-driven term is gated on `uMotion`, so `prefers-reduced-motion` gets
+the tube **held still** rather than removed. Where WebGL is unavailable the pass
+returns `null`, the scene draws straight to 2D, and the CSS overlay stack
+(`.cw-crt-scan`, `.cw-crt-phosphor`, `.cw-crt-bloom`, …) remains the fallback
+tube; under `[data-crt-pass="webgl"]` those layers step back so they do not
+double the shader.
+
+Copy stays real DOM, so the shader never rasters it. `.cw-crt-face` is the one
+static tube layer above the copy, multiplying the same triad pitch and scanline
+beat over everything inside the bezel so the page reads as one screen. It costs
+the lede **11.5:1 → 8.95:1** against the contract’s 7:1 floor, which is why its
+strength is capped by assertion — see
+[ADR-0061](../design-decisions/0061-crt-tube-pass.md).
+
 ## What it is
 
 The Community Web direction from the ten explorations, built for real rather than
