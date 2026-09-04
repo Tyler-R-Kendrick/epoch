@@ -913,6 +913,10 @@ const CASES = [
     landing: true,
     run: async (page, log) => {
       await page.click("[data-enter-board]");
+      /* The landing powers the CRT down before it navigates, so wait for the
+         navigation itself rather than assuming it lands inside a fixed tick.
+         Swallowing the timeout keeps the diagnostic below as the failure. */
+      await page.waitForURL(/board\.html/i, { timeout: 5000 }).catch(() => {});
       await page.waitForTimeout(400);
       const onBoard = await page.evaluate(() => ({
         href: window.location.href,
