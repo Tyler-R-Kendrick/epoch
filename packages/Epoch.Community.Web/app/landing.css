@@ -182,6 +182,34 @@ body.cw-landing {
   opacity: var(--cw-crt-warm, 1);
 }
 
+/* Under the shader the monitor is drawn by the shader: screen, glass lip and
+   moulding all follow the barrel curve, so the frame wraps the tube. The CSS
+   chassis is a rectangle, and a rectangle laid over a curved raster crops away
+   the bowed edge — which is exactly the part that reads as a tube. It stays as
+   the non-WebGL frame and steps aside here. */
+.cw-landing[data-crt-pass="webgl"] .cw-crt-bezel {
+  display: none;
+}
+/* Same reason: the rounded-rectangle clip fought the curve it was meant to
+   contain. Full-bleed here so the shader's own edge is the screen edge. */
+.cw-landing[data-crt-pass="webgl"] .cw-crt-screen {
+  inset: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+/* Copy lives on the glass, so it is inset to the same 88% the shader gives the
+   screen — plus a little more at the curved corners. Without this the headline
+   runs off the tube and under the moulding. */
+.cw-landing[data-crt-pass="webgl"] .cw-ride-stage > .cw-landing-page {
+  padding-inline: clamp(1.5rem, 7vw, 7rem);
+  padding-block: clamp(1rem, 5vh, 4rem);
+  box-sizing: border-box;
+}
+.cw-landing[data-crt-pass="webgl"] .cw-scroll-rail {
+  right: clamp(1rem, 5vw, 5rem);
+}
+
 /* Powering down takes the copy with it, ahead of the raster collapse. */
 .cw-landing[data-crt-off] .cw-scroll-rail,
 .cw-landing[data-crt-off] .cw-landing-page {
@@ -193,9 +221,9 @@ body.cw-landing {
    the plastic, not behind the glass. */
 .cw-crt-plate {
   position: absolute;
-  right: clamp(20px, 2.8vw, 46px);
+  right: clamp(26px, 6vw, 92px);
   bottom: 0;
-  height: clamp(16px, 2.2vw, 34px);
+  height: clamp(20px, 5.2vh, 46px);
   z-index: 9;
   display: flex;
   align-items: center;

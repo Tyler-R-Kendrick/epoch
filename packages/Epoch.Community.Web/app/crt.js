@@ -31,8 +31,12 @@
   var TERMINAL = {
     /* Barrel strength per axis. Vertical > horizontal: consumer tubes bulged more
        across the short dimension, and the asymmetry is what stops it reading as a
-       fisheye photo. */
-    curve: [0.115, 0.165],
+       fisheye photo.
+       Above the reference terminal's [0.115, 0.165], deliberately. That preset is
+       tuned for a small demo box; the same normalized curve across a full-viewport
+       hero subtends far less angle and reads flat. Scaled until the bowed edge is
+       legible at 1280px wide, which is where the tube stops looking like a photo. */
+    curve: [0.155, 0.215],
     /* Scanlines per CSS pixel of viewport height. */
     scanDensity: 0.44,
     /* How dark the gap between scanlines gets. */
@@ -81,6 +85,18 @@
      is the beam settling, which the picture can ride through — so this, not the
      end of the ramp, is when there is something for the copy to sit on. */
   var RASTER_OPEN = 0.62;
+  /* How far into the ramp the cathode reaches full strike. Non-zero for two
+     reasons: powering ON, the glass is dark for a beat before the filament
+     lights, which is what a tube actually does; and powering OFF, where the
+     ramp runs backwards, it is what lets the line fade out instead of leaving
+     the last frame lit. */
+  var STRIKE_IN = 0.06;
+  /* Fraction of the viewport the glass occupies, leaving the rest for the
+     moulding. Without it the raster runs to the viewport edge at the midpoints
+     — `curve()` displaces nothing there — so the frame survives only near the
+     corners and reads as a vignette rather than a chassis. A monitor insets its
+     screen; this is that inset. */
+  var SCREEN_FILL = 0.88;
   /* Degauss thump on chapter change — the demagnetising coil's dying wobble. */
   var DEGAUSS_MS = 720;
   /* Power-off collapse when entering the board. Brisk on purpose: this plays
@@ -152,8 +168,18 @@
     "",
     "void main(){",
     "  vec2 fuv = gl_FragCoord.xy / uRes;",
-    "  vec2 uv = curve(fuv);",
     "  float t = uTime;",
+    "",
+    "  /* The glass, inset inside the chassis. Screen, lip and moulding are all",
+    "     built from this one curve, so the frame wraps the tube instead of being",
+    "     a rectangle drawn over it — the whole difference between a monitor and",
+    "     a border. */",
+    "  vec2 sp = (fuv - 0.5) / " + SCREEN_FILL.toFixed(3) + " + 0.5;",
+    "  vec2 cuv = curve(sp);",
+    "  float glass = min(min(cuv.x, 1.0 - cuv.x), min(cuv.y, 1.0 - cuv.y));",
+    "  float screenMask = smoothstep(0.0, 0.0022, glass);",
+    "",
+    "  vec2 uv = cuv;",
     "",
     "  /* Degauss: the coil's dying field drags the beam in a decaying radial",
     "     ripple. Geometry first, so the wobble bends the image rather than",
@@ -173,12 +199,11 @@
     "  /* Vertical hold catching, damping out as the ramp finishes. */",
     "  uv.y += sin(uWarm * 34.0) * 0.030 * settle;",
     "",
-    "  /* Warping pushes the corners off-texture. Fade rather than clamp, so the",
-    "     tube meets the room on a soft edge instead of a smeared border pixel. */",
-    "  vec2 inb = step(vec2(0.0), uv) * step(uv, vec2(1.0));",
-    "  float inside = inb.x * inb.y;",
-    "  vec2 ed = min(uv, 1.0 - uv);",
-    "  inside *= smoothstep(0.0, 0.020, min(ed.x, ed.y));",
+    "  /* Where the beam is actually writing. Outside this the glass is dark —",
+    "     unlit screen, not room, which is what keeps the strike inside the tube. */",
+    "  vec2 rb = step(vec2(0.0), uv) * step(uv, vec2(1.0));",
+    "  vec2 red = min(uv, 1.0 - uv);",
+    "  float raster = rb.x * rb.y * smoothstep(0.0, 0.004, min(red.x, red.y));",
     "",
     "  /* Aberration grows with distance from centre: the shadow mask misconverges",
     "     at the edges of the tube, never in the middle. */",
@@ -202,6 +227,7 @@
     "              + texture2D(uTex, uv + vec2(-s, -s) * 0.72).rgb;",
     "    col += wide * (uHalo / 6.0);",
     "  }",
+    "  col *= raster;",
     "",
     "  /* Raster. sin² keeps the line bright and the gap dark without ringing. */",
     "  float sl = sin(uv.y * 3.14159265 * uScan + t * 4.0 * uMotion);",
@@ -216,13 +242,13 @@
     "  /* Refresh bar rolling up the tube. */",
     "  float bar = fract(uv.y * 0.5 - t * 0.07 * uMotion);",
     "  bar = smoothstep(0.0, 0.05, bar) * smoothstep(0.18, 0.05, bar);",
-    "  col += bar * uBar * uMotion;",
+    "  col += bar * uBar * uMotion * raster;",
     "",
     "  /* Sheen on the glass, high and slightly left, as if lit from a window. */",
-    "  float sheen = smoothstep(0.55, 0.0, distance(uv, vec2(0.50, 0.15)));",
+    "  float sheen = smoothstep(0.55, 0.0, distance(cuv, vec2(0.50, 0.15)));",
     "  col += sheen * 0.030 * uSheen;",
     "",
-    "  float vig = smoothstep(0.98, 0.30, length((uv - 0.5) * vec2(1.05, 1.0)));",
+    "  float vig = smoothstep(0.98, 0.30, length((cuv - 0.5) * vec2(1.05, 1.0)));",
     "  col *= mix(1.0 - uVignette, 1.0, vig);",
     "  col *= 1.0 - uFlicker * uMotion * sin(t * 8.0);",
     "",
@@ -231,22 +257,44 @@
     "  /* Beam current comes up, overshoots, and the regulator catches it. This",
     "     gain applies to the PICTURE only — the strike filament below is the",
     "     cathode itself and must not be dimmed by the picture not being there. */",
-    "  col *= smoothstep(0.0, 0.16, uWarm);",
+    "  float powered = smoothstep(0.0, 0.16, uWarm);",
+    "  col *= powered;",
     "  col *= 1.0 + 0.85 * settle * open;",
     "",
     "  /* The strike: a hot filament across the middle of the glass while the",
     "     raster is still shut, widening and fading as the picture takes over. */",
-    "  float slot = mix(190.0, 5.0, open);",
-    "  float strike = exp(-pow((fuv.y - 0.5) * slot, 2.0));",
-    "  col += strike * (1.0 - open) * (uSheen * 1.6 + 0.75) * 2.4;",
+    "  float slot = mix(210.0, 26.0, open);",
+    "  float strike = exp(-pow((cuv.y - 0.5) * slot, 2.0));",
+    "  col += strike * (1.0 - open) * smoothstep(0.0, " + STRIKE_IN.toFixed(2) + ", uWarm)",
+    "       * (uSheen * 1.6 + 0.75) * 2.4;",
     "  col *= 1.0 + 0.22 * uDegauss;",
+    "  /* A powered tube never reaches true black; an unpowered one does. */",
+    "  col = max(col, uRoom * 0.34 * powered);",
     "",
-    "  /* Outside the glass is the room, lit a little by the tube itself. The floor",
-    "     lift keeps blacks off zero — a powered CRT never reaches true black. */",
+    "  /* The monitor, built outward from the glass edge and following its curve.",
+    "     Lip first — the polished rim of the tube catching the room — then the",
+    "     moulding, lit from above, then the room the whole thing sits in. */",
+    "  float o = -glass;",
+    "  /* Polished rim of the tube where it meets the moulding. */",
+    "  float lip = smoothstep(0.0, 0.0026, o) * (1.0 - smoothstep(0.0026, 0.0092, o));",
+    "  /* The moulding itself, and the shadow it casts outward onto the room. */",
+    "  float bezel = smoothstep(0.006, 0.013, o);",
+    "  /* `cast` is reserved in GLSL ES — this is the shadow the glass throws. */",
+    "  float castShade = smoothstep(0.030, 0.0, o - 0.010);",
+    "  /* Injection-moulded plastic: lit from above, falling to near black at the",
+    "     bottom lip, with the glass casting a line of shade onto the surround. */",
+    "  vec3 plastic = mix(vec3(0.128, 0.137, 0.158), vec3(0.020, 0.023, 0.030),",
+    "                     smoothstep(-0.15, 1.0, fuv.y));",
+    "  plastic += vec3(0.095) * (1.0 - smoothstep(0.010, 0.044, o)) * (1.0 - fuv.y);",
+    "  plastic *= 1.0 - 0.55 * smoothstep(0.008, 0.030, o) * (1.0 - smoothstep(0.030, 0.060, o));",
+    "",
     "  float spill = smoothstep(0.85, 0.18, length(fuv - 0.5)) * 0.05;",
-    "  vec3 room = uRoom + uSheen * spill * 0.42;",
-    "  col = mix(room, col, inside);",
-    "  col = max(col, uRoom * 0.34);",
+    "  vec3 shell = uRoom + uSheen * spill * 0.42;",
+    "  shell *= 1.0 - 0.55 * castShade;",
+    "  shell = mix(shell, plastic, bezel);",
+    "  shell = mix(shell, uSheen * 0.10 + 0.038, lip);",
+    "",
+    "  col = mix(shell, col, screenMask);",
     "  gl_FragColor = vec4(col, 1.0);",
     "}",
   ].join("\n");
@@ -432,6 +480,8 @@
     powerOffAt: powerOffAt,
     WARM_MS: WARM_MS,
     RASTER_OPEN: RASTER_OPEN,
+    STRIKE_IN: STRIKE_IN,
+    SCREEN_FILL: SCREEN_FILL,
     DEGAUSS_MS: DEGAUSS_MS,
     POWER_OFF_MS: POWER_OFF_MS,
     create: create,

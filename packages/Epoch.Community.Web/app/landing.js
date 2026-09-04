@@ -872,6 +872,7 @@
     var struckAt = 0;
     var degaussedAt = -1e9;
     var offAt = 0;
+    var lastWarmCss = "";
     var stars = null;
     var beams = null;
     var scene = document.createElement("canvas");
@@ -1120,14 +1121,17 @@
     state.thumpCrt = function (ts) { degaussedAt = ts; };
 
     /* Entering the board powers the tube down: the raster collapses to a line
-       and goes out, then the browser navigates. The screen switching off is the
-       honest way to leave a screen.
+       and fades out, then the browser navigates. The screen switching off is
+       the honest way to leave a screen. Both board CTAs get it — they are the
+       same affordance, and only one of them behaving this way reads as a bug.
 
        Everything here is belt-and-braces about actually getting there — the
        flourish must never become a trap. Reduced motion, a missing tube, a
        modified click and a throttled background tab all navigate normally. */
-    var enter = document.querySelector("[data-enter-board]");
-    if (enter && crt && !state.reduce) {
+    var enters = crt && !state.reduce
+      ? document.querySelectorAll("a.cw-landing-enter[href]")
+      : [];
+    enters.forEach(function (enter) {
       enter.addEventListener("click", function (ev) {
         if (ev.defaultPrevented || ev.button !== 0 || ev.metaKey || ev.ctrlKey ||
             ev.shiftKey || ev.altKey || offAt) return;
@@ -1145,7 +1149,7 @@
         /* rAF stops in a background tab; the timer is what guarantees arrival. */
         window.setTimeout(leave, window.CW_CRT.POWER_OFF_MS + 40);
       });
-    }
+    });
 
     function draw(ts) {
       if (!state.visible) {
@@ -1183,7 +1187,7 @@
              frame, so the trail length does not change with frame rate.
              `lighten` cannot accumulate past the source, so this glows without
              ever blowing out. */
-          var keep = Math.pow(0.62, Math.min(dt, 0.05) / 0.0166);
+          var keep = Math.pow(0.62, dt / 0.0166);
           gctx.globalCompositeOperation = "source-over";
           gctx.fillStyle = "rgba(0,0,0," + (1 - keep).toFixed(4) + ")";
           gctx.fillRect(0, 0, glow.width, glow.height);
@@ -1198,8 +1202,14 @@
         if (tube.warm < window.CW_CRT.RASTER_OPEN && !offAt) body.setAttribute("data-crt-warm", "1");
         else if (body.hasAttribute("data-crt-warm")) body.removeAttribute("data-crt-warm");
         /* The CSS glass stack has nothing to show until the picture exists —
-           left at full strength it glows over a tube that is not lit yet. */
-        body.style.setProperty("--cw-crt-warm", tube.warm.toFixed(3));
+           left at full strength it glows over a tube that is not lit yet. Only
+           written on change: once struck this value is constant, and a style
+           write every frame for the life of the page buys nothing. */
+        var warmCss = tube.warm.toFixed(3);
+        if (warmCss !== lastWarmCss) {
+          body.style.setProperty("--cw-crt-warm", warmCss);
+          lastWarmCss = warmCss;
+        }
         crt.draw(gctx ? glow : scene, ts * 0.001, tube);
       } else {
         paintScene(drawCtx, w, h);

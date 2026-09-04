@@ -93,6 +93,7 @@ interface CrtModule {
   readonly powerOffAt: (elapsedMs: number) => number;
   readonly WARM_MS: number;
   readonly RASTER_OPEN: number;
+  readonly STRIKE_IN: number;
   readonly DEGAUSS_MS: number;
   readonly POWER_OFF_MS: number;
   readonly create: (gl: GlContext) => CrtPass | null;
@@ -218,7 +219,12 @@ export async function runCommunityWebCrtPassTests(): Promise<void> {
   // The terminal variant is the design being reproduced. These numbers are the
   // look; drifting one silently changes the landing's first impression, so they
   // are pinned rather than left as magic numbers in a shader call site.
-  assert.deepEqual(crt.TERMINAL.curve, [0.115, 0.165], "tube curves more vertically than horizontally");
+  // Above the reference preset's [0.115, 0.165] on purpose: that is tuned for a
+  // small demo box, and the same normalized curve over a full-viewport hero
+  // subtends far less angle and reads flat. The asymmetry is the load-bearing
+  // part — a tube bulges more across its short dimension.
+  assert.deepEqual(crt.TERMINAL.curve, [0.155, 0.215], "tube curves more vertically than horizontally");
+  assert.ok(crt.TERMINAL.curve[1] > crt.TERMINAL.curve[0], "vertical bulge exceeds horizontal");
   assert.equal(crt.TERMINAL.scanDensity, 0.44);
   assert.equal(crt.TERMINAL.scanDepth, 0.3);
   assert.equal(crt.TERMINAL.triadCss, 3.2);
@@ -241,6 +247,31 @@ export async function runCommunityWebCrtPassTests(): Promise<void> {
   assert.equal(crt.triadPitch(2000, 1000, 3.2), 6.4, "grille pitch scales with device pixel ratio");
   assert.equal(crt.triadPitch(1000, 1000, 3.2), 3.2);
   assert.equal(crt.triadPitch(100, 1000, 3.2), 2, "pitch never drops below a 2px stripe");
+
+  // A GLSL compile error cannot be caught by a stub that always reports success,
+  // and it costs a full browser round trip to find. `cast` is the one that
+  // actually bit: a perfectly ordinary variable name, and a reserved word in
+  // GLSL ES 1.00, so the shader failed to link and the tube silently fell back
+  // to plain 2D. Check declared names against the reserved list here, where it
+  // is free, instead of in a headless browser.
+  const GLSL_ES_RESERVED = new Set([
+    "asm", "class", "union", "enum", "typedef", "template", "this", "packed",
+    "goto", "switch", "default", "inline", "noinline", "volatile", "public",
+    "static", "extern", "external", "interface", "long", "short", "double",
+    "half", "fixed", "unsigned", "superp", "input", "output", "sizeof", "cast",
+    "namespace", "using", "sampler1D", "sampler3D", "sampler1DShadow",
+    "sampler2DShadow", "sampler2DRect", "sampler3DRect", "sampler2DRectShadow",
+  ]);
+  const declared = [...crt.FRAGMENT_SHADER.matchAll(
+    /\b(?:float|int|bool|vec2|vec3|vec4|ivec2|ivec3|ivec4|bvec2|bvec3|bvec4|mat2|mat3|mat4)\s+([A-Za-z_]\w*)/g,
+  )].map((m) => m[1]);
+  assert.ok(declared.length > 10, "the declaration scan actually found variables");
+  const reserved = declared.filter((name) => GLSL_ES_RESERVED.has(name));
+  assert.deepEqual(
+    reserved,
+    [],
+    `shader declares GLSL ES reserved word(s): ${reserved.join(", ")} — the shader will not compile`,
+  );
 
   // Every uniform the pass resolves must exist in the shader. The stub returns
   // null for undeclared names exactly like real WebGL, so a typo fails here
@@ -374,6 +405,20 @@ export async function runCommunityWebCrtPassTests(): Promise<void> {
     crt.powerOffAt(crt.POWER_OFF_MS * 0.25) > crt.powerOffAt(crt.POWER_OFF_MS * 0.75),
     "collapse is monotonic",
   );
+  // Power-off runs the strike backwards, so whatever the filament does at
+  // warm 0 is the last thing anyone sees of this page. It has to be nothing:
+  // the picture gain already zeroes the image there, and an ungated filament
+  // term would leave the tube showing a lit line instead of going dark.
+  assert.ok(
+    crt.STRIKE_IN > 0 && crt.STRIKE_IN < crt.RASTER_OPEN,
+    "the filament ramps in before the raster opens, and is out at warm 0",
+  );
+  assert.match(
+    crt.FRAGMENT_SHADER,
+    new RegExp(`strike[^;]*smoothstep\\(0\\.0,\\s*${crt.STRIKE_IN.toFixed(2)},\\s*uWarm\\)`),
+    "the strike filament is gated on uWarm so power-off ends dark",
+  );
+
   assert.ok(
     crt.POWER_OFF_MS <= 460,
     `power-off is ${crt.POWER_OFF_MS}ms; past ~460ms a flourish becomes a toll on every click`,
@@ -461,7 +506,7 @@ export async function runCommunityWebCrtPassTests(): Promise<void> {
 
   // Power-off must never be able to strand someone on the landing: rAF stops in
   // a background tab, so a timer — not the animation — is what navigates.
-  const enterHandler = landing.slice(landing.indexOf("data-enter-board"));
+  const enterHandler = landing.slice(landing.indexOf("cw-landing-enter[href]"));
   assert.match(
     enterHandler.slice(0, 1400),
     /setTimeout\(leave/,
@@ -472,6 +517,21 @@ export async function runCommunityWebCrtPassTests(): Promise<void> {
     /metaKey|ctrlKey/,
     "modified clicks (open in new tab) keep their native behaviour",
   );
+  // Two visible CTAs enter the board. They are the same affordance, so only one
+  // of them powering the tube down would read as a bug rather than a flourish.
+  assert.match(
+    landing,
+    /querySelectorAll\("a\.cw-landing-enter\[href\]"\)/,
+    "every board CTA powers the tube down, not just the hero one",
+  );
+  assert.ok(
+    (index.match(/class="cw-landing-enter"/g) ?? []).length >= 2,
+    "the markup really does carry more than one board CTA",
+  );
+
+  // The warm custom property is written on change only: after the strike it is
+  // a constant, and a style write every frame for the life of the page is waste.
+  assert.match(landing, /lastWarmCss/, "--cw-crt-warm is written only when it changes");
 
   const faceOpacity = /opacity:\s*([\d.]+)/.exec(face[1]);
   assert.ok(faceOpacity, ".cw-crt-face pins an explicit opacity");
