@@ -126,9 +126,9 @@ The reference for the target look is the "terminal" CRT background on
 ## Consequences
 
 **The face layer costs contrast, and the budget is spent.** Measured on the
-rendered lede paragraph, the copy goes from **11.5:1 to 8.95:1** against the
+rendered lede paragraph, the copy goes from **11.46:1 to 10.21:1** against the
 Community Web contract's **7:1** body floor. That is real headroom consumed for
-an aesthetic effect. It is accepted because the remaining margin is ~1.9 points
+an aesthetic effect. It is accepted because the remaining margin is ~3.2 points
 and the alternative — copy that visibly does not belong to the screen behind it
 — undercuts the whole premise of the landing. The strength is pinned by an
 assertion at `opacity <= 0.3` rather than left to judgement, so the next person
@@ -141,6 +141,13 @@ scene. The assertion covers this too.
 **The preset is pinned, which makes drift a test failure.** Changing the look is
 now a deliberate edit to named values with a failing test to update, not a
 silent tweak. This is the intended cost.
+
+**Measuring it correctly matters.** The figure is taken from the rendered page
+with the strike *finished* — `data-crt-warm` cleared, `--cw-crt-warm` at 1, copy
+at full opacity — because `requestAnimationFrame` is throttled in headless
+browsers and a naive screenshot lands on a frame where the copy is still gated.
+An earlier pass of this work reported 8.95:1 from exactly that mistake. Assert
+the settled state before reading pixels.
 
 **The copy gate is the sharpest edge in this change.** Holding the page's copy
 at opacity 0 for just over a second is a real cost, and a bug there is a blank

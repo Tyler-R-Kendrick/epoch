@@ -67,7 +67,7 @@ double the shader.
 Copy stays real DOM, so the shader never rasters it. `.cw-crt-face` is the one
 static tube layer above the copy, multiplying the same triad pitch and scanline
 beat over everything inside the bezel so the page reads as one screen. It costs
-the lede **11.5:1 → 8.95:1** against the contract’s 7:1 floor, which is why its
+the lede **11.46:1 → 10.21:1** against the contract’s 7:1 floor, which is why its
 strength is capped by assertion — see
 [ADR-0061](../design-decisions/0061-crt-tube-pass.md).
 

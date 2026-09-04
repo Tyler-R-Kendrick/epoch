@@ -467,9 +467,10 @@ export async function runCommunityWebCrtPassTests(): Promise<void> {
   assert.match(face[1], /pointer-events:\s*none/, "the face never eats a click");
   assert.ok(!/animation/.test(face[1]), "the face is static — motion above copy fights the text");
 
-  // Measured on the rendered lede: the face costs 11.5:1 → 8.95:1. That is the
-  // whole budget against the contract's 7:1 body floor, so the strength is
-  // capped here rather than left to whoever next reaches for "a bit more CRT".
+  // Measured on the rendered lede, with the strike finished and the page
+  // verifiably settled: the face costs 11.46:1 → 10.21:1 against the contract's
+  // 7:1 body floor. Capped here rather than left to whoever next reaches for
+  // "a bit more CRT" — the headroom is real but it is not unlimited.
   // Phosphor persistence. The tube samples a decayed composite, not the raw
   // scene — without `lighten` the buffer would accumulate instead of glow.
   assert.match(landing, /globalCompositeOperation\s*=\s*"lighten"/, "afterglow composites with lighten");
