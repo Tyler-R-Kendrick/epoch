@@ -873,6 +873,8 @@
     var degaussedAt = -1e9;
     var offAt = 0;
     var lastWarmCss = "";
+    /* Set if the strike is ever abandoned — see the watchdog below. */
+    var warmGiveUp = false;
     var stars = null;
     var beams = null;
     var scene = document.createElement("canvas");
@@ -1112,7 +1114,7 @@
         motion: state.reduce ? 0 : 1,
         warm: offAt
           ? window.CW_CRT.powerOffAt(ts - offAt)
-          : window.CW_CRT.warmAt(ts - struckAt, state.reduce),
+          : window.CW_CRT.warmAt(ts - struckAt, state.reduce || warmGiveUp),
         degauss: state.reduce ? 0 : window.CW_CRT.degaussAt(ts - degaussedAt),
       };
     }
@@ -1199,8 +1201,25 @@
         /* The copy waits for the picture — see .cw-crt-warm rules. Cleared on
            the first frame that finds the raster fully open, so a backgrounded
            tab returns to a readable page rather than a blank one. */
-        if (tube.warm < window.CW_CRT.RASTER_OPEN && !offAt) body.setAttribute("data-crt-warm", "1");
-        else if (body.hasAttribute("data-crt-warm")) body.removeAttribute("data-crt-warm");
+        if (tube.warm < window.CW_CRT.RASTER_OPEN && !offAt) {
+          if (!body.hasAttribute("data-crt-warm")) {
+            body.setAttribute("data-crt-warm", "1");
+            /* Hiding the copy is only ever safe if something other than the
+               animation can put it back. requestAnimationFrame is not a
+               promise: a hidden tab, a throttled embed or a lost context can
+               stop it at any point, and every one of those would strand the
+               page blank. The timer is the guarantee; the ramp is only the
+               nice path. */
+            window.setTimeout(function () {
+              if (!body.hasAttribute("data-crt-warm")) return;
+              warmGiveUp = true;
+              body.removeAttribute("data-crt-warm");
+              body.style.setProperty("--cw-crt-warm", "1");
+            }, window.CW_CRT.WARM_MS + 600);
+          }
+        } else if (body.hasAttribute("data-crt-warm")) {
+          body.removeAttribute("data-crt-warm");
+        }
         /* The CSS glass stack has nothing to show until the picture exists —
            left at full strength it glows over a tube that is not lit yet. Only
            written on change: once struck this value is constant, and a style

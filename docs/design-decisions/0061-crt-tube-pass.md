@@ -149,6 +149,16 @@ browsers and a naive screenshot lands on a frame where the copy is still gated.
 An earlier pass of this work reported 8.95:1 from exactly that mistake. Assert
 the settled state before reading pixels.
 
+**The copy gate must be recoverable without frames.** Bounding it with "cleared
+on the first frame that finds the raster open" was not enough: that makes the
+page's readability depend on `requestAnimationFrame` continuing to fire, and it
+does not — a hidden tab, a throttled embed, a lost context or a thrown exception
+all stop it, and the page is then stranded blank with the copy at opacity 0. The
+un-hide is therefore owned by a `setTimeout` armed at the moment the copy is
+hidden, which also abandons the strike so the picture comes back with it.
+Reproduced by killing `requestAnimationFrame` at the exact frame the copy is
+hidden: before, permanently blank; after, fully recovered with no frames at all.
+
 **The copy gate is the sharpest edge in this change.** Holding the page's copy
 at opacity 0 for just over a second is a real cost, and a bug there is a blank
 page rather than a missing flourish. Three things bound it: the rule is scoped

@@ -253,6 +253,12 @@ body.cw-landing {
     inset 0 -1px 1px rgba(0, 0, 0, .55);
 }
 
+/* Narrow viewports put the scroll rail along the bottom, exactly where the
+   plate sits. The chassis marking is the first thing that can go. */
+@media (max-width: 720px) {
+  .cw-crt-plate { display: none; }
+}
+
 @media (prefers-reduced-motion: no-preference) {
   .cw-crt-led {
     animation: cw-led-breathe 5.6s ease-in-out infinite;

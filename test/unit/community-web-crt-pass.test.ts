@@ -88,6 +88,7 @@ interface CrtModule {
   readonly VERTEX_SHADER: string;
   readonly scanLines: (cssHeight: number, density: number) => number;
   readonly triadPitch: (bufferWidth: number, cssWidth: number, triadCss: number) => number;
+  readonly curveFor: (cssWidth: number, cssHeight: number) => readonly [number, number];
   readonly warmAt: (elapsedMs: number, reduce: boolean) => number;
   readonly degaussAt: (elapsedMs: number) => number;
   readonly powerOffAt: (elapsedMs: number) => number;
@@ -233,6 +234,37 @@ export async function runCommunityWebCrtPassTests(): Promise<void> {
   assert.equal(crt.TERMINAL.halo, 0.1);
   assert.deepEqual(crt.TERMINAL.sheen, [0.55, 1, 0.78], "glass sheen is phosphor green, not white");
   assert.deepEqual(crt.TERMINAL.room, [0.012, 0.03, 0.022], "outside the tube is a lit room, not black");
+
+  // Barrel strength has to follow the viewport's shape. The preset is normalized
+  // to UV, which quietly assumes a landscape screen: applied as-is to a 390x844
+  // phone it puts 91px of bow across a 390px width and the tube reads as a dome.
+  const desktop = crt.curveFor(1280, 800);
+  assert.deepEqual(
+    [desktop[0], desktop[1]],
+    [crt.TERMINAL.curve[0], crt.TERMINAL.curve[1]],
+    "the preset's own shape (1280x800) is returned untouched",
+  );
+
+  const portrait = crt.curveFor(390, 844);
+  assert.ok(portrait[0] > portrait[1], "on a portrait viewport the short axis is x, so x bulges more");
+  const landscape = crt.curveFor(1280, 800);
+  assert.ok(landscape[1] > landscape[0], "on a landscape viewport the short axis is y");
+
+  // Damping: the further from the calibrated shape, the weaker the curve, and
+  // never stronger than the preset in either axis on any viewport.
+  for (const [w, h] of [[390, 844], [1680, 620], [834, 1112], [1920, 1080], [320, 1400], [3000, 400]]) {
+    const c = crt.curveFor(w, h);
+    const ceiling = Math.max(crt.TERMINAL.curve[0], crt.TERMINAL.curve[1]);
+    assert.ok(c[0] > 0 && c[1] > 0, `curve stays positive at ${w}x${h}`);
+    assert.ok(
+      c[0] <= ceiling + 1e-9 && c[1] <= ceiling + 1e-9,
+      `curve at ${w}x${h} exceeds the preset ceiling`,
+    );
+    // The bow of the horizontal edges, as a fraction of the width they span.
+    // Past roughly a fifth the tube stops reading as a tube and becomes a lens.
+    const topBow = (c[1] * h) / 2 / w;
+    assert.ok(topBow < 0.2, `top-edge bow at ${w}x${h} is ${(topBow * 100).toFixed(0)}% of width`);
+  }
 
   // Scan count is a property of the physical screen, so it is derived from CSS
   // pixels. Clamped low so a short viewport still reads as a raster, and high so
@@ -492,6 +524,14 @@ export async function runCommunityWebCrtPassTests(): Promise<void> {
     "the copy gate is scoped to the WebGL pass, so a fallback page is never blanked",
   );
   assert.match(landing, /removeAttribute\("data-crt-warm"\)/, "the copy gate is always cleared");
+  // Hiding the copy is only safe if something other than the animation can put
+  // it back. requestAnimationFrame stops in hidden tabs and throttled embeds,
+  // and every one of those would otherwise strand the page blank — so the
+  // un-hide is owned by a timer, and the timer also abandons the strike.
+  const gate = landing.slice(landing.indexOf('setAttribute("data-crt-warm"'));
+  assert.match(gate.slice(0, 1200), /setTimeout\(/, "a timer, not a frame, guarantees the copy returns");
+  assert.match(gate.slice(0, 1200), /warmGiveUp\s*=\s*true/, "abandoning the strike also restores the picture");
+  assert.match(landing, /warmAt\([^)]*state\.reduce \|\| warmGiveUp\)/, "an abandoned strike reports fully warm");
   // The copy is released when the raster finishes opening, not when the ramp
   // ends — the rest is beam settling, which the picture rides through. Holding
   // the page blank for that tail is a tax on every visit for no extra realism.

@@ -312,6 +312,30 @@
    * Grille pitch in device pixels. Authored in CSS pixels so the stripe stays
    * the same apparent width on a 2× display instead of vanishing into the grid.
    */
+  /**
+   * Barrel strength for a viewport of this shape.
+   *
+   * The preset is normalized to UV, which silently assumes a landscape screen.
+   * On a tall one the same numbers put the bulge on the long axis: a 390x844
+   * phone gets 91px of bow across a 390px width, and the tube reads as a dome.
+   * Two corrections. The heavier curve always belongs to the SHORTER axis —
+   * that is what a tube does, and on a portrait viewport that axis is x, not y.
+   * And the further the viewport is from the landscape shape the preset was
+   * tuned against, the more the whole thing damps, because there is no such
+   * object as a phone-shaped CRT and pretending otherwise reads as a fisheye.
+   */
+  function curveFor(cssWidth, cssHeight) {
+    var w = Math.max(cssWidth, 1);
+    var h = Math.max(cssHeight, 1);
+    var ratio = Math.min(w, h) / Math.max(w, h);
+    /* 0.625 is 800/1280 — the shape the preset is calibrated against, so a
+       desktop viewport damps by exactly 1 and nothing changes there. */
+    var damp = clamp(ratio / 0.625, 0.28, 1);
+    var acrossShort = TERMINAL.curve[1] * damp;
+    var acrossLong = TERMINAL.curve[0] * damp;
+    return w >= h ? [acrossLong, acrossShort] : [acrossShort, acrossLong];
+  }
+
   function triadPitch(bufferWidth, cssWidth, triadCss) {
     return Math.max(TRIAD_MIN, triadCss * bufferWidth / Math.max(cssWidth, 1));
   }
@@ -400,6 +424,7 @@
     /* Resolution-derived uniforms only change on resize. */
     var scan = scanLines(1, TERMINAL.scanDensity);
     var triad = TRIAD_MIN;
+    var curve = TERMINAL.curve.slice();
     var bufferW = 1;
     var bufferH = 1;
 
@@ -409,6 +434,7 @@
         bufferH = Math.max(1, bufferHeight);
         scan = scanLines(cssHeight, TERMINAL.scanDensity);
         triad = triadPitch(bufferW, cssWidth, TERMINAL.triadCss);
+        curve = curveFor(cssWidth, cssHeight);
         gl.useProgram(prog);
         gl.viewport(0, 0, bufferW, bufferH);
       },
@@ -439,7 +465,7 @@
         gl.uniform2f(at.uRes, bufferW, bufferH);
         gl.uniform1f(at.uTime, seconds);
         gl.uniform1f(at.uMotion, scrub.motion);
-        gl.uniform2f(at.uCurve, TERMINAL.curve[0] * curveScale, TERMINAL.curve[1] * curveScale);
+        gl.uniform2f(at.uCurve, curve[0] * curveScale, curve[1] * curveScale);
         gl.uniform1f(at.uScan, scan);
         gl.uniform1f(at.uScanDepth, TERMINAL.scanDepth * clamp(scrub.scan, 0, 1));
         gl.uniform1f(at.uTriad, triad);
@@ -475,6 +501,7 @@
     FRAGMENT_SHADER: FRAGMENT_SHADER,
     scanLines: scanLines,
     triadPitch: triadPitch,
+    curveFor: curveFor,
     warmAt: warmAt,
     degaussAt: degaussAt,
     powerOffAt: powerOffAt,
