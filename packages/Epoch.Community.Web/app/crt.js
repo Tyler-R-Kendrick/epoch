@@ -73,6 +73,21 @@
   /* Below a 2px stripe the grille stops being a grille and becomes moiré. */
   var TRIAD_MIN = 2;
 
+  /* Power-on. A tube does not blink on: the cathode strikes, a hot line appears,
+     and the raster opens vertically as beam current settles. Long enough to read
+     as a machine waking, short enough that nobody waits for the page. */
+  var WARM_MS = 1150;
+  /* Point on the warm ramp where the raster has finished opening. The remainder
+     is the beam settling, which the picture can ride through — so this, not the
+     end of the ramp, is when there is something for the copy to sit on. */
+  var RASTER_OPEN = 0.62;
+  /* Degauss thump on chapter change — the demagnetising coil's dying wobble. */
+  var DEGAUSS_MS = 720;
+  /* Power-off collapse when entering the board. Brisk on purpose: this plays
+     while someone is waiting to get somewhere, and a flourish that charges a
+     toll on every click stops being a flourish. */
+  var POWER_OFF_MS = 420;
+
   var UNIFORMS = [
     "uTex",
     "uRes",
@@ -92,6 +107,8 @@
     "uHalo",
     "uSheen",
     "uRoom",
+    "uWarm",
+    "uDegauss",
   ];
 
   var VERTEX_SHADER = [
@@ -119,6 +136,8 @@
     "uniform float uHalo;",
     "uniform vec3 uSheen;",
     "uniform vec3 uRoom;",
+    "uniform float uWarm;",
+    "uniform float uDegauss;",
     "",
     "float hash(vec2 p){ p = fract(p * vec2(123.34, 456.21)); p += dot(p, p + 45.32); return fract(p.x * p.y); }",
     "",
@@ -136,6 +155,24 @@
     "  vec2 uv = curve(fuv);",
     "  float t = uTime;",
     "",
+    "  /* Degauss: the coil's dying field drags the beam in a decaying radial",
+    "     ripple. Geometry first, so the wobble bends the image rather than",
+    "     smearing an already-sampled one. */",
+    "  if (uDegauss > 0.001){",
+    "    float ring = sin(length(uv - 0.5) * 26.0 - uDegauss * 20.0);",
+    "    uv += (uv - 0.5) * ring * 0.014 * uDegauss;",
+    "    uv.x += sin(uv.y * 40.0 - uDegauss * 26.0) * 0.004 * uDegauss;",
+    "  }",
+    "",
+    "  /* Power-on. The raster opens from a line: squeezing uv.y into a band is",
+    "     what makes this read as a tube striking rather than a picture fading up,",
+    "     because the middle of the image is genuinely stretched across the slot. */",
+    "  float open = smoothstep(0.02, " + RASTER_OPEN.toFixed(2) + ", uWarm);",
+    "  float settle = 1.0 - smoothstep(0.55, 1.0, uWarm);",
+    "  uv.y = (uv.y - 0.5) / max(open, 0.0012) + 0.5;",
+    "  /* Vertical hold catching, damping out as the ramp finishes. */",
+    "  uv.y += sin(uWarm * 34.0) * 0.030 * settle;",
+    "",
     "  /* Warping pushes the corners off-texture. Fade rather than clamp, so the",
     "     tube meets the room on a soft edge instead of a smeared border pixel. */",
     "  vec2 inb = step(vec2(0.0), uv) * step(uv, vec2(1.0));",
@@ -147,7 +184,7 @@
     "     at the edges of the tube, never in the middle. */",
     "  vec2 dir = uv - 0.5;",
     "  float d2 = dot(dir, dir);",
-    "  vec2 ao = dir * (0.0010 + 0.0075 * d2) * uChroma;",
+    "  vec2 ao = dir * (0.0010 + 0.0075 * d2) * uChroma * (1.0 + 3.2 * uDegauss);",
     "  vec3 col;",
     "  col.r = texture2D(uTex, uv + ao).r;",
     "  col.g = texture2D(uTex, uv).g;",
@@ -191,6 +228,19 @@
     "",
     "  col += (hash(fuv + fract(t * 0.37)) - 0.5) * uGrain;",
     "",
+    "  /* Beam current comes up, overshoots, and the regulator catches it. This",
+    "     gain applies to the PICTURE only — the strike filament below is the",
+    "     cathode itself and must not be dimmed by the picture not being there. */",
+    "  col *= smoothstep(0.0, 0.16, uWarm);",
+    "  col *= 1.0 + 0.85 * settle * open;",
+    "",
+    "  /* The strike: a hot filament across the middle of the glass while the",
+    "     raster is still shut, widening and fading as the picture takes over. */",
+    "  float slot = mix(190.0, 5.0, open);",
+    "  float strike = exp(-pow((fuv.y - 0.5) * slot, 2.0));",
+    "  col += strike * (1.0 - open) * (uSheen * 1.6 + 0.75) * 2.4;",
+    "  col *= 1.0 + 0.22 * uDegauss;",
+    "",
     "  /* Outside the glass is the room, lit a little by the tube itself. The floor",
     "     lift keeps blacks off zero — a powered CRT never reaches true black. */",
     "  float spill = smoothstep(0.85, 0.18, length(fuv - 0.5)) * 0.05;",
@@ -216,6 +266,30 @@
    */
   function triadPitch(bufferWidth, cssWidth, triadCss) {
     return Math.max(TRIAD_MIN, triadCss * bufferWidth / Math.max(cssWidth, 1));
+  }
+
+  /**
+   * Power-on progress, 0 (cold) to 1 (struck). Reduced motion asks for
+   * stillness, not for a missing screen — the tube is simply already on.
+   */
+  function warmAt(elapsedMs, reduce) {
+    if (reduce) return 1;
+    return clamp(elapsedMs / WARM_MS, 0, 1);
+  }
+
+  /**
+   * Degauss strength, 1 at the thump decaying to exactly 0 once spent — so a
+   * dropped frame can never leave the tube permanently wobbling.
+   */
+  function degaussAt(elapsedMs) {
+    var t = clamp(elapsedMs / DEGAUSS_MS, 0, 1);
+    return t >= 1 ? 0 : (1 - t) * (1 - t);
+  }
+
+  /** The strike run backwards: 1 (lit) collapsing to exactly 0 (dark). */
+  function powerOffAt(elapsedMs) {
+    var t = clamp(elapsedMs / POWER_OFF_MS, 0, 1);
+    return t >= 1 ? 0 : 1 - t * t;
   }
 
   function compile(gl, type, src) {
@@ -331,6 +405,8 @@
         gl.uniform1f(at.uHalo, TERMINAL.halo * (0.6 + clamp(scrub.bloom, 0, 1)));
         gl.uniform3f(at.uSheen, TERMINAL.sheen[0], TERMINAL.sheen[1], TERMINAL.sheen[2]);
         gl.uniform3f(at.uRoom, TERMINAL.room[0], TERMINAL.room[1], TERMINAL.room[2]);
+        gl.uniform1f(at.uWarm, clamp(scrub.warm, 0, 1));
+        gl.uniform1f(at.uDegauss, clamp(scrub.degauss, 0, 1));
         gl.drawArrays(gl.TRIANGLES, 0, 3);
       },
 
@@ -351,6 +427,13 @@
     FRAGMENT_SHADER: FRAGMENT_SHADER,
     scanLines: scanLines,
     triadPitch: triadPitch,
+    warmAt: warmAt,
+    degaussAt: degaussAt,
+    powerOffAt: powerOffAt,
+    WARM_MS: WARM_MS,
+    RASTER_OPEN: RASTER_OPEN,
+    DEGAUSS_MS: DEGAUSS_MS,
+    POWER_OFF_MS: POWER_OFF_MS,
     create: create,
   };
 }(globalThis));

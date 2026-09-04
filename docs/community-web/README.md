@@ -71,6 +71,16 @@ the lede **11.5:1 → 8.95:1** against the contract’s 7:1 floor, which is why 
 strength is capped by assertion — see
 [ADR-0061](../design-decisions/0061-crt-tube-pass.md).
 
+The tube also has a life cycle. It **strikes** on first paint (the raster opens
+from a hot filament over ~1.15s, and the copy arrives with the picture rather
+than floating over a half-open screen), **degausses** when a chapter lands (a
+decaying ripple and aberration surge), and **powers down** on the way into the
+board (the raster collapses, the lamp drops to standby, then the browser
+navigates — capped at 420ms, with a timer guaranteeing arrival even if frames
+stop). Motion carries **phosphor persistence**: the scene composites into a
+decaying buffer that the tube samples, so bright things trail. All of it is
+gated on reduced motion, which gets a tube already struck and perfectly still.
+
 ## What it is
 
 The Community Web direction from the ten explorations, built for real rather than

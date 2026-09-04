@@ -367,6 +367,10 @@
       state.chapter = best;
       body.setAttribute("data-chapter", best);
       state.driveBoost = Math.min(1.4, state.driveBoost + 0.85);
+      /* Arriving somewhere thumps the tube, the way switching inputs on a real
+         monitor does. The grid ride already surges here; the degauss is the
+         same event felt through the glass. */
+      if (state.thumpCrt) state.thumpCrt(performance.now());
     }
     document.querySelectorAll("[data-ride-chapter]").forEach(function (panel) {
       var id = panel.getAttribute("data-ride-chapter");
@@ -863,10 +867,22 @@
     var drive = 0;
     var shimmer = 0;
     var last = 0;
+    /* Wall-clock marks for the two one-shot events the tube can show: striking
+       on first paint, and the degauss thump when a chapter lands. */
+    var struckAt = 0;
+    var degaussedAt = -1e9;
+    var offAt = 0;
     var stars = null;
     var beams = null;
     var scene = document.createElement("canvas");
     var sctx = scene.getContext("2d", { alpha: false });
+    /* Phosphor persistence. P22 phosphor keeps glowing after the beam moves on,
+       which is why motion on a CRT trails instead of cutting. Cheaper than a
+       feedback FBO: fade the previous frame toward black, then let the new one
+       win wherever it is brighter. This buffer, not `scene`, is what the tube
+       samples — so trails ride through the whole optical stack. */
+    var glow = document.createElement("canvas");
+    var gctx = glow.getContext("2d", { alpha: false });
     if (!sctx) {
       canvas.setAttribute("data-canvas-failed", "1");
       state.canvasFailed = true;
@@ -935,6 +951,8 @@
       var bh = Math.floor(h * dpr);
       scene.width = bw;
       scene.height = bh;
+      glow.width = bw;
+      glow.height = bh;
       canvas.width = bw;
       canvas.height = bh;
       canvas.style.width = w + "px";
@@ -1084,14 +1102,49 @@
     /* Scroll energy the CRT pass rides. The chapter scrub writes these as CSS
        custom properties (one writer, no attribute thrash); read them back here
        so tube intensity and the world stay on the same clock. */
-    function crtScrub() {
+    function crtScrub(ts) {
       return {
         distort: parseFloat(body.style.getPropertyValue("--cw-crt-distort")) || 0.24,
         chroma: parseFloat(body.style.getPropertyValue("--cw-crt-chroma")) || 1.2,
         scan: parseFloat(body.style.getPropertyValue("--cw-crt-scan")) || 0.55,
         bloom: parseFloat(body.style.getPropertyValue("--cw-crt-bloom")) || 0.48,
         motion: state.reduce ? 0 : 1,
+        warm: offAt
+          ? window.CW_CRT.powerOffAt(ts - offAt)
+          : window.CW_CRT.warmAt(ts - struckAt, state.reduce),
+        degauss: state.reduce ? 0 : window.CW_CRT.degaussAt(ts - degaussedAt),
       };
+    }
+
+    /* The chapter scrub calls this when a new chapter lands. */
+    state.thumpCrt = function (ts) { degaussedAt = ts; };
+
+    /* Entering the board powers the tube down: the raster collapses to a line
+       and goes out, then the browser navigates. The screen switching off is the
+       honest way to leave a screen.
+
+       Everything here is belt-and-braces about actually getting there — the
+       flourish must never become a trap. Reduced motion, a missing tube, a
+       modified click and a throttled background tab all navigate normally. */
+    var enter = document.querySelector("[data-enter-board]");
+    if (enter && crt && !state.reduce) {
+      enter.addEventListener("click", function (ev) {
+        if (ev.defaultPrevented || ev.button !== 0 || ev.metaKey || ev.ctrlKey ||
+            ev.shiftKey || ev.altKey || offAt) return;
+        var href = enter.getAttribute("href");
+        if (!href) return;
+        ev.preventDefault();
+        offAt = performance.now();
+        body.setAttribute("data-crt-off", "1");
+        var gone = false;
+        var leave = function () {
+          if (gone) return;
+          gone = true;
+          window.location.href = href;
+        };
+        /* rAF stops in a background tab; the timer is what guarantees arrival. */
+        window.setTimeout(leave, window.CW_CRT.POWER_OFF_MS + 40);
+      });
     }
 
     function draw(ts) {
@@ -1114,8 +1167,40 @@
       }
 
       if (crt) {
+        if (!struckAt) struckAt = ts;
         paintScene(sctx, w, h);
-        crt.draw(scene, ts * 0.001, crtScrub());
+        if (!gctx) {
+          /* No second 2D context — the tube samples the scene directly and
+             simply has no afterglow. */
+        } else if (state.reduce) {
+          /* No trails when motion is unwelcome: one honest frame. */
+          gctx.globalCompositeOperation = "source-over";
+          gctx.drawImage(scene, 0, 0);
+        } else {
+          /* Decay, then let the brighter of old and new survive. The constant is
+             the fraction still glowing one 60Hz frame later; the exponent makes
+             a slow frame decay the same amount per unit time rather than per
+             frame, so the trail length does not change with frame rate.
+             `lighten` cannot accumulate past the source, so this glows without
+             ever blowing out. */
+          var keep = Math.pow(0.62, Math.min(dt, 0.05) / 0.0166);
+          gctx.globalCompositeOperation = "source-over";
+          gctx.fillStyle = "rgba(0,0,0," + (1 - keep).toFixed(4) + ")";
+          gctx.fillRect(0, 0, glow.width, glow.height);
+          gctx.globalCompositeOperation = "lighten";
+          gctx.drawImage(scene, 0, 0);
+          gctx.globalCompositeOperation = "source-over";
+        }
+        var tube = crtScrub(ts);
+        /* The copy waits for the picture — see .cw-crt-warm rules. Cleared on
+           the first frame that finds the raster fully open, so a backgrounded
+           tab returns to a readable page rather than a blank one. */
+        if (tube.warm < window.CW_CRT.RASTER_OPEN && !offAt) body.setAttribute("data-crt-warm", "1");
+        else if (body.hasAttribute("data-crt-warm")) body.removeAttribute("data-crt-warm");
+        /* The CSS glass stack has nothing to show until the picture exists —
+           left at full strength it glows over a tube that is not lit yet. */
+        body.style.setProperty("--cw-crt-warm", tube.warm.toFixed(3));
+        crt.draw(gctx ? glow : scene, ts * 0.001, tube);
       } else {
         paintScene(drawCtx, w, h);
       }

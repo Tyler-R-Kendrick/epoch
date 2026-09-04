@@ -161,6 +161,89 @@ body.cw-landing {
     0 18px 56px rgba(0, 0, 0, .6);
 }
 
+/* While the tube is striking there is no picture yet, so there is nothing for
+   the copy to sit on. Letting DOM text float at full brightness over a
+   half-open raster is the tell that the effect is a costume; the copy arrives
+   with the picture instead. Scoped to the WebGL pass — without a shader there
+   is no strike to wait for — and reduced motion never sets the attribute. */
+.cw-scroll-rail,
+.cw-landing-page {
+  transition: opacity .34s ease .06s;
+}
+.cw-landing[data-crt-pass="webgl"][data-crt-warm] .cw-scroll-rail,
+.cw-landing[data-crt-pass="webgl"][data-crt-warm] .cw-landing-page {
+  opacity: 0;
+  transition: none;
+}
+/* The whole CSS glass stack rides the strike: phosphor tint, bloom and glass
+   sheen are all reflections of a picture, and there is no picture until the
+   raster opens. One multiplier keeps them in step with the shader. */
+.cw-landing[data-crt-pass="webgl"] .cw-crt {
+  opacity: var(--cw-crt-warm, 1);
+}
+
+/* Powering down takes the copy with it, ahead of the raster collapse. */
+.cw-landing[data-crt-off] .cw-scroll-rail,
+.cw-landing[data-crt-off] .cw-landing-page {
+  opacity: 0;
+  transition: opacity .16s ease;
+}
+
+/* Chassis furniture. Sits above the bezel ring (z:8) because it is printed on
+   the plastic, not behind the glass. */
+.cw-crt-plate {
+  position: absolute;
+  right: clamp(20px, 2.8vw, 46px);
+  bottom: 0;
+  height: clamp(16px, 2.2vw, 34px);
+  z-index: 9;
+  display: flex;
+  align-items: center;
+  gap: .55rem;
+  pointer-events: none;
+}
+
+.cw-crt-model {
+  font: 600 9px/1 ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  letter-spacing: .2em;
+  /* Etched, not printed: a dark cut with a light lip under it. */
+  color: color-mix(in srgb, #fff 13%, transparent);
+  text-shadow: 0 1px 0 color-mix(in srgb, #fff 7%, transparent);
+}
+
+/* Power lamp. Lit from the moment the page exists — the lamp comes on before
+   the tube warms, which is the order a real monitor does it in. */
+.cw-crt-led {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 34% 32%, #ccffe0, var(--cw-signed, #7dff9a) 52%, #06391f 100%);
+  box-shadow:
+    0 0 5px 1px color-mix(in srgb, var(--cw-signed) 65%, transparent),
+    0 0 13px 2px color-mix(in srgb, var(--cw-signed) 28%, transparent),
+    inset 0 -1px 1px rgba(0, 0, 0, .55);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .cw-crt-led {
+    animation: cw-led-breathe 5.6s ease-in-out infinite;
+  }
+}
+
+@keyframes cw-led-breathe {
+  0%, 100% { opacity: .82; }
+  50% { opacity: 1; }
+}
+
+/* On the way out the lamp drops to standby before the raster finishes closing. */
+.cw-landing[data-crt-off] .cw-crt-led {
+  opacity: .28;
+  box-shadow: none;
+  transition: opacity .2s ease, box-shadow .2s ease;
+  animation: none;
+}
+
 .cw-crt-svg {
   position: absolute;
   width: 0;

@@ -60,6 +60,8 @@ interface CrtScrub {
   readonly scan: number;
   readonly bloom: number;
   readonly motion: number;
+  readonly warm: number;
+  readonly degauss: number;
 }
 
 interface CrtTerminalPreset {
@@ -86,6 +88,13 @@ interface CrtModule {
   readonly VERTEX_SHADER: string;
   readonly scanLines: (cssHeight: number, density: number) => number;
   readonly triadPitch: (bufferWidth: number, cssWidth: number, triadCss: number) => number;
+  readonly warmAt: (elapsedMs: number, reduce: boolean) => number;
+  readonly degaussAt: (elapsedMs: number) => number;
+  readonly powerOffAt: (elapsedMs: number) => number;
+  readonly WARM_MS: number;
+  readonly RASTER_OPEN: number;
+  readonly DEGAUSS_MS: number;
+  readonly POWER_OFF_MS: number;
   readonly create: (gl: GlContext) => CrtPass | null;
 }
 
@@ -195,7 +204,10 @@ function loadCrt(): CrtModule {
 }
 
 function scrub(overrides: Partial<CrtScrub> = {}): CrtScrub {
-  return { distort: 0.24, chroma: 1.2, scan: 0.55, bloom: 0.48, motion: 1, ...overrides };
+  return {
+    distort: 0.24, chroma: 1.2, scan: 0.55, bloom: 0.48, motion: 1,
+    warm: 1, degauss: 0, ...overrides,
+  };
 }
 
 const SCENE: SceneSource = { label: "scene-canvas" };
@@ -322,6 +334,69 @@ export async function runCommunityWebCrtPassTests(): Promise<void> {
   ownedPass.dispose();
   assert.ok(owned.deleted() >= 3, "dispose releases buffer, texture and program");
 
+  // ---------------------------------------------------------------------
+  // Power-on. A tube does not blink on: the raster strikes as a hot line and
+  // opens vertically while the beam current settles. That is a one-shot ramp,
+  // so it lives as a pure function rather than frame state nobody can test.
+  // ---------------------------------------------------------------------
+  assert.equal(crt.warmAt(0, false), 0, "cold at t=0");
+  assert.equal(crt.warmAt(crt.WARM_MS, false), 1, "fully struck by WARM_MS");
+  assert.equal(crt.warmAt(crt.WARM_MS * 4, false), 1, "never overshoots past 1");
+  assert.ok(
+    crt.warmAt(crt.WARM_MS * 0.5, false) > 0 && crt.warmAt(crt.WARM_MS * 0.5, false) < 1,
+    "mid-ramp is partial",
+  );
+  assert.ok(
+    crt.warmAt(crt.WARM_MS * 0.25, false) < crt.warmAt(crt.WARM_MS * 0.75, false),
+    "warm-up is monotonic",
+  );
+  // Reduced motion asks for stillness, not for a missing screen: the tube is
+  // simply already on, with no strike to watch.
+  assert.equal(crt.warmAt(0, true), 1, "reduced motion starts fully struck");
+
+  // Degauss: the chapter-change thump decays to nothing and stays there, so a
+  // missed frame can never leave the tube permanently wobbling.
+  assert.equal(crt.degaussAt(0), 1, "a fresh degauss is at full strength");
+  assert.equal(crt.degaussAt(crt.DEGAUSS_MS), 0, "spent by DEGAUSS_MS");
+  assert.equal(crt.degaussAt(crt.DEGAUSS_MS * 3), 0, "never revives");
+  assert.ok(
+    crt.degaussAt(crt.DEGAUSS_MS * 0.25) > crt.degaussAt(crt.DEGAUSS_MS * 0.75),
+    "degauss decays rather than grows",
+  );
+
+  // Power-off is the strike run backwards: the raster collapses to a line and
+  // goes out. It must reach exactly 0 and stay there, and it must be brisk —
+  // this runs while someone is waiting to get into the board.
+  assert.equal(crt.powerOffAt(0), 1, "still lit at the moment of the click");
+  assert.equal(crt.powerOffAt(crt.POWER_OFF_MS), 0, "fully dark by POWER_OFF_MS");
+  assert.equal(crt.powerOffAt(crt.POWER_OFF_MS * 5), 0, "stays dark");
+  assert.ok(
+    crt.powerOffAt(crt.POWER_OFF_MS * 0.25) > crt.powerOffAt(crt.POWER_OFF_MS * 0.75),
+    "collapse is monotonic",
+  );
+  assert.ok(
+    crt.POWER_OFF_MS <= 460,
+    `power-off is ${crt.POWER_OFF_MS}ms; past ~460ms a flourish becomes a toll on every click`,
+  );
+
+  // Both reach the GPU, and both are clamped: a caller handing over a stale or
+  // out-of-range value must not be able to freeze the tube mid-strike.
+  const lit = fakeGl();
+  const litPass = crt.create(lit.gl);
+  assert.ok(litPass);
+  litPass.resize(1000, 600, 1000, 600);
+  litPass.draw(SCENE, 1, scrub({ warm: 0.4, degauss: 0.6 }));
+  assert.deepEqual(lit.writes.uWarm, [0.4]);
+  assert.deepEqual(lit.writes.uDegauss, [0.6]);
+  litPass.draw(SCENE, 1, scrub({ warm: 9, degauss: -3 }));
+  assert.deepEqual(lit.writes.uWarm, [1], "warm clamps to 1");
+  assert.deepEqual(lit.writes.uDegauss, [0], "degauss clamps to 0");
+
+  // The strike must actually squeeze the raster, not just dim it — a fade-in is
+  // not a power-on. The shader remaps uv.y by the opening height.
+  assert.match(crt.FRAGMENT_SHADER, /uWarm/, "shader reads uWarm");
+  assert.match(crt.FRAGMENT_SHADER, /uDegauss/, "shader reads uDegauss");
+
   // The landing must actually consume the module rather than keeping a second
   // copy of the shader inline.
   const landing = readFileSync(join(ROOT, "landing.js"), "utf8");
@@ -350,6 +425,54 @@ export async function runCommunityWebCrtPassTests(): Promise<void> {
   // Measured on the rendered lede: the face costs 11.5:1 → 8.95:1. That is the
   // whole budget against the contract's 7:1 body floor, so the strength is
   // capped here rather than left to whoever next reaches for "a bit more CRT".
+  // Phosphor persistence. The tube samples a decayed composite, not the raw
+  // scene — without `lighten` the buffer would accumulate instead of glow.
+  assert.match(landing, /globalCompositeOperation\s*=\s*"lighten"/, "afterglow composites with lighten");
+  assert.match(landing, /crt\.draw\(gctx \? glow : scene/, "the tube samples the persistence buffer");
+
+  // Chassis furniture is decoration: it must never be announced or clickable.
+  assert.match(index, /class="cw-crt-plate"[^>]*aria-hidden="true"/, "the chassis plate is decorative");
+  assert.match(index, /class="cw-crt-led"/, "the power lamp exists");
+  const plate = /\.cw-crt-plate\s*\{([^}]*)\}/.exec(css);
+  assert.ok(plate, "landing.css styles .cw-crt-plate");
+  assert.match(plate[1], /pointer-events:\s*none/, "the plate never eats a click");
+
+  // The strike hides the copy. That is only safe because it is scoped to the
+  // WebGL pass and always cleared — a page that keeps its copy at opacity 0 is
+  // a blank page, so the gate must not apply where no strike will ever run.
+  assert.match(
+    css,
+    /\.cw-landing\[data-crt-pass="webgl"\]\[data-crt-warm\][^{]*\.cw-landing-page/,
+    "the copy gate is scoped to the WebGL pass, so a fallback page is never blanked",
+  );
+  assert.match(landing, /removeAttribute\("data-crt-warm"\)/, "the copy gate is always cleared");
+  // The copy is released when the raster finishes opening, not when the ramp
+  // ends — the rest is beam settling, which the picture rides through. Holding
+  // the page blank for that tail is a tax on every visit for no extra realism.
+  assert.ok(
+    crt.RASTER_OPEN > 0 && crt.RASTER_OPEN < 1,
+    "the raster opens before the warm ramp ends",
+  );
+  assert.match(
+    landing,
+    /tube\.warm < window\.CW_CRT\.RASTER_OPEN/,
+    "the copy gate releases at raster-open, not at the end of the ramp",
+  );
+
+  // Power-off must never be able to strand someone on the landing: rAF stops in
+  // a background tab, so a timer — not the animation — is what navigates.
+  const enterHandler = landing.slice(landing.indexOf("data-enter-board"));
+  assert.match(
+    enterHandler.slice(0, 1400),
+    /setTimeout\(leave/,
+    "a timer guarantees navigation even if frames stop",
+  );
+  assert.match(
+    enterHandler.slice(0, 1400),
+    /metaKey|ctrlKey/,
+    "modified clicks (open in new tab) keep their native behaviour",
+  );
+
   const faceOpacity = /opacity:\s*([\d.]+)/.exec(face[1]);
   assert.ok(faceOpacity, ".cw-crt-face pins an explicit opacity");
   assert.ok(

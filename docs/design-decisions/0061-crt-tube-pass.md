@@ -37,10 +37,11 @@ The reference for the target look is the "terminal" CRT background on
 ## Decision
 
 1. **The tube is a module, not an inline shader.**
-   `packages/Epoch.Community.Web/app/crt.js` installs `window.CW_CRT` (the app's
-   classic-script global pattern, as with `CW_DATA` / `CW_VALUE`) exposing the
-   preset, the shader sources, the two derivation helpers, and a `create(gl)`
-   factory. `landing.js` no longer carries a copy of the fragment shader.
+   `packages/Epoch.Community.Web/app/crt.js` installs `CW_CRT` on the global
+   (the app's classic-script pattern, as `value-kind.js` does; `landing.js`
+   reads it as `window.CW_CRT`) exposing the preset, the shader sources, the
+   derivation helpers, the life-cycle ramps, and a `create(gl)` factory.
+   `landing.js` no longer carries a copy of the fragment shader.
 
    The move is what makes the effect testable at all: a GLSL string inside an
    IIFE can only be reviewed by eye, and "eye" is precisely the faculty that
@@ -83,6 +84,45 @@ The reference for the target look is the "terminal" CRT background on
    vignette alone crushes the corners past the shader's lifted black, undoing
    decision 5.
 
+8. **The tube has a life cycle, not just a look.** Three one-shot events, each
+   a pure function in `crt.js` so the timing is testable rather than eyeballed:
+
+   - **Power-on** (`warmAt`, 1150ms). The raster opens from a line. The shader
+     squeezes `uv.y` by the opening height, so the middle of the image is
+     genuinely stretched across the slot while a hot filament burns across the
+     glass and beam current overshoots before settling. A fade-in is not a
+     power-on; the squeeze is what makes it read as a tube striking.
+   - **Degauss** (`degaussAt`, 720ms). Arriving at a chapter thumps the tube
+     with a decaying radial ripple, an aberration surge and a brightness lift —
+     the demagnetising coil's dying field. The ride already surges here; this
+     is the same event felt through the glass.
+   - **Power-off** (`powerOffAt`, 420ms). Entering the board collapses the
+     raster and puts the lamp on standby before the browser navigates.
+
+   All three are gated: reduced motion starts fully struck and never degausses.
+
+9. **Phosphor persistence.** P22 phosphor keeps glowing after the beam moves
+   on, which is why motion on a CRT trails rather than cuts. The scene is
+   composited into a persistence buffer — decay the previous frame, then
+   `lighten` the new one over it — and the tube samples *that*, so trails ride
+   through the whole optical stack. Chosen over a feedback FBO because it is a
+   few lines of 2D canvas, and over additive blending because `lighten` cannot
+   accumulate past the source and therefore cannot blow out. The decay constant
+   is per-unit-time, not per-frame, so trail length does not change with frame
+   rate.
+
+10. **The copy waits for the picture.** Letting DOM text sit at full brightness
+    over a half-open raster is the tell that the effect is a costume. While the
+    tube strikes, the two content elements in the stage are held at opacity 0
+    and arrive with the raster. The CSS glass stack rides the same ramp through
+    `--cw-crt-warm`, because phosphor tint, bloom and sheen are all reflections
+    of a picture that does not exist yet.
+
+11. **Chassis furniture.** An etched model line and a lit power lamp on the
+    bezel. The lamp comes on before the tube warms and drops to standby on the
+    way out — the order a real monitor does it in. Both are `aria-hidden` and
+    `pointer-events: none`.
+
 ## Consequences
 
 **The face layer costs contrast, and the budget is spent.** Measured on the
@@ -101,6 +141,20 @@ scene. The assertion covers this too.
 **The preset is pinned, which makes drift a test failure.** Changing the look is
 now a deliberate edit to named values with a failing test to update, not a
 silent tweak. This is the intended cost.
+
+**The copy gate is the sharpest edge in this change.** Holding the page's copy
+at opacity 0 for just over a second is a real cost, and a bug there is a blank
+page rather than a missing flourish. Three things bound it: the rule is scoped
+to `[data-crt-pass="webgl"]`, so a browser that never runs the shader can never
+be blanked; the attribute is cleared on the first frame that finds the raster
+open, so a backgrounded tab returns readable; and reduced motion never sets it
+at all. Assertions cover the scoping and the clear.
+
+**A flourish on a CTA must never become a toll.** The power-off runs on the way
+into the board, so it is capped at 420ms by an assertion, skipped under reduced
+motion, skipped for modified clicks (open-in-new-tab keeps native behaviour),
+and — because `requestAnimationFrame` stops in a background tab — navigation is
+guaranteed by a timer rather than by the animation finishing.
 
 **Fallbacks stay honest.** A context that cannot compile or link yields `null`
 and the landing draws the scene straight to a 2D canvas; the CSS overlays remain
