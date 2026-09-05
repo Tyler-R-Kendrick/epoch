@@ -545,6 +545,33 @@ export async function runCommunityWebCrtPassTests(): Promise<void> {
     "the copy gate releases at raster-open, not at the end of the ramp",
   );
 
+  // A WebGL context is not a promise: a GPU reset, driver hiccup or mobile tab
+  // eviction takes it away mid-run and every later draw throws, which would kill
+  // the render loop and freeze the page on its last frame. `canvasui-fx.js` in
+  // this app already guards its contexts; this one has to as well.
+  assert.match(landing, /webglcontextlost/, "the tube stands down when its context is lost");
+  assert.match(
+    landing,
+    /ev\.preventDefault\(\)[\s\S]{0,120}loseTube\(\)/,
+    "the loss is default-prevented so the canvas stays eligible for restore",
+  );
+  const lose = landing.slice(landing.indexOf("function loseTube"));
+  assert.match(lose.slice(0, 500), /removeAttribute\("data-crt-pass"\)/, "standing down restores the CSS tube");
+  assert.match(lose.slice(0, 500), /removeAttribute\("data-crt-warm"\)/, "standing down releases the copy");
+  assert.match(
+    landing,
+    /try \{\s*crt\.draw\([^}]*\}\s*catch\s*\{[\s\S]{0,160}loseTube\(\)/,
+    "anything the tube throws is terminal for the tube, not for the page",
+  );
+
+  // Persistence is motion. Reduced motion has none, so the second full-size
+  // canvas is not allocated and copied into every frame for nothing.
+  assert.match(
+    landing,
+    /var glow = state\.reduce \? null : document\.createElement\("canvas"\)/,
+    "no persistence buffer is allocated when motion is unwelcome",
+  );
+
   // Power-off must never be able to strand someone on the landing: rAF stops in
   // a background tab, so a timer — not the animation — is what navigates.
   const enterHandler = landing.slice(landing.indexOf("cw-landing-enter[href]"));

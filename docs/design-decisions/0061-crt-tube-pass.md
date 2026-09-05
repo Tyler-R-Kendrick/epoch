@@ -179,6 +179,27 @@ as the non-WebGL tube. Nothing about the page's content depends on WebGL.
 
 ## Alternatives considered
 
+- **Reveal the copy with a pure CSS animation instead of a JS-held attribute.**
+  A `@keyframes` fade with a fixed delay near `RASTER_OPEN` would self-complete
+  with no JavaScript liveness at all — strictly safer than an attribute plus a
+  watchdog, since there is nothing to strand. Rejected only because it decouples
+  the reveal from the actual ramp: the copy would arrive on a timer rather than
+  with the picture, and would desynchronise on a slow first paint. Worth
+  revisiting if the gate ever causes trouble again; the watchdog closes the same
+  hole at the cost of one timer.
+
+- **Let the tube die silently on context loss.** Rejected: a frozen last frame
+  reads as a hung page. Standing down to the CSS tube is the same path a browser
+  without WebGL already takes, so it is a route that is tested rather than a new
+  one invented for an error case.
+
+- **Render the copy into the scene canvas so the shader rasters it too.** This is
+  what the reference does, and it gives a perfectly unified image with no face
+  layer and no contrast cost. Rejected: it would make the landing's headline and
+  body copy invisible to assistive technology, unselectable, and unindexable.
+
+
+
 - **Keep tuning the three-effect pass.** Rejected: the missing cues are
   structural, not parametric. There is no value of `uDistort` that produces an
   aperture grille.

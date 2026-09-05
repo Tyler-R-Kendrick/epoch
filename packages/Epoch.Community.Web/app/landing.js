@@ -884,8 +884,8 @@
        feedback FBO: fade the previous frame toward black, then let the new one
        win wherever it is brighter. This buffer, not `scene`, is what the tube
        samples — so trails ride through the whole optical stack. */
-    var glow = document.createElement("canvas");
-    var gctx = glow.getContext("2d", { alpha: false });
+    var glow = state.reduce ? null : document.createElement("canvas");
+    var gctx = glow ? glow.getContext("2d", { alpha: false }) : null;
     if (!sctx) {
       canvas.setAttribute("data-canvas-failed", "1");
       state.canvasFailed = true;
@@ -912,6 +912,28 @@
     }
 
     crt = window.CW_CRT ? window.CW_CRT.create(gl) : null;
+
+    /* A WebGL context is not a promise either. A GPU reset, a driver hiccup or
+       a mobile tab eviction takes it away mid-run, and every later draw throws
+       — which would kill the render loop and freeze the page on its last frame.
+       Standing down restores the CSS tube, which is the same path a browser
+       without WebGL takes and is already covered by tests. */
+    function loseTube() {
+      if (!crt) return;
+      crt = null;
+      canvas.setAttribute("data-canvas-failed", "1");
+      canvas.style.display = "none";
+      body.removeAttribute("data-crt-pass");
+      body.removeAttribute("data-crt-warm");
+      body.style.removeProperty("--cw-crt-warm");
+    }
+    if (crt) {
+      canvas.addEventListener("webglcontextlost", function (ev) {
+        /* Default-prevented so the canvas stays eligible for restore. */
+        ev.preventDefault();
+        loseTube();
+      });
+    }
     var drawCtx = crt ? sctx : canvas.getContext("2d");
     if (!drawCtx) {
       canvas.setAttribute("data-canvas-failed", "1");
@@ -954,8 +976,10 @@
       var bh = Math.floor(h * dpr);
       scene.width = bw;
       scene.height = bh;
-      glow.width = bw;
-      glow.height = bh;
+      if (glow) {
+        glow.width = bw;
+        glow.height = bh;
+      }
       canvas.width = bw;
       canvas.height = bh;
       canvas.style.width = w + "px";
@@ -1176,12 +1200,8 @@
         if (!struckAt) struckAt = ts;
         paintScene(sctx, w, h);
         if (!gctx) {
-          /* No second 2D context — the tube samples the scene directly and
-             simply has no afterglow. */
-        } else if (state.reduce) {
-          /* No trails when motion is unwelcome: one honest frame. */
-          gctx.globalCompositeOperation = "source-over";
-          gctx.drawImage(scene, 0, 0);
+          /* Reduced motion, or no second 2D context: the tube samples the scene
+             directly and simply has no afterglow. */
         } else {
           /* Decay, then let the brighter of old and new survive. The constant is
              the fraction still glowing one 60Hz frame later; the exponent makes
@@ -1229,7 +1249,12 @@
           body.style.setProperty("--cw-crt-warm", warmCss);
           lastWarmCss = warmCss;
         }
-        crt.draw(gctx ? glow : scene, ts * 0.001, tube);
+        try {
+          crt.draw(gctx ? glow : scene, ts * 0.001, tube);
+        } catch {
+          /* Anything the tube throws is terminal for the tube, not for the page. */
+          loseTube();
+        }
       } else {
         paintScene(drawCtx, w, h);
       }
