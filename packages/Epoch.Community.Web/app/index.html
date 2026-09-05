@@ -22,6 +22,16 @@
   <div class="cw-ride-stage" data-ride-stage>
     <!-- Chassis ring above copy; phosphor stack stays under copy (readable). -->
     <div class="cw-crt-bezel" data-crt-bezel aria-hidden="true"></div>
+    <!-- Glass face: the one tube layer ABOVE copy, so DOM text wears the same
+         raster as the WebGL scene and the page reads as one screen. Static and
+         deliberately faint — it must never cost the copy its contrast. -->
+    <div class="cw-crt-face" data-crt-face aria-hidden="true"></div>
+    <!-- Chassis furniture: the etched model line and the power lamp. A monitor
+         is an object someone made, and objects carry marks of manufacture. -->
+    <div class="cw-crt-plate" aria-hidden="true">
+      <span class="cw-crt-model">EPOCH · CRT-01</span>
+      <span class="cw-crt-led" data-crt-led></span>
+    </div>
     <!-- CRT tube immersion: WebGL lens pass on Grid + phosphor stack (shader.se). -->
     <div class="cw-crt" data-landing-crt data-crt-tube aria-hidden="true">
       <svg class="cw-crt-svg" width="0" height="0" aria-hidden="true" focusable="false">
@@ -294,6 +304,7 @@
 <script src="value-kind.js"></script>
 <script src="themes.js"></script>
 <script src="ascii.js"></script>
+<script src="crt.js"></script>
 <script src="landing.js"></script>
 <script src="canvasui-fx.js"></script>
 <script type="module" src="landing-fx.js"></script>

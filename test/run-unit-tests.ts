@@ -21,6 +21,7 @@ import { runLiveSpacesCommunityBindingTests } from "./unit/live-spaces-community
 import { runLiveSpacesModerationTests } from "./unit/live-spaces-moderation.test";
 import { runCommunityWebRenderParityTests } from "./unit/community-web-render-parity.test";
 import { runCommunityWebAppThemeTests } from "./unit/community-web-app-themes.test";
+import { runCommunityWebCrtPassTests } from "./unit/community-web-crt-pass.test";
 import { runCommunityWebLanguageModelAbsenceTests } from "./unit/community-web-app-language-model-absence.test";
 import { runCommunityWebAppWebMcpTests } from "./unit/community-web-app-webmcp.test";
 import { runCommunityWebAppNavigationRuntimeTests } from "./unit/community-web-app-navigation-runtime.test";
@@ -154,6 +155,7 @@ async function main(): Promise<void> {
   await runCommunityWebVercelTests();
   await runCommunityWebRenderParityTests();
   await runCommunityWebAppThemeTests();
+  await runCommunityWebCrtPassTests();
   await runCommunityWebLanguageModelAbsenceTests();
   await runCommunityWebAppWebMcpTests();
   await runCommunityWebAppNavigationRuntimeTests();

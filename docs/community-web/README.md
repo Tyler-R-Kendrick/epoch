@@ -47,6 +47,40 @@ decodes the product thesis when that chapter enters).
 (`landing-fx.js`). Html-in-canvas effects need Chrome’s flag or origin trial and
 fail soft; terminal chapter flashes work without it.
 
+### The CRT tube
+
+The landing renders inside a CRT. The scene canvas draws to an offscreen 2D
+buffer and the display canvas is a single-pass tube shader — `crt.js`, installing
+`window.CW_CRT` — layering barrel geometry, radial aberration, phosphor
+halation, scanlines, an aperture grille, gain, a rolling refresh bar, glass
+sheen, vignette, flicker, grain, and a lit room behind the glass. The look lives
+in one `TERMINAL` preset; scan count and grille pitch derive from **CSS** pixels
+so the raster follows the screen rather than the framebuffer.
+
+Every time-driven term is gated on `uMotion`, so `prefers-reduced-motion` gets
+the tube **held still** rather than removed. Where WebGL is unavailable the pass
+returns `null`, the scene draws straight to 2D, and the CSS overlay stack
+(`.cw-crt-scan`, `.cw-crt-phosphor`, `.cw-crt-bloom`, …) remains the fallback
+tube; under `[data-crt-pass="webgl"]` those layers step back so they do not
+double the shader.
+
+Copy stays real DOM, so the shader never rasters it. `.cw-crt-face` is the one
+static tube layer above the copy, multiplying the same triad pitch and scanline
+beat over everything inside the bezel so the page reads as one screen. It costs
+the lede **11.46:1 → 10.21:1** against the contract’s 7:1 floor, which is why its
+strength is capped by assertion — see
+[ADR-0061](../design-decisions/0061-crt-tube-pass.md).
+
+The tube also has a life cycle. It **strikes** on first paint (the raster opens
+from a hot filament over ~1.15s, and the copy arrives with the picture rather
+than floating over a half-open screen), **degausses** when a chapter lands (a
+decaying ripple and aberration surge), and **powers down** on the way into the
+board (the raster collapses, the lamp drops to standby, then the browser
+navigates — capped at 420ms, with a timer guaranteeing arrival even if frames
+stop). Motion carries **phosphor persistence**: the scene composites into a
+decaying buffer that the tube samples, so bright things trail. All of it is
+gated on reduced motion, which gets a tube already struck and perfectly still.
+
 ## What it is
 
 The Community Web direction from the ten explorations, built for real rather than
