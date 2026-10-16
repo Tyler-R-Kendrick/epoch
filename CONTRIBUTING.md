@@ -68,6 +68,18 @@ frontmatter and run the affected harness tests before the repository gates.
 The named lanes (unit, Cucumber, Pact, chaos, fuzz, mutation oracles,
 Verify-style characterization) are listed in [Testing Lanes](docs/testing-lanes.md).
 
+## AI-assisted contributions
+
+Contributions built with coding agents are welcome when a human directs the
+work and reviews the result. The human contributor is responsible for the
+change, including behavior, tests, licenses, and secrets.
+
+Disclose significant AI-generated content in the pull request description.
+Commits made with an agent should name the tool or model in the commit message
+or the pull request description.
+
+The quality gates, scope, and documentation rules in this guide still apply.
+
 ## Repository layout
 
 | Path | Purpose |
