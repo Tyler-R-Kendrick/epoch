@@ -17,6 +17,14 @@ Include:
 - Expected and actual behavior.
 - Any relevant repository state, sanitized logs, or proof-of-concept details.
 
+Maintainers aim to acknowledge reports within 3 business days. Acknowledgement
+means a maintainer has replied that the report was received. It does not set a
+fix date or promise a public advisory.
+
+Repository maintainers must enable private vulnerability reporting (GitHub
+Security Advisories) in the repository settings. That setting is what makes
+the report URL above deliver a report to maintainers.
+
 ## Security expectations for contributors
 
 - Never commit private keys, tokens, seed data, or real user repositories.

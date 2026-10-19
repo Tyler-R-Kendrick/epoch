@@ -1,5 +1,7 @@
 # Epoch
 
+**Status:** pre-1.0 research prototype / active development.
+
 Epoch is a signed, event-driven Distributed Version Control System — a
 successor to Git, prototyped in TypeScript. It keeps the useful parts of Git,
 such as offline work and content-addressed history, while adding stable logical
@@ -214,6 +216,7 @@ High-value entry points:
 | Design decisions and ADRs | [docs/design-decisions/README.md](docs/design-decisions/README.md) |
 | User stories | [docs/user-stories.md](docs/user-stories.md) |
 | HA/DR operations | [docs/HA-DR.md](docs/HA-DR.md) |
+| Governance | [GOVERNANCE.md](GOVERNANCE.md) |
 | Contributing | [CONTRIBUTING.md](CONTRIBUTING.md) |
 | Developer experience (DX) baseline | [DX.md](DX.md) |
 | Code of conduct | [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) |
@@ -239,7 +242,16 @@ then preserve or improve coverage. Documentation changes are part of the same
 work: use the [Documentation Freshness Policy](docs/documentation-freshness.md)
 to update the README, docs index, ADRs, feature registry, and skill references
 when their surfaces change. See [CONTRIBUTING.md](CONTRIBUTING.md) and
-[AGENTS.md](AGENTS.md) for the full workflow.
+[AGENTS.md](AGENTS.md) for the full workflow. Maintainer decisions and
+continuity are described in [GOVERNANCE.md](GOVERNANCE.md).
+
+## AI usage disclosure
+
+Epoch accepts contributions built with coding agents when a human directs and
+reviews the work. Disclose significant AI-generated content in the pull
+request description. Commits made with an agent name the tool or model in the
+commit message or the pull request description. See
+[AI-assisted contributions](CONTRIBUTING.md#ai-assisted-contributions).
 
 ## License
 
